@@ -2,6 +2,8 @@
 
 ### Your key. Your call.
 
+[![MasterKey: user-approved AI requests](site/social.svg)](https://iamjoseph331.github.io/MasterKey/)
+
 Build AI tools people can try without handing you their API keys.
 
 MasterKey sits between an AI app and its model provider. The developer sends a
@@ -11,7 +13,7 @@ key and records the response for both sides to inspect.
 
 **The developer gets a response. The user keeps control of their key.**
 
-[Explore the source](https://github.com/iamjoseph331/MasterKey) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
+[Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Early development. The first milestone is a local, auditable approval flow with
 > simulated provider responses. This repository is not yet a hosted service or a

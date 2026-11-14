@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#101c28"/>
+  <circle cx="1010" cy="188" r="245" fill="#17362f"/>
+  <circle cx="1010" cy="188" r="182" fill="none" stroke="#478a72" stroke-opacity=".45"/>
+  <circle cx="1010" cy="188" r="142" fill="none" stroke="#478a72" stroke-opacity=".3"/>
+  <rect x="885" y="75" width="225" height="430" rx="38" fill="#f5f3ed" stroke="#60736e" stroke-width="8"/>
+  <rect x="964" y="88" width="68" height="14" rx="7" fill="#20343b"/>
+  <text x="923" y="155" fill="#3f8a72" font-family="monospace" font-size="13" letter-spacing="3">APP REQUEST</text>
+  <text x="923" y="192" fill="#172733" font-family="Arial,sans-serif" font-size="25" font-weight="700">Paperplane</text>
+  <text x="923" y="223" fill="#172733" font-family="Arial,sans-serif" font-size="25" font-weight="700">Assistant</text>
+  <text x="923" y="255" fill="#69777c" font-family="Arial,sans-serif" font-size="14">wants to use your OpenAI key</text>
+  <rect x="918" y="285" width="160" height="1" fill="#dcded8"/>
+  <text x="923" y="320" fill="#7e8a89" font-family="monospace" font-size="11">ESTIMATED COST</text>
+  <text x="1068" y="320" fill="#287b68" font-family="Arial,sans-serif" font-size="15" text-anchor="end">~$0.004</text>
+  <rect x="918" y="343" width="160" height="80" rx="8" fill="#edf0e9"/>
+  <text x="930" y="366" fill="#7e8a89" font-family="monospace" font-size="10">MESSAGE PREVIEW</text>
+  <text x="930" y="390" fill="#35464a" font-family="Arial,sans-serif" font-size="12">“Summarize these notes</text>
+  <text x="930" y="407" fill="#35464a" font-family="Arial,sans-serif" font-size="12">and list the next steps…”</text>
+  <text x="101" y="109" fill="#a4dfcc" font-family="monospace" font-size="15" letter-spacing="4">MASTERKEY / DEVELOPER PREVIEW</text>
+  <text x="95" y="293" fill="#f3f0e7" font-family="Arial,sans-serif" font-size="98" font-weight="500" letter-spacing="-6">Your key.</text>
+  <text x="95" y="395" fill="#a4dfcc" font-family="Georgia,serif" font-size="100" font-style="italic" letter-spacing="-5">Your call.</text>
+  <text x="100" y="465" fill="#c0cbc8" font-family="Arial,sans-serif" font-size="23">Let people bring their own model API key</text>
+  <text x="100" y="499" fill="#c0cbc8" font-family="Arial,sans-serif" font-size="23">and approve each request from their phone.</text>
+  <text x="101" y="570" fill="#86a59a" font-family="monospace" font-size="12" letter-spacing="2">SOURCE AVAILABLE / SELF-HOSTABLE</text>
+</svg>
