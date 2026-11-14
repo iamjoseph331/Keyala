@@ -52,10 +52,11 @@ Developer DX goal: **change one line — the base URL** — and use the official
    response, timestamps. User browses it any time.
 
 ### Cost & money safety (per Codex security review)
-- Estimate is a **conservative reservation, not a guarantee**: input tokens ≈ `utf8_bytes / 2`
-  (overestimates vs chars/4 for Unicode) + fixed per-message overhead; output = `max_tokens`,
-  **required and capped** per model (server injects a cap if missing). Text-only in v1:
-  requests with images/audio/tools/files are rejected (`400 unsupported_content`).
+- Estimate is a **reservation ceiling, not a guarantee**: input tokens = UTF-8 byte length of the
+  full normalized request JSON + 16 per message + 64 per request (1 token/byte is a safe upper
+  bound for BPE tokenizers); output = `max_tokens`, **required and capped** per model (server
+  injects a cap if missing). Text-only in v1: requests with images/audio/tools/files are rejected
+  (`400 unsupported_content`).
 - Models are **allowlisted** (static price table); unknown model → `400 model_not_allowed`.
   Billable options outside the allowlist (e.g. `n>1`, web search) → rejected.
 - Internal money is **integer micro-USD** (`i64`). Public JSON `*_usd` floats are display only.
@@ -100,6 +101,9 @@ Key      { "vendor", "last4", "created_at" }
 | GET | `/v1/requests/{id}` | grant | `{status, response?}` |
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
+Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the
+original request's outcome without sending again; a different body → `409 idempotency_conflict`.
+Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests/{id}`, never resubmit.
 
 ### User-facing (iOS app)
 | Method | Path | Notes |

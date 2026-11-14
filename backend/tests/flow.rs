@@ -639,3 +639,106 @@ async fn apple_login_verifies_token() {
         assert_eq!(r.status(), 401, "{name}");
     }
 }
+
+// ---------- reservation ceiling & idempotency ----------
+
+#[tokio::test]
+async fn reservation_is_a_real_upper_bound() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let bodies = [
+        r##"!@#$%^&*()_+-=[]{}|;':",./<>?~`\"##.repeat(100),
+        "你好世界こんにちは안녕하세요😀🎉🔥".repeat(80),
+        "x".to_string(),
+    ];
+    for (i, text) in bodies.iter().enumerate() {
+        let mut m = json!({"role": "user", "content": text});
+        if i == 2 {
+            m["name"] = json!("n".repeat(4000)); // long OpenAI `name`
+        }
+        let body = json!({"model": "gpt-4o", "messages": [m], "max_tokens": 50});
+        let mut norm = body.clone();
+        let chk = masterkey_server::pricing::validate("openai", &mut norm, true).unwrap();
+        let sent_bytes = norm.to_string().len() as i64;
+        let ceiling = masterkey_server::pricing::cost(sent_bytes, chk.model.in_price) + masterkey_server::pricing::cost(50, chk.model.out_price);
+        assert!(chk.estimate_micro >= ceiling, "case {i}: {} < {ceiling}", chk.estimate_micro);
+        // mock reports prompt_tokens = payload bytes (worst case): actual must never exceed the reservation
+        let r = t.chat(&tok, 0, body).await;
+        assert_eq!(r.status(), 200);
+        let rid = r.headers()["x-masterkey-request-id"].to_str().unwrap().to_string();
+        let b = json_of(r).await;
+        assert_eq!(b["usage"]["prompt_tokens"], sent_bytes);
+        let d = t.user_get(&format!("/v1/me/requests/{rid}")).await;
+        assert!(d["actual_usd"].as_f64().unwrap() <= d["estimated_usd"].as_f64().unwrap(), "case {i}");
+    }
+}
+
+#[tokio::test]
+async fn idempotency_key_dedupes_and_conflicts() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let post = |key: &'static str, body: Value| {
+        t.c.post(format!("{}/v1/openai/chat/completions", t.base)).bearer_auth(&tok).header("Idempotency-Key", key).header("X-MasterKey-Wait", "0").json(&body).send()
+    };
+    let r1 = post("k1", msg()).await.unwrap();
+    assert_eq!(r1.status(), 200);
+    let id1 = r1.headers()["x-masterkey-request-id"].to_str().unwrap().to_string();
+    let r2 = post("k1", msg()).await.unwrap();
+    assert_eq!(r2.status(), 200);
+    assert_eq!(r2.headers()["x-masterkey-request-id"].to_str().unwrap(), id1);
+    assert_eq!(json_of(r2).await["object"], "chat.completion");
+    // same key, different body
+    let mut other = msg();
+    other["messages"][0]["content"] = json!("different");
+    let r3 = post("k1", other).await.unwrap();
+    assert_eq!(r3.status(), 409);
+    assert_eq!(json_of(r3).await["error"]["type"], "idempotency_conflict");
+    // bad keys
+    let long: &'static str = Box::leak("k".repeat(129).into_boxed_str());
+    assert_eq!(post(long, msg()).await.unwrap().status(), 400);
+    // another key is a new request
+    assert_eq!(post("k2", msg()).await.unwrap().status(), 200);
+    assert_eq!(t.user_get("/v1/me/grants").await[0]["request_count"], 2);
+    assert_eq!(t.user_get("/v1/me/requests").await.as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn concurrent_duplicates_send_once() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let calls = (0..5).map(|_| t.c.post(format!("{}/v1/openai/chat/completions", t.base)).bearer_auth(&tok).header("Idempotency-Key", "same").json(&msg()).send());
+    let rs = futures_join(calls).await;
+    let mut ids = std::collections::HashSet::new();
+    for r in rs {
+        let r = r.unwrap();
+        assert_eq!(r.status(), 200);
+        ids.insert(r.headers()["x-masterkey-request-id"].to_str().unwrap().to_string());
+    }
+    assert_eq!(ids.len(), 1);
+    assert_eq!(t.user_get("/v1/me/grants").await[0]["request_count"], 1);
+    assert_eq!(t.user_get("/v1/me/requests").await.as_array().unwrap().len(), 1);
+}
+
+async fn futures_join<F: std::future::Future + Send + 'static>(fs: impl Iterator<Item = F>) -> Vec<F::Output>
+where
+    F::Output: Send + 'static,
+{
+    let hs: Vec<_> = fs.map(tokio::spawn).collect();
+    let mut out = vec![];
+    for h in hs {
+        out.push(h.await.unwrap());
+    }
+    out
+}
+
+#[tokio::test]
+async fn idempotent_repeat_while_pending_creates_one_request() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "ask"})).await;
+    let post = || t.c.post(format!("{}/v1/openai/chat/completions", t.base)).bearer_auth(&tok).header("Idempotency-Key", "p1").header("X-MasterKey-Wait", "0").json(&msg()).send();
+    let a = json_of(post().await.unwrap()).await;
+    let b = json_of(post().await.unwrap()).await;
+    assert_eq!(a["status"], "pending");
+    assert_eq!(a["request_id"], b["request_id"]);
+    assert_eq!(t.user_get("/v1/me/requests?status=pending").await.as_array().unwrap().len(), 1);
+}

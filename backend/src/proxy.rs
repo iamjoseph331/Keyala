@@ -62,42 +62,66 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
     let wait = h.get("x-masterkey-wait").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(60).min(120);
     let endpoint = if vendor == "openai" { "/v1/openai/chat/completions" } else { "/v1/anthropic/messages" };
 
-    let id = new_id("req");
+    let idem = match h.get("idempotency-key") {
+        None => None,
+        Some(v) => Some(v.to_str().ok().filter(|k| (1..=128).contains(&k.len()) && k.bytes().all(|b| (0x21..0x7f).contains(&b))).ok_or_else(|| bad("Idempotency-Key must be 1-128 visible ASCII characters"))?.to_string()),
+    };
+    let body_hash = hash_token(&String::from_utf8_lossy(&body));
+
+    let mut id = new_id("req");
+    let mut created = true;
     let mut tx = s.db.begin().await?;
     // write first: takes the SQLite write lock so reservation can't race another request.
     sqlx::query("UPDATE grants SET last_used_at=? WHERE id=?").bind(now()).bind(&g.id).execute(&mut *tx).await?;
-    let (d, gen) = decide(&mut tx, &g.id, chk.estimate_micro).await?;
-    let (status, micro, count) = match d {
-        Decision::Auto { micro, count, .. } => ("approved", micro, count),
-        Decision::Ask => ("pending", 0, 0),
+    // a repeat of an earlier POST (same key, same body) gets that request's outcome: nothing new is created or sent.
+    let dup: Option<(String, Option<String>)> = match &idem {
+        Some(k) => sqlx::query_as("SELECT id, body_hash FROM requests WHERE grant_id=? AND idem_key=?").bind(&g.id).bind(k).fetch_optional(&mut *tx).await?,
+        None => None,
     };
-    sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .bind(&id).bind(&g.id).bind(&g.user_id).bind(&g.app_id).bind(vendor).bind(chk.model.name).bind(endpoint).bind(status)
-        .bind(chk.estimate_micro).bind(micro).bind(count).bind(payload.to_string()).bind(now())
-        .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS)).bind(gen)
-        .execute(&mut *tx).await?;
+    let mut status = "";
+    let mut over_alert = false;
+    if let Some((did, dhash)) = dup {
+        if dhash.as_deref() != Some(body_hash.as_str()) {
+            return Err(api(409, "idempotency_conflict", "this Idempotency-Key was already used with a different request body"));
+        }
+        (id, created) = (did, false);
+    } else {
+        let (d, gen) = decide(&mut tx, &g.id, chk.estimate_micro).await?;
+        let (st, micro, count) = match d {
+            Decision::Auto { micro, count, .. } => ("approved", micro, count),
+            Decision::Ask => ("pending", 0, 0),
+        };
+        status = st;
+        over_alert = matches!(d, Decision::Auto { over_alert: true, .. });
+        sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen,idem_key,body_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(&id).bind(&g.id).bind(&g.user_id).bind(&g.app_id).bind(vendor).bind(chk.model.name).bind(endpoint).bind(status)
+            .bind(chk.estimate_micro).bind(micro).bind(count).bind(payload.to_string()).bind(now())
+            .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS)).bind(gen).bind(&idem).bind(&body_hash)
+            .execute(&mut *tx).await?;
+    }
     tx.commit().await?;
-    if matches!(d, Decision::Auto { over_alert: true, .. }) {
+    if over_alert {
         emit_grant(&s, &g.id).await;
         crate::apns::spend_alert(&s, &g.id).await;
     }
 
-    if status == "pending" {
-        emit_request(&s, "request.created", &id).await;
-        crate::apns::request_created(&s, &id).await;
+    if created && status == "approved" {
+        // spawned so a dropped client connection can't abandon a request mid-send.
+        let (s2, id2) = (s.clone(), id.clone());
+        let _ = tokio::spawn(async move { send_request(s2, id2).await }).await;
+    } else {
+        if created {
+            emit_request(&s, "request.created", &id).await;
+            crate::apns::request_created(&s, &id).await;
+        }
         // ponytail: polls the DB every 100ms; swap for a per-request Notify if hold load matters.
         let deadline = Instant::now() + Duration::from_secs(wait);
         while Instant::now() < deadline && matches!(current_status(&s, &id).await?.as_str(), "pending" | "approved" | "sending") {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-    } else {
-        // spawned so a dropped client connection can't abandon a request mid-send.
-        let (s2, id2) = (s.clone(), id.clone());
-        let _ = tokio::spawn(async move { send_request(s2, id2).await }).await;
     }
     respond(&s, &id).await
 }
-
 
 async fn current_status(s: &AppState, id: &str) -> R<String> {
     Ok(sqlx::query_scalar("SELECT status FROM requests WHERE id=?").bind(id).fetch_one(&s.db).await?)
@@ -332,7 +356,8 @@ fn mock(vendor: &str, payload: &str, key: &str) -> Up {
         return Up::Done(500, json!({"error": {"type": "server_error", "message": "mock upstream failure"}}).to_string());
     }
     let model = serde_json::from_str::<Value>(payload).ok().and_then(|v| v["model"].as_str().map(String::from)).unwrap_or_default();
-    let (inp, out) = (payload.len() as i64 / 4 + 1, 12);
+    // worst case on purpose: 1 token per payload byte (the reservation ceiling must still cover it)
+    let (inp, out) = (payload.len() as i64, 12);
     let text = "Hello from the MasterKey mock vendor.";
     let last4: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
     let mut v = if vendor == "openai" {

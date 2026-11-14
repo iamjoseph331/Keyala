@@ -67,6 +67,15 @@ MK_URL=http://localhost:8080 MK_GRANT_OPENAI=mk_grant_... MK_GRANT_ANTHROPIC=mk_
   /tmp/mk-venv/bin/python tests/sdk_smoke.py
 ```
 
+## Retries and idempotency
+
+Every proxy call is executed at most once, but your HTTP client may re-send a request it thinks failed.
+Either **disable SDK retries** (`max_retries=0` / `maxRetries: 0`) or **send an `Idempotency-Key`**
+header (<= 128 chars, unique per logical call, scoped to the grant). A repeated POST with the same key
+and body returns the original request's outcome and sends nothing new; the same key with a different
+body is `409 idempotency_conflict`. After a `202` (held) or `504` (uncertain), poll
+`GET /v1/requests/{id}`: never resubmit.
+
 ## Notes
 
 - Tokens (`mk_app_`, `mk_grant_`, `mk_sess_`) are stored as SHA-256 hashes only. The grant token is

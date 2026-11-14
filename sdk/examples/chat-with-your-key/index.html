@@ -127,7 +127,7 @@ $('form').onsubmit = async (e) => {
   busy = true; $('send').disabled = true; $('input').value = '';
   add('me', text); history.push({ role: 'user', content: text });
   const waiting = note('Waiting for approval on your phone…', false, true);
-  let r = await api('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history }) });
+  let r = await api('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history, key: crypto.randomUUID() }) });
   if (r.pending) {
     const id = r.request_id;
     waiting.textContent = 'Still waiting for approval on your phone…';

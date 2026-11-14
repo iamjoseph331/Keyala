@@ -33,13 +33,17 @@ const readJson = (req) =>
     req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch { ok({}); } });
   });
 
-async function chat(messages) {
+async function chat(messages, idemKey) {
   // >>> THE ONLY MASTERKEY-SPECIFIC LINE: point the official SDK at MasterKey, and use the
   // >>> user's grant token where an API key would go. Everything else is plain OpenAI code.
   const client = new OpenAI({ baseURL: MK_URL + '/v1/openai', apiKey: grantToken, maxRetries: 0, defaultHeaders: { 'X-MasterKey-Wait': '25' } });
   // (maxRetries: 0 on purpose: a held/uncertain call must never be re-sent automatically.)
   try {
-    const r = await client.chat.completions.create({ model: MODEL, messages, max_tokens: 400 });
+    const r = await client.chat.completions.create(
+      { model: MODEL, messages, max_tokens: 400 },
+      // one key per user message: if anything re-sends it, MasterKey returns the same request instead of a second charge
+      { headers: idemKey ? { 'Idempotency-Key': String(idemKey).slice(0, 128) } : {} },
+    );
     if (!r.choices) return { pending: true, request_id: r.request_id }; // 202: still waiting for the phone
     return { text: r.choices[0].message.content, request_id: r.id };
   } catch (e) {
@@ -74,8 +78,8 @@ const routes = {
   },
   'POST /api/chat': async (req, res) => {
     if (!grantToken) return send(res, 401, { error: { kind: 'disconnected', message: 'Connect MasterKey first.' } });
-    const { messages } = await readJson(req);
-    send(res, 200, await chat(Array.isArray(messages) ? messages : []));
+    const { messages, key } = await readJson(req);
+    send(res, 200, await chat(Array.isArray(messages) ? messages : [], key));
   },
   'GET /api/request': async (req, res, url) => {
     const r = await fetch(`${MK_URL}/v1/requests/${encodeURIComponent(url.searchParams.get('id') || '')}`, { headers: { Authorization: `Bearer ${grantToken}` } });

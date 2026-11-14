@@ -92,7 +92,8 @@ fn type_check(obj: &serde_json::Map<String, Value>) -> Result<(), ApiError> {
 }
 
 /// Validates the body against explicit per-vendor allowlists, injects the default output cap if
-/// missing, and computes the reservation: (bytes/2 + 8 per message) * input price + max_tokens * output price.
+/// missing, and computes the reservation CEILING: input tokens <= len(normalized request JSON)
+/// plus 16 per message plus 64 (1 token per byte is a safe upper bound for BPE tokenizers), output = max_tokens.
 /// `allow_unpriced`: mock mode or operator asserted prices (MK_PRICES_VERIFIED=1).
 pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<Checked, ApiError> {
     let obj = body.as_object_mut().ok_or_else(|| api(400, "invalid_request", "body must be a JSON object"))?;
@@ -147,7 +148,6 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
     let roles: &[&str] = if vendor == "openai" { &["user", "assistant", "system", "developer"] } else { &["user", "assistant"] };
     let msg_keys: &[&str] = if vendor == "openai" { &["role", "content", "name"] } else { &["role", "content"] };
     let msgs = obj.get("messages").and_then(Value::as_array).filter(|a| !a.is_empty()).ok_or_else(|| api(400, "invalid_request", "messages must be a non-empty array"))?;
-    let mut bytes = 0usize;
     for msg in msgs {
         let m = msg.as_object().ok_or_else(|| api(400, "invalid_request", "each message must be an object"))?;
         if let Some(k) = m.keys().find(|k| !msg_keys.contains(&k.as_str())) {
@@ -159,12 +159,14 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
         if m.get("name").is_some_and(|n| !n.is_string()) {
             return Err(api(400, "invalid_request", "name must be a string"));
         }
-        bytes += content_bytes(m.get("content").unwrap_or(&Value::Null))?;
+        content_bytes(m.get("content").unwrap_or(&Value::Null))?; // validation only
     }
     if let Some(sys) = obj.get("system") {
-        bytes += content_bytes(sys)?; // system prompt counts toward the estimate
+        content_bytes(sys)?; // validation only; the system prompt is inside the JSON measured below
     }
-    let in_tokens = (bytes / 2) as i64 + 8 * msgs.len() as i64;
+    let n_msgs = msgs.len() as i64;
+    let json_bytes = serde_json::to_string(&*body).map(|s| s.len()).unwrap_or(usize::MAX / 4) as i64; // exactly what is forwarded
+    let in_tokens = json_bytes + 16 * n_msgs + 64;
     Ok(Checked { model, estimate_micro: cost(in_tokens, model.in_price) + cost(max_tokens, model.out_price) })
 }
 
