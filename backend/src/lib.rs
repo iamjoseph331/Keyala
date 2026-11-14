@@ -39,6 +39,8 @@ pub struct Config {
     pub dev_login: bool,
     pub vendor_mock: bool,
     pub public_url: String,
+    /// operator asserts pricing.rs was checked against vendor pricing (MK_PRICES_VERIFIED=1)
+    pub prices_verified: bool,
 }
 
 impl Config {
@@ -55,6 +57,7 @@ impl Config {
             master_key,
             dev_login: env("MK_DEV_LOGIN").as_deref() == Some("1"),
             vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
+            prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
             public_url: env("MK_PUBLIC_URL").unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
         })
     }
@@ -70,7 +73,13 @@ pub struct Inner {
 }
 pub type AppState = Arc<Inner>;
 
+pub use proxy::send_request;
+
 pub async fn build_app(cfg: Config) -> Result<Router, Box<dyn std::error::Error>> {
+    Ok(router(build_state(cfg).await?))
+}
+
+pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Error>> {
     let opts = SqliteConnectOptions::from_str(&cfg.database_url)?
         .create_if_missing(true)
         .foreign_keys(true)
@@ -86,8 +95,13 @@ pub async fn build_app(cfg: Config) -> Result<Router, Box<dyn std::error::Error>
         http: reqwest::Client::builder().timeout(Duration::from_secs(120)).redirect(reqwest::redirect::Policy::none()).build()?,
         app_limits: Mutex::new(HashMap::new()),
     });
+    // approved but never claimed = never sent, so sending is safe.
+    let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved'").fetch_all(&state.db).await?;
+    for id in ids {
+        tokio::spawn(send_request(state.clone(), id));
+    }
     tokio::spawn(proxy::sweeper(state.clone()));
-    Ok(router(state))
+    Ok(state)
 }
 
 pub fn router(state: AppState) -> Router {
@@ -100,6 +114,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/connect/{code}", get(poll_connect))
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
+        .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
         .route("/v1/requests/{id}", get(proxy::poll_request))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/me/keys", get(list_keys))
@@ -215,8 +230,10 @@ pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
     let t = bearer(h, "mk_app_").ok_or_else(unauthorized)?;
     sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
 }
-pub async fn auth_grant(s: &AppState, h: &HeaderMap) -> R<GrantRow> {
-    let t = bearer(h, "mk_grant_").ok_or_else(unauthorized)?;
+/// `x_api_key`: Anthropic proxy routes also accept the grant token in `x-api-key` (official SDK).
+pub async fn auth_grant(s: &AppState, h: &HeaderMap, x_api_key: bool) -> R<GrantRow> {
+    let xk = || h.get("x-api-key").and_then(|v| v.to_str().ok()).map(str::trim).filter(|t| t.starts_with("mk_grant_"));
+    let t = bearer(h, "mk_grant_").or_else(|| if x_api_key { xk() } else { None }).ok_or_else(unauthorized)?;
     sqlx::query_as(&format!("{GRANT_SELECT} WHERE g.token_hash=? AND g.revoked_at IS NULL")).bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
 }
 
@@ -240,10 +257,10 @@ pub struct PolicyIn {
 }
 
 fn to_micro(usd: f64) -> R<i64> {
-    if usd.is_finite() && (0.0..=1e6).contains(&usd) {
+    if usd.is_finite() && (0.0..=10_000.0).contains(&usd) {
         Ok((usd * 1e6).round() as i64)
     } else {
-        Err(bad("usd amounts must be between 0 and 1000000"))
+        Err(bad("usd amounts must be between 0 and 10000"))
     }
 }
 
@@ -252,7 +269,7 @@ impl PolicyIn {
         let mut p = Policy { mode: self.mode, count: None, micro: None, alert: None, expires_at: None };
         match p.mode.as_str() {
             "ask" | "trust" => {}
-            "count" => p.count = Some(self.remaining_count.filter(|c| *c >= 0).ok_or_else(|| bad("count policy needs remaining_count >= 0"))?),
+            "count" => p.count = Some(self.remaining_count.filter(|c| (0..=1_000_000).contains(c)).ok_or_else(|| bad("count policy needs remaining_count between 0 and 1000000"))?),
             "budget" => p.micro = Some(to_micro(self.remaining_usd.ok_or_else(|| bad("budget policy needs remaining_usd"))?)?),
             _ => return Err(bad("policy.mode must be ask, count, budget or trust")),
         }
@@ -287,7 +304,7 @@ pub fn policy_json(mode: &str, count: Option<i64>, micro: Option<i64>, alert: Op
 }
 
 pub async fn set_policy(c: &mut SqliteConnection, grant_id: &str, p: &Policy) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE grants SET mode=?, remaining_count=?, remaining_micro=?, alert_micro=?, expires_at=? WHERE id=?")
+    sqlx::query("UPDATE grants SET policy_gen=policy_gen+1, mode=?, remaining_count=?, remaining_micro=?, alert_micro=?, expires_at=? WHERE id=?")
         .bind(&p.mode).bind(p.count).bind(p.micro).bind(p.alert).bind(&p.expires_at).bind(grant_id)
         .execute(c).await?;
     Ok(())
@@ -296,7 +313,7 @@ pub async fn set_policy(c: &mut SqliteConnection, grant_id: &str, p: &Policy) ->
 // ---------- row types & JSON ----------
 
 pub const GRANT_SELECT: &str = "SELECT g.id, g.user_id, g.app_id, g.vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM grants g JOIN apps a ON a.id=g.app_id";
-pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.payload, r.response, r.http_status, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
+pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
 
 pub fn app_json(id: &str, name: &str, homepage: &Option<String>, icon: &Option<String>) -> Value {
     json!({"id": id, "name": name, "homepage": homepage, "icon_url": icon})
@@ -345,6 +362,7 @@ pub struct RequestRow {
     pub actual_micro: Option<i64>,
     pub reserved_micro: i64,
     pub reserved_count: i64,
+    pub policy_gen: i64,
     pub payload: String,
     pub response: Option<String>,
     pub http_status: Option<i64>,

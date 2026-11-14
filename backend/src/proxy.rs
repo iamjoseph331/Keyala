@@ -24,18 +24,18 @@ enum Decision {
 }
 
 /// Runs inside the caller's transaction; the caller has already taken the write lock.
-async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<Decision> {
-    let (mode, exp, alert, revoked): (String, Option<String>, Option<i64>, Option<String>) =
-        sqlx::query_as("SELECT mode, expires_at, alert_micro, revoked_at FROM grants WHERE id=?").bind(gid).fetch_one(&mut *c).await?;
+async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<(Decision, i64)> {
+    let (mode, exp, alert, revoked, gen): (String, Option<String>, Option<i64>, Option<String>, i64) =
+        sqlx::query_as("SELECT mode, expires_at, alert_micro, revoked_at, policy_gen FROM grants WHERE id=?").bind(gid).fetch_one(&mut *c).await?;
     if revoked.is_some() {
         return Err(api(401, "unauthorized", "grant revoked"));
     }
     let n = now();
     if exp.is_some_and(|e| e.as_str() <= n.as_str()) {
-        return Ok(Decision::Ask); // expired policy behaves like `ask`
+        return Ok((Decision::Ask, gen)); // expired policy behaves like `ask`
     }
     let won = |r: sqlx::sqlite::SqliteQueryResult| r.rows_affected() == 1;
-    Ok(match mode.as_str() {
+    Ok((match mode.as_str() {
         "count" if won(sqlx::query("UPDATE grants SET remaining_count=remaining_count-1 WHERE id=? AND remaining_count>0").bind(gid).execute(&mut *c).await?) => {
             Decision::Auto { micro: 0, count: 1, over_alert: false }
         }
@@ -49,16 +49,16 @@ async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<Decision> {
             Decision::Auto { micro: 0, count: 0, over_alert: alert.is_some_and(|a| spent + est > a) }
         }
         _ => Decision::Ask,
-    })
+    }, gen))
 }
 
 async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> R<Response> {
-    let g = auth_grant(&s, &h).await?;
+    let g = auth_grant(&s, &h, vendor == "anthropic").await?;
     if g.vendor != vendor {
         return Err(api(403, "vendor_mismatch", format!("this grant is for {}, not {vendor}", g.vendor)));
     }
     let mut payload: Value = serde_json::from_slice(&body).map_err(|_| bad("body must be valid JSON"))?;
-    let chk = pricing::validate(vendor, &mut payload)?;
+    let chk = pricing::validate(vendor, &mut payload, s.cfg.vendor_mock || s.cfg.prices_verified)?;
     let wait = h.get("x-masterkey-wait").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(60).min(120);
     let endpoint = if vendor == "openai" { "/v1/openai/chat/completions" } else { "/v1/anthropic/messages" };
 
@@ -66,15 +66,15 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
     let mut tx = s.db.begin().await?;
     // write first: takes the SQLite write lock so reservation can't race another request.
     sqlx::query("UPDATE grants SET last_used_at=? WHERE id=?").bind(now()).bind(&g.id).execute(&mut *tx).await?;
-    let d = decide(&mut tx, &g.id, chk.estimate_micro).await?;
+    let (d, gen) = decide(&mut tx, &g.id, chk.estimate_micro).await?;
     let (status, micro, count) = match d {
         Decision::Auto { micro, count, .. } => ("approved", micro, count),
         Decision::Ask => ("pending", 0, 0),
     };
-    sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(&id).bind(&g.id).bind(&g.user_id).bind(&g.app_id).bind(vendor).bind(chk.model.name).bind(endpoint).bind(status)
         .bind(chk.estimate_micro).bind(micro).bind(count).bind(payload.to_string()).bind(now())
-        .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS))
+        .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS)).bind(gen)
         .execute(&mut *tx).await?;
     tx.commit().await?;
     if matches!(d, Decision::Auto { over_alert: true, .. }) {
@@ -122,7 +122,7 @@ async fn respond(s: &AppState, id: &str) -> R<Response> {
 }
 
 pub async fn poll_request(State(s): State<AppState>, h: HeaderMap, Path(id): Path<String>) -> R<Json<Value>> {
-    let g = auth_grant(&s, &h).await?;
+    let g = auth_grant(&s, &h, false).await?;
     let r = request_row(&s, &id).await?.filter(|r| r.grant_id == g.id).ok_or_else(|| api(404, "not_found", "request not found"))?;
     let mut v = json!({"request_id": r.id, "status": r.status});
     if let Some(resp) = &r.response {
@@ -155,18 +155,25 @@ pub async fn approve_request(State(s): State<AppState>, h: HeaderMap, Path(id): 
     if let Some(mut p) = policy {
         // Choice: "next N calls" = count policy with N-1 remaining after this one, since this
         // approval consumes one call; "up to $X" = budget X minus this request's reservation.
+        // A policy that cannot cover this very request is rejected (tx rolls back, stays pending).
         let (gid, est): (String, i64) = sqlx::query_as("SELECT grant_id, estimated_micro FROM requests WHERE id=?").bind(&id).fetch_one(&mut *tx).await?;
         let (mut rm, mut rc) = (0, 0);
         if let Some(c) = p.count {
-            rc = (c >= 1) as i64;
-            p.count = Some((c - 1).max(0));
+            if c < 1 {
+                return Err(api(400, "insufficient_allowance", "count policy must allow at least 1 call"));
+            }
+            rc = 1;
+            p.count = Some(c - 1);
         }
         if let Some(m) = p.micro {
-            rm = est.min(m);
+            if m < est {
+                return Err(api(400, "insufficient_allowance", "budget is smaller than this request's estimated cost"));
+            }
+            rm = est;
             p.micro = Some(m - rm);
         }
         set_policy(&mut tx, &gid, &p).await?;
-        sqlx::query("UPDATE requests SET reserved_micro=?, reserved_count=? WHERE id=?").bind(rm).bind(rc).bind(&id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE requests SET reserved_micro=?, reserved_count=?, policy_gen=(SELECT policy_gen FROM grants WHERE id=?) WHERE id=?").bind(rm).bind(rc).bind(&gid).bind(&id).execute(&mut *tx).await?;
     }
     tx.commit().await?;
     emit_request(&s, "request.updated", &id).await;
@@ -224,8 +231,18 @@ pub async fn send_request(s: AppState, id: String) {
 }
 
 async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
-    let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=? AND status='approved'").bind(id).execute(&s.db).await?.rows_affected() == 1;
+    let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=? AND status='approved' AND EXISTS (SELECT 1 FROM grants WHERE id=requests.grant_id AND revoked_at IS NULL)").bind(id).execute(&s.db).await?.rows_affected() == 1;
     if !won {
+        // still approved here means the claim lost to a revoked grant: deny and give the reservation back.
+        let mut tx = s.db.begin().await?;
+        let r = sqlx::query("UPDATE requests SET status='denied', decided_at=? WHERE id=? AND status='approved'").bind(now()).bind(id).execute(&mut *tx).await?;
+        if r.rows_affected() == 1 {
+            if let Some(r) = request_row(s, id).await? {
+                refund(&mut tx, &r).await?;
+            }
+            tx.commit().await?;
+            emit_request(s, "request.updated", id).await;
+        }
         return Ok(());
     }
     let r = request_row(s, id).await?.ok_or(sqlx::Error::RowNotFound)?;
@@ -240,8 +257,8 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
             Up::Done(code, body) if (200..300).contains(&code) => {
                 let model = pricing::lookup(&r.vendor, &r.model);
                 let actual = model.and_then(|m| serde_json::from_str::<Value>(&body).ok().and_then(|v| pricing::actual_cost(&r.vendor, m, &v)));
-                // no usable usage block: bill the (conservative) estimate.
-                ("completed", code, body, Some(actual.unwrap_or(r.estimated_micro)))
+                // no usable usage block: actual stays NULL; reservation stays charged (see finish).
+                ("completed", code, body, actual)
             }
             Up::Done(code, body) => ("failed", code, body, None),
             Up::NotSent(e) => ("failed", 502, json!({"error": {"type": "upstream_unreachable", "message": e}}).to_string(), None),
@@ -254,28 +271,32 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<(), sqlx::Error> {
+    if r.reserved_micro > 0 {
+        sqlx::query("UPDATE grants SET remaining_micro=remaining_micro+? WHERE id=? AND mode='budget' AND policy_gen=?").bind(r.reserved_micro).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
+    }
+    if r.reserved_count > 0 {
+        sqlx::query("UPDATE grants SET remaining_count=remaining_count+? WHERE id=? AND mode='count' AND policy_gen=?").bind(r.reserved_count).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
+    }
+    Ok(())
+}
+
 async fn finish(s: &AppState, r: &RequestRow, status: &str, http: u16, body: &str, actual: Option<i64>) -> Result<(), sqlx::Error> {
     let mut tx = s.db.begin().await?;
     sqlx::query("UPDATE requests SET status=?, http_status=?, response=?, actual_micro=?, completed_at=? WHERE id=? AND status='sending'")
         .bind(status).bind(http as i64).bind(body).bind(actual).bind(now()).bind(&r.id).execute(&mut *tx).await?;
     match status {
         "completed" => {
-            let a = actual.unwrap_or(0);
-            sqlx::query("UPDATE grants SET spent_micro=spent_micro+? WHERE id=?").bind(a).bind(&r.grant_id).execute(&mut *tx).await?;
-            if r.reserved_micro > 0 {
-                // settle reservation to actual cost (refund difference; extra is deducted, floor 0).
-                sqlx::query("UPDATE grants SET remaining_micro=MAX(0, remaining_micro+?) WHERE id=? AND mode='budget'").bind(r.reserved_micro - a).bind(&r.grant_id).execute(&mut *tx).await?;
+            // no usage: charge the estimate and keep the reservation as is.
+            sqlx::query("UPDATE grants SET spent_micro=spent_micro+? WHERE id=?").bind(actual.unwrap_or(r.estimated_micro)).bind(&r.grant_id).execute(&mut *tx).await?;
+            if let (Some(a), true) = (actual, r.reserved_micro > 0) {
+                // settle reservation to actual cost (refund difference; extra is deducted, floor 0);
+                // only if the policy hasn't been replaced since.
+                sqlx::query("UPDATE grants SET remaining_micro=MAX(0, remaining_micro+?) WHERE id=? AND mode='budget' AND policy_gen=?").bind(r.reserved_micro - a).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
             }
         }
-        "failed" => {
-            // vendor never did (billable) work: give the reservation back.
-            if r.reserved_micro > 0 {
-                sqlx::query("UPDATE grants SET remaining_micro=remaining_micro+? WHERE id=? AND mode='budget'").bind(r.reserved_micro).bind(&r.grant_id).execute(&mut *tx).await?;
-            }
-            if r.reserved_count > 0 {
-                sqlx::query("UPDATE grants SET remaining_count=remaining_count+? WHERE id=? AND mode='count'").bind(r.reserved_count).bind(&r.grant_id).execute(&mut *tx).await?;
-            }
-        }
+        // vendor never did (billable) work: give the reservation back.
+        "failed" => refund(&mut tx, r).await?,
         _ => {} // uncertain: keep the reservation, never retry
     }
     tx.commit().await
@@ -283,7 +304,7 @@ async fn finish(s: &AppState, r: &RequestRow, status: &str, http: u16, body: &st
 
 async fn call_upstream(s: &AppState, vendor: &str, key: &str, payload: &str) -> Up {
     if s.cfg.vendor_mock {
-        return mock(vendor, payload);
+        return mock(vendor, payload, key);
     }
     let req = if vendor == "openai" {
         s.http.post(OPENAI_URL).header("authorization", format!("Bearer {key}"))
@@ -305,14 +326,15 @@ async fn call_upstream(s: &AppState, vendor: &str, key: &str, payload: &str) -> 
 }
 
 /// Fake vendor with realistic shapes and `usage`. A message containing MK_MOCK_FAIL gets a 500.
-fn mock(vendor: &str, payload: &str) -> Up {
+fn mock(vendor: &str, payload: &str, key: &str) -> Up {
     if payload.contains("MK_MOCK_FAIL") {
         return Up::Done(500, json!({"error": {"type": "server_error", "message": "mock upstream failure"}}).to_string());
     }
     let model = serde_json::from_str::<Value>(payload).ok().and_then(|v| v["model"].as_str().map(String::from)).unwrap_or_default();
     let (inp, out) = (payload.len() as i64 / 4 + 1, 12);
     let text = "Hello from the MasterKey mock vendor.";
-    let v = if vendor == "openai" {
+    let last4: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    let mut v = if vendor == "openai" {
         json!({"id": "chatcmpl-mock", "object": "chat.completion", "created": 0, "model": model,
                "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
                "usage": {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": inp + out}})
@@ -321,5 +343,9 @@ fn mock(vendor: &str, payload: &str) -> Up {
                "content": [{"type": "text", "text": text}], "stop_reason": "end_turn", "stop_sequence": null,
                "usage": {"input_tokens": inp, "output_tokens": out}})
     };
+    if payload.contains("MK_MOCK_NOUSAGE") {
+        v.as_object_mut().unwrap().remove("usage");
+    }
+    v["mock_key_last4"] = last4.into(); // mock mode only: lets tests see which key was used
     Up::Done(200, v.to_string())
 }

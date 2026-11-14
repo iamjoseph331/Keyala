@@ -20,6 +20,7 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `MK_DATABASE_URL` | `sqlite://masterkey.db?mode=rwc` | SQLite file |
 | `MK_PUBLIC_URL` | `http://localhost:8080` | base of `connect_url` |
 | `MK_DEV_LOGIN` | off | `1` enables `POST /v1/auth/dev` (testing only) |
+| `MK_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
 | `MK_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `MK_MOCK_FAIL` yields a 500) |
 
 Apple/Google sign-in and APNs push land in M4; `POST /v1/me/devices` already stores the token.
@@ -46,6 +47,18 @@ RID=$(curl -s "$B/v1/me/requests?status=pending" -H "Authorization: Bearer $S" |
 curl -s -X POST $B/v1/me/requests/$RID/approve -H "Authorization: Bearer $S" -d '{}'
 # 7. developer: poll the result
 curl -s $B/v1/requests/$RID -H "Authorization: Bearer $G"
+```
+
+## Official SDKs
+
+Set `base_url` to `{host}/v1/openai` (OpenAI) or `{host}/v1/anthropic` (Anthropic) and use the grant
+token as the API key. The Anthropic routes also accept the grant token in `x-api-key`.
+
+```sh
+python3 -m venv /tmp/mk-venv && /tmp/mk-venv/bin/pip install openai anthropic
+# server running with MK_VENDOR_MOCK=1, plus two trust-mode grants (one per vendor)
+MK_URL=http://localhost:8080 MK_GRANT_OPENAI=mk_grant_... MK_GRANT_ANTHROPIC=mk_grant_... \
+  /tmp/mk-venv/bin/python tests/sdk_smoke.py
 ```
 
 ## Notes

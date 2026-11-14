@@ -10,11 +10,13 @@ pub struct Model {
     pub out_price: i64,
     pub default_max: i64,
     pub max_cap: i64,
+    /// operator has checked these prices against the vendor pricing page
+    pub verified: bool,
 }
 
 // PLACEHOLDER PRICES: verify against the vendors' pricing pages before any real deployment.
 const fn m(vendor: &'static str, name: &'static str, i: i64, o: i64) -> Model {
-    Model { vendor, name, in_price: i, out_price: o, default_max: 1024, max_cap: 4096 }
+    Model { vendor, name, in_price: i, out_price: o, default_max: 1024, max_cap: 4096, verified: false }
 }
 pub static MODELS: &[Model] = &[
     m("openai", "gpt-4o", 2_500_000, 10_000_000),
@@ -43,36 +45,80 @@ pub struct Checked {
 fn unsupported() -> ApiError {
     api(400, "unsupported_content", "only plain text messages are supported (no images, audio, files or tools)")
 }
+fn unsupported_opt(k: &str) -> ApiError {
+    api(400, "unsupported_option", format!("'{k}' is not supported"))
+}
 
-/// Text bytes of a content value (string or array of `{type:"text"}` parts).
+const OPENAI_KEYS: &[&str] = &[
+    "model", "messages", "max_tokens", "max_completion_tokens", "temperature", "top_p", "stop", "presence_penalty",
+    "frequency_penalty", "seed", "user", "response_format", "n", "stream",
+];
+const ANTHROPIC_KEYS: &[&str] = &["model", "messages", "max_tokens", "system", "temperature", "top_p", "top_k", "stop_sequences", "metadata", "stream"];
+
+/// Text bytes of a content value: a string, or an array of `{type:"text", text}` parts (nothing else).
 fn content_bytes(c: &Value) -> Result<usize, ApiError> {
     match c {
         Value::String(s) => Ok(s.len()),
-        Value::Array(parts) => parts.iter().try_fold(0, |n, p| match (p.get("type").and_then(Value::as_str), p.get("text").and_then(Value::as_str)) {
-            (Some("text"), Some(t)) => Ok(n + t.len()),
-            _ => Err(unsupported()),
+        Value::Array(parts) => parts.iter().try_fold(0, |n, p| {
+            let o = p.as_object().ok_or_else(unsupported)?;
+            if o.get("type").and_then(Value::as_str) != Some("text") {
+                return Err(unsupported());
+            }
+            if let Some(k) = o.keys().find(|k| !matches!(k.as_str(), "type" | "text")) {
+                return Err(unsupported_opt(k));
+            }
+            Ok(n + o.get("text").and_then(Value::as_str).ok_or_else(|| api(400, "invalid_request", "text part needs a string 'text'"))?.len())
         }),
         _ => Err(unsupported()),
     }
 }
 
-/// Validates the body, injects the default output cap if missing, and computes the reservation:
-/// (bytes/2 + 8 per message) * input price + max_tokens * output price.
-pub fn validate(vendor: &str, body: &mut Value) -> Result<Checked, ApiError> {
+fn type_check(obj: &serde_json::Map<String, Value>) -> Result<(), ApiError> {
+    for (k, v) in obj {
+        let ok = match k.as_str() {
+            "temperature" | "top_p" | "top_k" | "presence_penalty" | "frequency_penalty" => v.is_number(),
+            "seed" => v.is_i64() || v.is_u64(),
+            "user" => v.is_string(),
+            "metadata" => v.is_object(),
+            "stop" => v.is_string() || v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
+            "stop_sequences" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
+            _ => true,
+        };
+        if !ok {
+            return Err(api(400, "invalid_request", format!("'{k}' has the wrong type")));
+        }
+    }
+    Ok(())
+}
+
+/// Validates the body against explicit per-vendor allowlists, injects the default output cap if
+/// missing, and computes the reservation: (bytes/2 + 8 per message) * input price + max_tokens * output price.
+/// `allow_unpriced`: mock mode or operator asserted prices (MK_PRICES_VERIFIED=1).
+pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<Checked, ApiError> {
     let obj = body.as_object_mut().ok_or_else(|| api(400, "invalid_request", "body must be a JSON object"))?;
     if !matches!(obj.get("stream"), None | Some(Value::Null) | Some(Value::Bool(false))) {
         return Err(api(400, "streaming_unsupported", "stream:true is not supported in v1"));
     }
+    let allowed = if vendor == "openai" { OPENAI_KEYS } else { ANTHROPIC_KEYS };
+    if let Some(k) = obj.keys().find(|k| !allowed.contains(&k.as_str())) {
+        return Err(unsupported_opt(k));
+    }
+    type_check(obj)?;
     let name = obj.get("model").and_then(Value::as_str).unwrap_or("");
     let model = lookup(vendor, name).ok_or_else(|| api(400, "model_not_allowed", format!("model '{name}' is not allowed for {vendor}")))?;
-    if let Some(n) = obj.get("n") {
-        if n.as_i64() != Some(1) {
-            return Err(api(400, "unsupported_option", "n > 1 is not supported"));
-        }
+    if !model.verified && !allow_unpriced {
+        return Err(api(400, "model_not_priced", format!("prices for '{name}' are not verified on this server (operator: check pricing.rs, then set MK_PRICES_VERIFIED=1)")));
     }
-    for k in ["tools", "functions", "tool_choice", "function_call", "web_search_options", "audio", "modalities", "mcp_servers"] {
-        if obj.contains_key(k) {
-            return Err(unsupported());
+    if obj.get("n").is_some_and(|n| n.as_i64() != Some(1)) {
+        return Err(unsupported_opt("n"));
+    }
+    if let Some(rf) = obj.get("response_format") {
+        let o = rf.as_object().ok_or_else(|| unsupported_opt("response_format"))?;
+        if let Some(k) = o.keys().find(|k| *k != "type") {
+            return Err(unsupported_opt(&format!("response_format.{k}")));
+        }
+        if !matches!(o.get("type").and_then(Value::as_str), Some("text" | "json_object")) {
+            return Err(unsupported_opt("response_format.type"));
         }
     }
     // output cap
@@ -97,16 +143,26 @@ pub fn validate(vendor: &str, body: &mut Value) -> Result<Checked, ApiError> {
             model.default_max
         }
     };
-    // text size
+    // messages
+    let roles: &[&str] = if vendor == "openai" { &["user", "assistant", "system", "developer"] } else { &["user", "assistant"] };
+    let msg_keys: &[&str] = if vendor == "openai" { &["role", "content", "name"] } else { &["role", "content"] };
     let msgs = obj.get("messages").and_then(Value::as_array).filter(|a| !a.is_empty()).ok_or_else(|| api(400, "invalid_request", "messages must be a non-empty array"))?;
     let mut bytes = 0usize;
     for msg in msgs {
-        bytes += content_bytes(msg.get("content").unwrap_or(&Value::Null))?;
-    }
-    if vendor == "anthropic" {
-        if let Some(sys) = obj.get("system") {
-            bytes += content_bytes(sys)?;
+        let m = msg.as_object().ok_or_else(|| api(400, "invalid_request", "each message must be an object"))?;
+        if let Some(k) = m.keys().find(|k| !msg_keys.contains(&k.as_str())) {
+            return Err(unsupported_opt(&format!("messages[].{k}")));
         }
+        if !m.get("role").and_then(Value::as_str).is_some_and(|r| roles.contains(&r)) {
+            return Err(api(400, "invalid_request", format!("message role must be one of {roles:?}")));
+        }
+        if m.get("name").is_some_and(|n| !n.is_string()) {
+            return Err(api(400, "invalid_request", "name must be a string"));
+        }
+        bytes += content_bytes(m.get("content").unwrap_or(&Value::Null))?;
+    }
+    if let Some(sys) = obj.get("system") {
+        bytes += content_bytes(sys)?; // system prompt counts toward the estimate
     }
     let in_tokens = (bytes / 2) as i64 + 8 * msgs.len() as i64;
     Ok(Checked { model, estimate_micro: cost(in_tokens, model.in_price) + cost(max_tokens, model.out_price) })
