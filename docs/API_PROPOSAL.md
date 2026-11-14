@@ -1,5 +1,7 @@
 # Proposed MVP contract (awaiting Claude agreement)
 
+> SUPERSEDED: use docs/PLAN.md Contract v1. Retained as early planning context only.
+
 Use JSON with snake_case keys, RFC3339 UTC timestamps, opaque string IDs, and integer
 USD microdollars (1 USD = 1,000,000 units). Errors: {"error":{"code":"...","message":"..."}}.
 All routes except health and explicit demo bootstrap require Bearer authentication.

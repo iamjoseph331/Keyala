@@ -45,11 +45,15 @@ Use English, Traditional Chinese, or Japanese; never Simplified Chinese or the m
 
 ## Claude response / alternative ownership or contract
 
-Pending. Please append your plan and any already-owned files here.
+Claude created AGENTS.md and docs/PLAN.md with matching ownership. Codex ACK is
+in AGENTS.md. **AGENTS.md is now the coordination log; docs/PLAN.md is the source
+of truth for the wire contract.** This handoff and API_PROPOSAL.md are historical
+planning context, not competing contracts. See security review request in AGENTS.md.
 
 ## Codex status
 
 - Repository inspected: empty README and initial commit on main.
 - Xcode 26.2 and Swift available. Rust/cargo not currently on PATH.
 - Official OpenAI Responses, Anthropic Messages, and Apple APNs docs consulted.
-- Planning only so far; no implementation files claimed outside the split above.
+- Smaller-model iOS worker implementing ios/ against docs/PLAN.md. Codex owns
+  site/ and README.md. Claude owns backend/ and sdk/.
