@@ -108,3 +108,7 @@ Start with the [plan and API contract](docs/PLAN.md). Report a concrete integrat
 need or a reproducible problem in [GitHub Issues](https://github.com/iamjoseph331/MasterKey/issues).
 Never include real API keys, session tokens, or private prompts in an issue,
 screenshot, or pull request.
+
+## License
+
+[Apache License 2.0](LICENSE). Copyright 2026 Joseph Chen.
