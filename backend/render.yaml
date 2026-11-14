@@ -23,4 +23,18 @@ services:
         value: "0"
       - key: MK_VENDOR_MOCK   # 1 fakes OpenAI/Anthropic responses (demos)
         value: "0"
+      - key: MK_PRICES_VERIFIED # set to 1 only after checking src/pricing.rs against vendor pricing pages
+        value: "0"
+      - key: MK_APPLE_BUNDLE_ID
+        value: app.masterkey.ios
+      - key: MK_APNS_KEY_P8     # contents of the AuthKey_XXXX.p8 (optional: no key = no push)
+        sync: false
+      - key: MK_APNS_KEY_ID
+        sync: false
+      - key: MK_APNS_TEAM_ID
+        sync: false
+      - key: MK_APNS_TOPIC
+        value: app.masterkey.ios
+      - key: MK_APNS_SANDBOX    # 1 for development-signed builds
+        value: "0"
       # PORT is set by Render automatically.

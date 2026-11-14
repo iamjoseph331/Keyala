@@ -3,6 +3,14 @@ use reqwest::{Client, Response};
 use serde_json::{json, Value};
 use std::{net::SocketAddr, time::Duration};
 
+/// apple/apns defaults for struct-update syntax
+fn extra() -> Config {
+    Config {
+        database_url: String::new(), master_key: [0; 32], dev_login: false, vendor_mock: false, public_url: String::new(), prices_verified: false,
+        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None,
+    }
+}
+
 struct T {
     base: String,
     c: Client,
@@ -19,6 +27,7 @@ async fn server() -> (String, Client, AppState) {
         vendor_mock: true,
         public_url: "http://mk.test".into(),
         prices_verified: false,
+        ..extra()
     };
     let state = build_state(cfg).await.unwrap();
     let app = router(state.clone());
@@ -500,7 +509,7 @@ async fn startup_sends_approved_and_marks_sending_uncertain() {
     let db = std::env::temp_dir().join(format!("mk-test-{}.db", masterkey_server::rand_b64(8)));
     let cfg = || Config {
         database_url: format!("sqlite://{}?mode=rwc", db.display()),
-        master_key: [7u8; 32], dev_login: true, vendor_mock: true, public_url: "http://x".into(), prices_verified: false,
+        master_key: [7u8; 32], dev_login: true, vendor_mock: true, public_url: "http://x".into(), prices_verified: false, ..extra()
     };
     let s1 = build_state(cfg()).await.unwrap();
     let r = |email: &str| format!("INSERT INTO users (id,email,created_at) VALUES ('u','{email}','t')");
@@ -552,4 +561,81 @@ async fn missing_usage_keeps_actual_null_and_charges_estimate() {
     let g = t.user_get("/v1/me/grants").await;
     assert!((g[0]["spent_usd"].as_f64().unwrap() - est).abs() < 1e-9);
     assert!((g[0]["policy"]["remaining_usd"].as_f64().unwrap() - (1.0 - est)).abs() < 1e-9);
+}
+
+// ---------- Sign in with Apple ----------
+const RSA_PEM: &str = include_str!("fixtures/test_rsa_private.pem");
+const RSA_N: &str = "4THxC83HyIW-SGwL1LK6E4ZjnFFjoBoYqWXnPOOXxmjYyUvEmxqb68lVvcbz0K-fpdTLTQCL6dSZkuutLYwzgMMwL1-9Z0HJHjnWTVk-Xq4WtAiZ-Gmeg-gj8n4C9DgpnRN0VOkOqXFMxWnQGiRdaH5AL45Yvyab0ENumIO4Hc6alaSfuEozHGI3uTbtcP2u2_Bad67DH5fDbQV8CJMRlh0UIpjUbShc4xnEkhU5RYty_83VKr76Mm4uNEVjd76OKg1wAAXSfHSxxX7j7hebk74Vk2-99vz6z3-hUNShZmQGpQNFExRjfx3ucyano5_N_2rKGD-IAWZCBXwfs1Gz_w";
+
+/// server whose Apple JWKS is served locally (counting fetches); returns (base, client, jwks fetch count)
+async fn apple_server(kid_served: &'static str) -> (String, Client, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+    let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let h2 = hits.clone();
+    let jwks = json!({"keys": [{"kty": "RSA", "kid": kid_served, "use": "sig", "alg": "RS256", "n": RSA_N, "e": "AQAB"}]});
+    let app = axum::Router::new().route("/keys", axum::routing::get(move || {
+        h2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let j = jwks.clone();
+        async move { axum::Json(j) }
+    }));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let jurl = format!("http://{}/keys", l.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(l, app).await.unwrap() });
+    let db = std::env::temp_dir().join(format!("mk-test-{}.db", masterkey_server::rand_b64(8)));
+    let cfg = Config {
+        database_url: format!("sqlite://{}?mode=rwc", db.display()), master_key: [7u8; 32], vendor_mock: true,
+        apple_jwks_url: jurl, ..extra()
+    };
+    let state = build_state(cfg).await.unwrap();
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    let app = router(state);
+    tokio::spawn(async move { axum::serve(l, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap() });
+    (base, Client::new(), hits)
+}
+
+fn apple_token(kid: &str, sub: &str, aud: &str, iss: &str, exp_delta: i64, email: Option<&str>) -> String {
+    let mut h = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+    h.kid = Some(kid.into());
+    let exp = chrono_now() + exp_delta;
+    let mut c = json!({"iss": iss, "aud": aud, "sub": sub, "exp": exp, "iat": exp - 100});
+    if let Some(e) = email { c["email"] = e.into(); }
+    jsonwebtoken::encode(&h, &c, &jsonwebtoken::EncodingKey::from_rsa_pem(RSA_PEM.as_bytes()).unwrap()).unwrap()
+}
+fn chrono_now() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64
+}
+
+#[tokio::test]
+async fn apple_login_verifies_token() {
+    let (base, c, hits) = apple_server("k1").await;
+    let iss = "https://appleid.apple.com";
+    let login = |tok: String| {
+        let (c, base) = (c.clone(), base.clone());
+        async move { c.post(format!("{base}/v1/auth/apple")).json(&json!({"id_token": tok})).send().await.unwrap() }
+    };
+    let ok = login(apple_token("k1", "001.abc", "app.masterkey.ios", iss, 600, Some("me@icloud.com"))).await;
+    assert_eq!(ok.status(), 200);
+    let j = json_of(ok).await;
+    assert_eq!(j["user"]["email"], "me@icloud.com");
+    let sess = j["session_token"].as_str().unwrap();
+    assert_eq!(c.get(format!("{base}/v1/me/keys")).bearer_auth(sess).send().await.unwrap().status(), 200);
+    // same sub => same user, even if the email claim changes
+    let j2 = json_of(login(apple_token("k1", "001.abc", "app.masterkey.ios", iss, 600, Some("other@icloud.com"))).await).await;
+    assert_eq!(j2["user"]["id"], j["user"]["id"]);
+    // JWKS cached across logins
+    assert_eq!(hits.load(std::sync::atomic::Ordering::SeqCst), 1);
+    // a different sub with a taken email must not attach to the existing account
+    let j3 = json_of(login(apple_token("k1", "001.zzz", "app.masterkey.ios", iss, 600, Some("me@icloud.com"))).await).await;
+    assert_ne!(j3["user"]["id"], j["user"]["id"]);
+    // rejections
+    for (name, tok) in [
+        ("wrong aud", apple_token("k1", "s", "com.evil.app", iss, 600, None)),
+        ("wrong iss", apple_token("k1", "s", "app.masterkey.ios", "https://evil.example", 600, None)),
+        ("expired", apple_token("k1", "s", "app.masterkey.ios", iss, -3600, None)),
+        ("unknown kid", apple_token("nope", "s", "app.masterkey.ios", iss, 600, None)),
+        ("garbage", "not.a.jwt".to_string()),
+    ] {
+        let r = login(tok).await;
+        assert_eq!(r.status(), 401, "{name}");
+    }
 }

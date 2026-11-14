@@ -21,9 +21,15 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `MK_PUBLIC_URL` | `http://localhost:8080` | base of `connect_url` |
 | `MK_DEV_LOGIN` | off | `1` enables `POST /v1/auth/dev` (testing only) |
 | `MK_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
+| `MK_APPLE_BUNDLE_ID` | `app.masterkey.ios` | required `aud` of Apple identity tokens |
+| `MK_APPLE_JWKS_URL` | Apple's | override only for tests |
+| `MK_APNS_KEY_P8`, `MK_APNS_KEY_ID`, `MK_APNS_TEAM_ID` | unset | APNs token auth (.p8 PEM contents; `\n` escapes ok). All three needed, otherwise push is a no-op |
+| `MK_APNS_TOPIC` | `app.masterkey.ios` | `apns-topic` (bundle id) |
+| `MK_APNS_SANDBOX` | off | `1` = api.sandbox.push.apple.com |
+| `MK_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
 | `MK_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `MK_MOCK_FAIL` yields a 500) |
 
-Apple/Google sign-in and APNs push land in M4; `POST /v1/me/devices` already stores the token.
+`POST /v1/auth/apple` verifies Apple identity tokens; Google sign-in is not implemented. APNs push is optional (see env).
 
 ## Full loop with curl
 

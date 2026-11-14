@@ -124,9 +124,40 @@ pub async fn dev_login(State(s): State<AppState>, J(b): J<DevLogin>) -> R<Json<V
     }
     sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)").bind(new_id("usr")).bind(&email).bind(now()).execute(&s.db).await?;
     let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?").bind(&email).fetch_one(&s.db).await?;
+    new_session(&s, &uid, &email).await
+}
+
+async fn new_session(s: &AppState, uid: &str, email: &str) -> R<Json<Value>> {
     let tok = new_token("mk_sess_");
-    sqlx::query("INSERT INTO sessions (token_hash,user_id,created_at) VALUES (?,?,?)").bind(hash_token(&tok)).bind(&uid).bind(now()).execute(&s.db).await?;
+    sqlx::query("INSERT INTO sessions (token_hash,user_id,created_at) VALUES (?,?,?)").bind(hash_token(&tok)).bind(uid).bind(now()).execute(&s.db).await?;
     Ok(Json(json!({"session_token": tok, "user": {"id": uid, "email": email}})))
+}
+
+#[derive(Deserialize)]
+pub struct AppleLogin {
+    id_token: String,
+}
+
+/// Identity is Apple's `sub`, never the email (emails can be relays, changed, or collide).
+pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Json<Value>> {
+    let c = crate::apple::verify(&s, &b.id_token).await?;
+    let existing: Option<(String, String)> = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_optional(&s.db).await?;
+    if let Some((uid, email)) = existing {
+        return new_session(&s, &uid, &email).await;
+    }
+    // never attach to an existing account by email: if it is taken, use a placeholder.
+    let mut email = c.email.map(|e| e.trim().to_lowercase()).filter(|e| e.contains('@') && e.len() <= 200);
+    if let Some(e) = &email {
+        if sqlx::query_scalar::<_, i64>("SELECT 1 FROM users WHERE email=?").bind(e).fetch_optional(&s.db).await?.is_some() {
+            email = None;
+        }
+    }
+    let email = email.unwrap_or_else(|| format!("{}@apple.invalid", c.sub));
+    let uid = new_id("usr");
+    sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at,apple_sub) VALUES (?,?,?,?)").bind(&uid).bind(&email).bind(now()).bind(&c.sub).execute(&s.db).await?;
+    // a concurrent first login may have won the insert: always read back by sub
+    let (uid, email): (String, String) = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_one(&s.db).await?;
+    new_session(&s, &uid, &email).await
 }
 
 pub async fn list_keys(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {

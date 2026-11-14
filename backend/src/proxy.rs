@@ -78,12 +78,13 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
         .execute(&mut *tx).await?;
     tx.commit().await?;
     if matches!(d, Decision::Auto { over_alert: true, .. }) {
-        // real alert push is M4; for now surface it on the event stream.
         emit_grant(&s, &g.id).await;
+        crate::apns::spend_alert(&s, &g.id).await;
     }
 
     if status == "pending" {
         emit_request(&s, "request.created", &id).await;
+        crate::apns::request_created(&s, &id).await;
         // ponytail: polls the DB every 100ms; swap for a per-request Notify if hold load matters.
         let deadline = Instant::now() + Duration::from_secs(wait);
         while Instant::now() < deadline && matches!(current_status(&s, &id).await?.as_str(), "pending" | "approved" | "sending") {

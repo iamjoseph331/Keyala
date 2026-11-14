@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chat with your own key</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#14161a; --muted:#6b7280; --line:#e5e7eb; --accent:#4f46e5; --accent-ink:#fff; --me:#4f46e5; --me-ink:#fff; --bot:#eef0f4; --warn:#b45309; --warnbg:#fef3c7; --bad:#b91c1c; --badbg:#fee2e2; --code:#0f172a; --codeink:#e2e8f0; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1013; --card:#16191e; --ink:#eceef2; --muted:#8b93a1; --line:#262a31; --accent:#818cf8; --accent-ink:#0e1013; --me:#4f46e5; --bot:#1f232a; --warn:#fbbf24; --warnbg:#3a2d0b; --bad:#fca5a5; --badbg:#3b1414; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; min-height:100vh; display:flex; justify-content:center; padding:24px 16px }
+  main { width:100%; max-width:640px; display:flex; flex-direction:column; gap:16px }
+  header h1 { margin:0; font-size:1.4rem; letter-spacing:-.01em }
+  header p { margin:4px 0 0; color:var(--muted) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px }
+  button { font:inherit; font-weight:600; border:0; border-radius:12px; padding:12px 18px; background:var(--accent); color:var(--accent-ink); cursor:pointer }
+  button:disabled { opacity:.5; cursor:default }
+  .connect { text-align:center }
+  .code { font:700 3rem/1.1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; margin:12px 0 }
+  .muted { color:var(--muted); font-size:.92rem }
+  a { color:var(--accent) }
+  .hidden { display:none !important }
+  #log { display:flex; flex-direction:column; gap:10px; min-height:260px; max-height:55vh; overflow:auto }
+  .msg { max-width:85%; padding:10px 14px; border-radius:16px; white-space:pre-wrap; word-wrap:break-word }
+  .me { align-self:flex-end; background:var(--me); color:var(--me-ink,#fff); border-bottom-right-radius:4px }
+  .bot { align-self:flex-start; background:var(--bot); border-bottom-left-radius:4px }
+  .note { align-self:center; font-size:.9rem; padding:8px 14px; border-radius:999px; background:var(--warnbg); color:var(--warn) }
+  .note.bad { background:var(--badbg); color:var(--bad) }
+  .pulse::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; margin-right:8px; animation:p 1.2s infinite }
+  @keyframes p { 50% { opacity:.25 } }
+  form { display:flex; gap:8px; margin-top:14px }
+  input { flex:1; font:inherit; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink) }
+  pre { margin:0; background:var(--code); color:var(--codeink); border-radius:12px; padding:14px; overflow:auto; font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace }
+  pre .hl { background:rgba(129,140,248,.28); display:block; margin:0 -14px; padding:0 14px; border-left:3px solid #818cf8 }
+  pre .c { color:#94a3b8 }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Chat with your own key</h1>
+    <p>This app has no API key. You lend yours through MasterKey and approve every call on your phone.</p>
+  </header>
+
+  <section id="connect" class="card connect">
+    <div id="c-idle">
+      <p>Connect your MasterKey to start chatting.</p>
+      <button id="btn-connect">Connect your MasterKey</button>
+    </div>
+    <div id="c-code" class="hidden">
+      <div class="muted">Open the MasterKey app and enter</div>
+      <div class="code" id="code">MK-----</div>
+      <div class="muted">or open <a id="url" href="#" target="_blank" rel="noopener"></a></div>
+      <p class="muted pulse" style="margin-top:14px">Waiting for approval on your phone…</p>
+    </div>
+  </section>
+
+  <section id="chat" class="card hidden">
+    <div id="log"></div>
+    <form id="form">
+      <input id="input" placeholder="Say something…" autocomplete="off" autofocus>
+      <button id="send">Send</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="muted" style="margin-bottom:8px">The only difference from normal OpenAI code:</div>
+<pre><span class="c">// server.js</span>
+<span class="hl">const client = new OpenAI({ baseURL: MK_URL + '/v1/openai', apiKey: grantToken });</span>
+const r = await client.chat.completions.create({ model, messages });</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const history = [];
+let busy = false;
+
+const api = async (path, opts) => (await fetch(path, opts)).json();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function show(connected) {
+  $('chat').classList.toggle('hidden', !connected);
+  $('connect').classList.toggle('hidden', connected);
+}
+
+async function pollConnect() {
+  for (;;) {
+    await sleep(1500);
+    const s = await api('/api/connect/status');
+    if (s.status === 'approved') return show(true);
+    if (s.status === 'denied' || s.status === 'expired' || s.status === 'none') {
+      $('c-code').classList.add('hidden'); $('c-idle').classList.remove('hidden');
+      $('btn-connect').textContent = s.status === 'denied' ? 'Denied. Try again' : 'Expired. Try again';
+      return;
+    }
+  }
+}
+
+$('btn-connect').onclick = async () => {
+  const c = await api('/api/connect', { method: 'POST' });
+  if (c.error) { $('btn-connect').textContent = c.error; return; }
+  $('code').textContent = c.code;
+  $('url').textContent = $('url').href = c.url;
+  $('c-idle').classList.add('hidden'); $('c-code').classList.remove('hidden');
+  pollConnect();
+};
+
+function add(cls, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls; d.textContent = text;
+  $('log').appendChild(d); $('log').scrollTop = 1e9;
+  return d;
+}
+function note(text, bad, pulse) {
+  const d = document.createElement('div');
+  d.className = 'note' + (bad ? ' bad' : '') + (pulse ? ' pulse' : ''); d.textContent = text;
+  $('log').appendChild(d); $('log').scrollTop = 1e9;
+  return d;
+}
+
+
+$('form').onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $('input').value.trim();
+  if (!text || busy) return;
+  busy = true; $('send').disabled = true; $('input').value = '';
+  add('me', text); history.push({ role: 'user', content: text });
+  const waiting = note('Waiting for approval on your phone…', false, true);
+  let r = await api('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history }) });
+  if (r.pending) {
+    const id = r.request_id;
+    waiting.textContent = 'Still waiting for approval on your phone…';
+    do { await sleep(1500); r = await api('/api/request?id=' + encodeURIComponent(id)); } while (r.pending);
+  }
+  waiting.remove();
+  if (r.error) {
+    note(r.error.message, true);
+    history.pop();
+    if (r.error.kind === 'disconnected') show(false);
+  } else {
+    add('bot', r.text); history.push({ role: 'assistant', content: r.text });
+  }
+  busy = false; $('send').disabled = false; $('input').focus();
+};
+
+api('/api/state').then((s) => show(s.connected));
+</script>
+</body>
+</html>

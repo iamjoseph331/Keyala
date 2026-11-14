@@ -1,4 +1,6 @@
 //! MasterKey server: lets users lend an API key to apps, approving calls from their phone.
+mod apns;
+mod apple;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -41,6 +43,10 @@ pub struct Config {
     pub public_url: String,
     /// operator asserts pricing.rs was checked against vendor pricing (MK_PRICES_VERIFIED=1)
     pub prices_verified: bool,
+    pub apple_bundle_id: String,
+    /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
+    pub apple_jwks_url: String,
+    pub apns: Option<apns::ApnsCfg>,
 }
 
 impl Config {
@@ -58,6 +64,9 @@ impl Config {
             dev_login: env("MK_DEV_LOGIN").as_deref() == Some("1"),
             vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
             prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
+            apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
+            apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
+            apns: apns::ApnsCfg::from_env(&env),
             public_url: env("MK_PUBLIC_URL").unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
         })
     }
@@ -70,6 +79,8 @@ pub struct Inner {
     pub events: broadcast::Sender<(String, String, String)>,
     pub http: reqwest::Client,
     pub app_limits: Mutex<HashMap<String, Vec<std::time::Instant>>>,
+    pub jwks: apple::JwksCache,
+    pub apns_jwt: apns::JwtCache,
 }
 pub type AppState = Arc<Inner>;
 
@@ -94,7 +105,12 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         events: broadcast::channel(256).0,
         http: reqwest::Client::builder().timeout(Duration::from_secs(120)).redirect(reqwest::redirect::Policy::none()).build()?,
         app_limits: Mutex::new(HashMap::new()),
+        jwks: Default::default(),
+        apns_jwt: Default::default(),
     });
+    if state.cfg.apns.is_none() {
+        tracing::info!("APNs not configured (MK_APNS_*): push notifications are disabled");
+    }
     // approved but never claimed = never sent, so sending is safe.
     let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved'").fetch_all(&state.db).await?;
     for id in ids {
@@ -117,6 +133,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
         .route("/v1/requests/{id}", get(proxy::poll_request))
         .route("/v1/auth/dev", post(dev_login))
+        .route("/v1/auth/apple", post(apple_login))
         .route("/v1/me/keys", get(list_keys))
         .route("/v1/me/keys/{vendor}", put(put_key).delete(delete_key))
         .route("/v1/me/devices", post(add_device))
@@ -339,6 +356,9 @@ pub struct GrantRow {
     app_icon_url: Option<String>,
 }
 impl GrantRow {
+    pub fn app_name_str(&self) -> &str {
+        &self.app_name
+    }
     pub fn json(&self) -> Value {
         json!({"id": self.id, "app": app_json(&self.app_id, &self.app_name, &self.app_homepage, &self.app_icon_url),
                "vendor": self.vendor,
@@ -374,6 +394,9 @@ pub struct RequestRow {
     app_icon_url: Option<String>,
 }
 impl RequestRow {
+    pub fn app_name(&self) -> &str {
+        &self.app_name
+    }
     pub fn json(&self, detail: bool) -> Value {
         let mut v = json!({"id": self.id, "grant_id": self.grant_id,
             "app": app_json(&self.app_id, &self.app_name, &self.app_homepage, &self.app_icon_url),
