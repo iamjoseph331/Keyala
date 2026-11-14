@@ -9,6 +9,7 @@ const OpenAI = require('openai');
 const MK_URL = (process.env.MK_URL || 'http://localhost:8080').replace(/\/$/, '');
 const MK_APP_SECRET = process.env.MK_APP_SECRET;
 const PORT = Number(process.env.PORT || 3000);
+const HOST = '127.0.0.1'; // this single-user demo must never expose its shared grant on the LAN
 const MODEL = process.env.MODEL || 'gpt-4o-mini';
 if (!MK_APP_SECRET) {
   console.error('MK_APP_SECRET is required. Get one with:\n  curl -s -X POST $MK_URL/v1/apps -d \'{"name":"Chat with your key"}\'');
@@ -97,4 +98,4 @@ http.createServer(async (req, res) => {
   const h = routes[`${req.method} ${url.pathname}`];
   if (!h) return send(res, 404, { error: 'not found' });
   try { await h(req, res, url); } catch (e) { send(res, 500, { error: String(e.message || e) }); }
-}).listen(PORT, () => console.log(`Chat with your key: http://localhost:${PORT}  (MasterKey at ${MK_URL})`));
+}).listen(PORT, HOST, () => console.log(`Chat with your key: http://localhost:${PORT}  (MasterKey at ${MK_URL})`));

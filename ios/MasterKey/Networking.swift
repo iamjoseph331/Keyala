@@ -100,9 +100,16 @@ final class APIClient {
         struct LoginBody: Encodable { let idToken: String; enum CodingKeys: String, CodingKey { case idToken = "id_token" } }
         return try await send("/v1/auth/apple", method: "POST", body: LoginBody(idToken: idToken), authenticated: false, response: DemoAuthResponse.self).sessionToken
     }
-    func requests(status: String? = nil) async throws -> [RequestRecord] {
-        let suffix = status.map { "?status=\($0)&limit=100" } ?? "?limit=100"
-        return try await send("/v1/me/requests\(suffix)", response: [RequestRecord].self)
+    func requests(status: String? = nil, limit: Int = 100, beforeID: String? = nil) async throws -> [RequestRecord] {
+        return try await send(Self.requestListPath(status: status, limit: limit, beforeID: beforeID), response: [RequestRecord].self)
+    }
+    static func requestListPath(status: String? = nil, limit: Int = 100, beforeID: String? = nil) -> String {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let status { query.append(URLQueryItem(name: "status", value: status)) }
+        if let beforeID { query.append(URLQueryItem(name: "before_id", value: beforeID)) }
+        var components = URLComponents()
+        components.queryItems = query
+        return "/v1/me/requests?\(components.percentEncodedQuery ?? "limit=100")"
     }
     func request(id: String) async throws -> RequestRecord { try await send("/v1/me/requests/\(id)") }
     func decide(id: String, approve: Bool, policy: Policy? = nil) async throws -> RequestRecord {

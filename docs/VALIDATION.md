@@ -5,8 +5,8 @@ The cost figures in screenshots are test data, not current vendor pricing claims
 
 ## Verified
 
-- Rust backend: Claude reports 31 integration tests and 3 unit tests passing,
-  plus clippy. Official OpenAI Python 3.51.0 and Anthropic Python 2.8.0 clients
+- Rust backend: final regression run passed 32 integration tests and 3 unit tests;
+  clippy passed with warnings denied. Official OpenAI Python 3.51.0 and Anthropic Python 2.8.0 clients
   passed the mock-provider smoke script in `backend/tests/sdk_smoke.py`.
 - Native iOS: signed ad hoc, compiled with Xcode 26.2's simulator SDK, installed
   and run on the existing iPhone 16 Pro simulator with iOS 18.4.
@@ -40,8 +40,14 @@ The cost figures in screenshots are test data, not current vendor pricing claims
   gesture-control tool could not open Notification Center reliably.
 - No live vendor call or real provider charge was made. The operator must verify
   model availability and prices before enabling live forwarding.
-- Complete history paging and the single-user demo's loopback/startup safeguards
-  are requested in the shared agent log and pending at this milestone.
+- History paging was subsequently added: the targeted Rust integration test passed
+  with tied timestamps, owner isolation, filtered pages, and no gaps or duplicates.
+  Native cursor/merge checks cover retaining detail and reopening a history gap
+  after a full page of newer requests arrives. The final signed simulator build
+  passed. The Mac locked before an optional visual check of the final history UI;
+  the earlier native approve/deny workflow was exercised successfully.
+- The single-user example now binds to loopback. Starting the demo on occupied
+  port 8091 was rejected before seeding; the existing mock server was untouched.
 
 ## Reproduce
 

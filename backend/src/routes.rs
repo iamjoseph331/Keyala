@@ -321,7 +321,16 @@ pub async fn list_requests(State(s): State<AppState>, h: HeaderMap, Query(q): Qu
     let u = auth_session(&s, &h).await?;
     let status = q.get("status").cloned().unwrap_or_default();
     let limit = q.get("limit").and_then(|l| l.parse::<i64>().ok()).unwrap_or(50).clamp(1, 200);
-    let rows: Vec<RequestRow> = sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.user_id=? AND (?='' OR r.status=?) ORDER BY r.created_at DESC LIMIT ?")).bind(u).bind(&status).bind(&status).bind(limit).fetch_all(&s.db).await?;
+    let before_id = q.get("before_id");
+    let rows: Vec<RequestRow> = if let Some(id) = before_id {
+        let created_at: String = sqlx::query_scalar("SELECT created_at FROM requests WHERE id=? AND user_id=?")
+            .bind(id).bind(&u).fetch_optional(&s.db).await?.ok_or_else(|| not_found("request cursor"))?;
+        sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.user_id=? AND (?='' OR r.status=?) AND (r.created_at<? OR (r.created_at=? AND r.id<?)) ORDER BY r.created_at DESC, r.id DESC LIMIT ?"))
+            .bind(&u).bind(&status).bind(&status).bind(&created_at).bind(&created_at).bind(id).bind(limit).fetch_all(&s.db).await?
+    } else {
+        sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.user_id=? AND (?='' OR r.status=?) ORDER BY r.created_at DESC, r.id DESC LIMIT ?"))
+            .bind(&u).bind(&status).bind(&status).bind(limit).fetch_all(&s.db).await?
+    };
     Ok(Json(rows.iter().map(|r| r.json(false)).collect()))
 }
 

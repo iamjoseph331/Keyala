@@ -120,7 +120,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | GET | `/v1/me/grants` | `[Grant]` |
 | PATCH | `/v1/me/grants/{id}` | `{policy}` → `Grant` |
 | DELETE | `/v1/me/grants/{id}` | revoke |
-| GET | `/v1/me/requests?status=&limit=` | `[Request]` without payload/response |
+| GET | `/v1/me/requests?status=&limit=&before_id=` | `[Request]` without payload/response; newest first by created_at DESC,id DESC. Optional before_id is an exclusive cursor scoped to this user (foreign/missing ID: 404). |
 | GET | `/v1/me/requests/{id}` | full `Request` |
 | POST | `/v1/me/requests/{id}/approve` | `{policy?}` (omit = once) → `Request` |
 | POST | `/v1/me/requests/{id}/deny` | → `Request` |

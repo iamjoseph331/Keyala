@@ -79,7 +79,8 @@ Your AI app             MasterKey                  User's iPhone
 | Budget | Allow requests while a spending allowance remains. |
 | Trust with alerts | Allow this app to run and notify me about spending. |
 
-Users can inspect prompts, review responses, and revoke an app's access. An
+Users can inspect prompts, review responses, and revoke an app's access. History
+paging keeps older calls available beyond the first page. An
 approval covers what MasterKey will send to the provider. It cannot verify every
 claim an app makes about why it wants the result, and developers can retain
 responses they receive.

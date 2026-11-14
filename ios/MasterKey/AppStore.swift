@@ -6,6 +6,9 @@ import AuthenticationServices
 
 @MainActor final class AppStore: ObservableObject {
     @Published var requests: [RequestRecord] = []
+    @Published var hasOlderRequests = false
+    @Published var isLoadingOlderRequests = false
+    @Published var olderRequestsError: String?
     @Published var keys: [KeyRecord] = []
     @Published var grants: [GrantRecord] = []
     @Published var demoMode = UserDefaults.standard.object(forKey: "demoMode") as? Bool ?? true
@@ -23,6 +26,8 @@ import AuthenticationServices
     private var sessionToken: String?
     private var demoLoaded = false
     private var contextGeneration = 0
+    private let requestPageSize = 100
+    private var requestHistoryCursor = RequestHistoryCursor()
     private var client: APIClient { APIClient(baseURL: serverURL, allowLocalHTTP: allowLocalHTTP, token: sessionToken) }
     private var origin: String {
         guard let url = URL(string: serverURL), let scheme = url.scheme, let host = url.host else { return serverURL }
@@ -42,9 +47,10 @@ import AuthenticationServices
     }
     func setDemo(_ value: Bool) async {
         contextGeneration += 1
+        resetRequestPaging()
         demoMode = value; saveSettings()
         if value { sessionToken = nil; try? vault.write(nil, origin: origin); connected = false; demoLoaded = false; loadDemo() }
-        else { requests = []; keys = []; grants = []; connected = sessionToken != nil; if connected { await refresh() } }
+        else { keys = []; grants = []; connected = sessionToken != nil; if connected { await refresh() } }
     }
     func signIn() async {
         guard !demoMode else { infoMessage = "Demo workspace is local sample data. No server session was created."; return }
@@ -52,7 +58,7 @@ import AuthenticationServices
         let generation = contextGeneration
         let loginOrigin = origin
         let api = client
-        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; requests = []; keys = []; grants = []
+        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []
         busy = true; defer { busy = false }
         do {
             let token = try await api.devLogin(email: email)
@@ -66,7 +72,7 @@ import AuthenticationServices
         guard !demoMode else { infoMessage = "Apple sign-in is unavailable in the local demo workspace."; return }
         contextGeneration += 1
         let generation = contextGeneration; let loginOrigin = origin; let api = client
-        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; requests = []; keys = []; grants = []
+        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []
         do {
             let token = try await api.appleLogin(idToken: idToken)
             guard generation == contextGeneration, !demoMode, origin == loginOrigin else { return }
@@ -74,28 +80,44 @@ import AuthenticationServices
         }
         catch { report(error) }
     }
-    func signOut() { contextGeneration += 1; try? vault.write(nil, origin: origin); sessionToken = nil; connected = false; requests = []; keys = []; grants = [] }
-    func serverChanged() { contextGeneration += 1; vault.clear(); sessionToken = nil; connected = false; requests = []; keys = []; grants = []; infoMessage = "Server changed. Sign in again to load that server’s account." }
+    func signOut() { contextGeneration += 1; try? vault.write(nil, origin: origin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = [] }
+    func serverChanged() { contextGeneration += 1; vault.clear(); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []; infoMessage = "Server changed. Sign in again to load that server’s account." }
     func refresh() async {
         if demoMode { if !demoLoaded { loadDemo() }; return }
         guard sessionToken != nil else { return }
         let generation = contextGeneration; let api = client
         do {
-            async let req = api.requests()
+            async let req = api.requests(limit: requestPageSize)
             async let keyRows = api.keys()
             async let grantRows = api.grants()
-            var newRequests = try await req
+            let newRequests = try await req
             let newKeys = try await keyRows; let newGrants = try await grantRows
             guard generation == contextGeneration, !demoMode else { return }
-            let previous = requests.reduce(into: [String: RequestRecord]()) { $0[$1.id] = $1 }
-            for index in newRequests.indices {
-                guard let old = previous[newRequests[index].id] else { continue }
-                if newRequests[index].payload == nil { newRequests[index].payload = old.payload }
-                if newRequests[index].response == nil { newRequests[index].response = old.response }
-            }
-            requests = newRequests; keys = newKeys; grants = newGrants
+            requestHistoryCursor.refresh(page: newRequests, existingIDs: Set(requests.map(\.id)), pageSize: requestPageSize)
+            requests = RequestHistory.merging(existing: requests, incoming: newRequests)
+            hasOlderRequests = requestHistoryCursor.hasMore
+            keys = newKeys; grants = newGrants
             connected = true
         } catch { report(error) }
+    }
+    func loadOlderRequests() async {
+        guard !demoMode, !isLoadingOlderRequests, hasOlderRequests else { return }
+        guard let cursor = requestHistoryCursor.beforeID else { hasOlderRequests = false; return }
+        let generation = contextGeneration; let api = client
+        isLoadingOlderRequests = true; olderRequestsError = nil
+        defer { if generation == contextGeneration { isLoadingOlderRequests = false } }
+        do {
+            let page = try await api.requests(limit: requestPageSize, beforeID: cursor)
+            guard generation == contextGeneration, !demoMode, requestHistoryCursor.beforeID == cursor else { return }
+            requests = RequestHistory.merging(existing: requests, incoming: page)
+            requestHistoryCursor.advance(page: page, from: cursor, pageSize: requestPageSize)
+            hasOlderRequests = requestHistoryCursor.hasMore
+            if page.count == requestPageSize && requestHistoryCursor.beforeID == cursor {
+                olderRequestsError = "The server returned no older requests."
+            }
+        } catch {
+            if generation == contextGeneration { olderRequestsError = error.localizedDescription }
+        }
     }
     func decide(_ request: RequestRecord, approve: Bool, policy: Policy = .once) async {
         if demoMode {
@@ -183,6 +205,13 @@ import AuthenticationServices
         catch { report(error) }
     }
     private func report(_ error: Error) { errorMessage = error.localizedDescription; showError = true }
+    private func resetRequestPaging() {
+        requests = []
+        hasOlderRequests = false
+        isLoadingOlderRequests = false
+        olderRequestsError = nil
+        requestHistoryCursor = RequestHistoryCursor()
+    }
     private func loadDemo() {
         guard !demoLoaded else { return }
         demoLoaded = true

@@ -27,7 +27,42 @@ enum ContractTests {
         let grant = try decoder.decode(GrantRecord.self, from: #"{"id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","policy":{"mode":"count","remaining_count":7,"expires_at":"2026-12-01T00:00:00Z"},"created_at":"2026-11-14T00:00:00Z","spent_usd":0.42,"request_count":3}"#.data(using: .utf8)!)
         precondition(grant.maxRequests == 7 && grant.expiresAt == "2026-12-01T00:00:00Z")
 
+        let detailPayload = JSONValue.object(["prompt": .string("immutable payload")])
+        let detailResponse = JSONValue.object(["answer": .string("saved response")])
+        let existingPage = [
+            makeRequest(id: "req_latest", status: "sending", createdAt: "2026-11-14T08:23:00Z"),
+            makeRequest(id: "req_detail", status: "pending", createdAt: "2026-11-14T08:22:00.500Z", payload: detailPayload, response: detailResponse),
+            makeRequest(id: "req_older", status: "completed", createdAt: "2026-11-14T08:21:00Z")
+        ]
+        let refreshedPage = [
+            makeRequest(id: "req_latest", status: "completed", createdAt: "2026-11-14T08:23:00Z"),
+            makeRequest(id: "req_detail", status: "uncertain", createdAt: "2026-11-14T08:22:00.500Z"),
+            makeRequest(id: "req_tie_a", status: "denied", createdAt: "2026-11-14T08:22:00.500Z"),
+            makeRequest(id: "req_tie_a", status: "expired", createdAt: "2026-11-14T08:22:00.500Z")
+        ]
+        let merged = RequestHistory.merging(existing: existingPage, incoming: refreshedPage)
+        precondition(merged.map(\.id) == ["req_latest", "req_tie_a", "req_detail", "req_older"])
+        precondition(merged[0].status == "completed" && merged[1].status == "expired")
+        precondition(merged[2].status == "uncertain" && merged[2].payload == detailPayload && merged[2].response == detailResponse)
+
+        var cursor = RequestHistoryCursor()
+        let oldest = makeRequest(id: "req_old", status: "completed", createdAt: "2026-11-14T08:00:00.000Z")
+        let fresh = [makeRequest(id: "req_new_a", status: "completed", createdAt: "2026-11-14T10:00:00.000Z"), makeRequest(id: "req_new_b", status: "completed", createdAt: "2026-11-14T09:00:00.000Z")]
+        cursor.refresh(page: [oldest], existingIDs: [], pageSize: 2)
+        precondition(!cursor.hasMore)
+        cursor.refresh(page: fresh, existingIDs: [oldest.id], pageSize: 2)
+        precondition(cursor.hasMore && cursor.beforeID == "req_new_b", "A new head must page into the gap, not skip to retained old records.")
+        cursor.advance(page: [oldest], from: "req_new_b", pageSize: 2)
+        precondition(!cursor.hasMore && cursor.beforeID == oldest.id)
+        cursor.refresh(page: fresh, existingIDs: Set(fresh.map(\.id) + [oldest.id]), pageSize: 2)
+        precondition(!cursor.hasMore, "An overlapping refresh must preserve the completed history state.")
+
         let client = APIClient(baseURL: "https://masterkey.example", allowLocalHTTP: false, token: "session")
+        let pagePath = APIClient.requestListPath(limit: 100, beforeID: "req_oldest")
+        let pageURL = try client.resolvedURL(for: pagePath)
+        let pageQuery = Dictionary(uniqueKeysWithValues: (URLComponents(url: pageURL, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        precondition(pageURL.path == "/v1/me/requests" && pageQuery["limit"] == "100" && pageQuery["before_id"] == "req_oldest")
+
         let url = try client.resolvedURL(for: "/v1/me/requests?limit=100")
         precondition(url.path == "/v1/me/requests" && URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == "100")
         do {
@@ -37,5 +72,9 @@ enum ContractTests {
         let localURL = try APIClient(baseURL: "http://127.0.0.1:8080", allowLocalHTTP: true, token: nil).resolvedURL(for: "/v1/me/keys")
         precondition(localURL.path == "/v1/me/keys")
         print("MasterKey contract checks passed")
+    }
+
+    static func makeRequest(id: String, status: String, createdAt: String, payload: JSONValue? = nil, response: JSONValue? = nil) -> RequestRecord {
+        RequestRecord(id: id, appID: "app-1", appName: "Sketchpad", provider: .openAI, model: "gpt-4.1-mini", status: status, createdAt: createdAt, expiresAt: nil, payload: payload, estimatedCostMicrousd: 28, actualCostMicrousd: nil, response: response, error: nil)
     }
 }

@@ -346,6 +346,56 @@ async fn sse_events_filtered_by_user() {
     assert!(s.contains("event: request.created"), "{s}");
 }
 
+#[tokio::test]
+async fn request_history_cursor_is_stable_and_owner_scoped() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    for _ in 0..5 {
+        assert_eq!(t.chat(&tok, 0, msg()).await.status(), 200);
+    }
+    let ask_tok = t.grant("openai", json!({"mode": "ask"})).await;
+    assert_eq!(t.chat(&ask_tok, 0, msg()).await.status(), 202);
+
+    // Force a timestamp tie so the ID tie-breaker is exercised on every page.
+    let uid: String = sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?")
+        .bind(masterkey_server::hash_token(&t.sess)).fetch_one(&t.state.db).await.unwrap();
+    sqlx::query("UPDATE requests SET created_at='2026-11-14T00:00:00.000Z' WHERE user_id=?")
+        .bind(&uid).execute(&t.state.db).await.unwrap();
+
+    let all = t.user_get("/v1/me/requests?status=completed&limit=200").await;
+    let expected: Vec<String> = all.as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap().to_string()).collect();
+    assert_eq!(expected.len(), 5);
+    let mut found = Vec::new();
+    let mut before = None;
+    loop {
+        let path = match &before {
+            Some(id) => format!("/v1/me/requests?status=completed&limit=2&before_id={id}"),
+            None => "/v1/me/requests?status=completed&limit=2".to_string(),
+        };
+        let page = t.user_get(&path).await;
+        let rows = page.as_array().unwrap();
+        assert!(rows.len() <= 2);
+        for row in rows {
+            assert!(row.get("payload").is_none());
+            assert!(row.get("response").is_none());
+            found.push(row["id"].as_str().unwrap().to_string());
+        }
+        if rows.len() < 2 { break; }
+        before = Some(rows.last().unwrap()["id"].as_str().unwrap().to_string());
+    }
+    assert_eq!(found, expected, "pages must cover the ordered history without gaps or duplicates");
+
+    // A cursor is valid only for the authenticated owner; missing and foreign IDs are both 404.
+    let second = json_of(t.c.post(format!("{}/v1/auth/dev", t.base)).json(&json!({"email":"other@b.co"})).send().await.unwrap()).await;
+    let other_sess = second["session_token"].as_str().unwrap();
+    let foreign = t.c.get(format!("{}/v1/me/requests?before_id={}", t.base, expected[0]))
+        .bearer_auth(other_sess).send().await.unwrap();
+    assert_eq!(foreign.status(), 404);
+    let missing = t.c.get(format!("{}/v1/me/requests?before_id=missing-request", t.base))
+        .bearer_auth(&t.sess).send().await.unwrap();
+    assert_eq!(missing.status(), 404);
+}
+
 async fn user_b(t: &T) -> String {
     let r = json_of(t.c.post(format!("{}/v1/auth/dev", t.base)).json(&json!({"email": "b@b.co"})).send().await.unwrap()).await;
     r["session_token"].as_str().unwrap().to_string()

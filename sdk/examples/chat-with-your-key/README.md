@@ -3,6 +3,9 @@
 A tiny chat app with **no API key of its own**. The user lends theirs through MasterKey and approves
 each call on their phone. Node 20+, only dependency: the official `openai` package.
 
+This is a local-only, single-user demo. It keeps one grant token in process memory and binds to
+`127.0.0.1`; do not expose it to a LAN or use it as a production multi-user server.
+
 ```sh
 # 1. a MasterKey server (see ../../../backend/README.md, or just run ../../demo.sh)
 # 2. register this app once

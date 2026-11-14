@@ -47,6 +47,43 @@ struct RequestRecord: Codable, Identifiable {
     }
 }
 
+enum RequestHistory {
+    static func merging(existing: [RequestRecord], incoming: [RequestRecord]) -> [RequestRecord] {
+        var byID = existing.reduce(into: [String: RequestRecord]()) { $0[$1.id] = $1 }
+        for received in incoming {
+            var current = received
+            if let old = byID[received.id] {
+                if current.payload == nil { current.payload = old.payload }
+                if current.response == nil { current.response = old.response }
+            }
+            byID[received.id] = current
+        }
+        // The server emits fixed-width UTC millisecond timestamps, matching its cursor order.
+        return byID.values.sorted { $0.createdAt == $1.createdAt ? $0.id > $1.id : $0.createdAt > $1.createdAt }
+    }
+}
+
+struct RequestHistoryCursor {
+    private(set) var beforeID: String?
+    private(set) var hasMore = false
+
+    mutating func refresh(page: [RequestRecord], existingIDs: Set<String>, pageSize: Int) {
+        if page.count < pageSize {
+            beforeID = page.last?.id
+            hasMore = false
+        } else if beforeID == nil || !page.contains(where: { existingIDs.contains($0.id) }) {
+            // A full new head can leave a gap ahead of retained older records.
+            beforeID = page.last?.id
+            hasMore = true
+        }
+    }
+
+    mutating func advance(page: [RequestRecord], from cursor: String, pageSize: Int) {
+        beforeID = page.last?.id ?? cursor
+        hasMore = page.count == pageSize && beforeID != cursor
+    }
+}
+
 struct KeyRecord: Codable, Identifiable {
     var id: String
     var provider: Provider

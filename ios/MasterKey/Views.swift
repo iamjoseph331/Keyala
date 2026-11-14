@@ -38,7 +38,7 @@ struct InboxView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 PageHeader(eyebrow: "Your keys. Your call.", title: "Requests", subtitle: "Inspect every prompt before a call uses your key.")
                 ModeBanner()
                 InfoBanner()
@@ -48,9 +48,24 @@ struct InboxView: View {
                     Button(showHistory ? "Pending" : "History") { withAnimation(.snappy) { showHistory.toggle() } }.font(.subheadline.weight(.semibold))
                 }
                 if visible.isEmpty {
-                    Card { VStack(alignment: .leading, spacing: 10) { Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(MKStyle.teal); Text(showHistory ? "No request history yet" : "All clear").font(.headline); Text(showHistory ? "Decided requests will appear here." : "New requests appear here for your review.").font(.subheadline).foregroundStyle(MKStyle.muted) } }
+                    Card { VStack(alignment: .leading, spacing: 10) { Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(MKStyle.teal); Text(showHistory ? (store.requests.isEmpty ? "No request history yet" : "No decided requests in this part of history") : "All clear").font(.headline); Text(showHistory ? "Older requests will load below when available." : "New requests appear here for your review.").font(.subheadline).foregroundStyle(MKStyle.muted) } }
                 }
                 ForEach(visible) { request in Button { selected = request } label: { RequestCard(request: request) }.buttonStyle(.plain) }
+                if showHistory && !store.demoMode {
+                    if let error = store.olderRequestsError {
+                        Text(error).font(.footnote).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if store.isLoadingOlderRequests {
+                        ProgressView("Loading older requests…").frame(maxWidth: .infinity).tint(MKStyle.teal)
+                    } else if store.hasOlderRequests {
+                        Button { Task { await store.loadOlderRequests() } } label: {
+                            Label(store.olderRequestsError == nil ? "Load older requests" : "Try again", systemImage: store.olderRequestsError == nil ? "arrow.down" : "arrow.clockwise")
+                                .frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.06), in: Capsule())
+                        }
+                    } else {
+                        Text("You’ve reached the beginning of your request history.").font(.footnote).foregroundStyle(MKStyle.muted).frame(maxWidth: .infinity)
+                    }
+                }
                 Button { Task { await store.refresh() } } label: { Label("Refresh requests", systemImage: "arrow.clockwise").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.06), in: Capsule()) }
             }.padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 30)
         }.background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)

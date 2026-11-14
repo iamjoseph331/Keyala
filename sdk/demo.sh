@@ -9,6 +9,12 @@ export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${PORT:-8080}"; B="http://localhost:$PORT"; SIM_DELAY="${SIM_DELAY:-3}"
 SIM=0; [[ "${1:-}" == "--simulate-phone" ]] && SIM=1
+[[ "$PORT" =~ ^[0-9]{1,5}$ ]] && (( 10#$PORT >= 1 && 10#$PORT <= 65535 )) || { echo "PORT must be an integer from 1 to 65535" >&2; exit 1; }
+# Check before building or creating demo data. Bash's /dev/tcp needs no extra package.
+if (exec 3<>/dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then
+  echo "port $PORT is already accepting connections; choose another PORT" >&2
+  exit 1
+fi
 for c in cargo curl jq; do command -v "$c" >/dev/null || { echo "missing: $c" >&2; exit 1; }; done
 [[ $SIM == 1 ]] && ! command -v sqlite3 >/dev/null && { echo "--simulate-phone needs sqlite3" >&2; exit 1; }
 
@@ -18,8 +24,18 @@ MK_MASTER_KEY="$(openssl rand -base64 32)" MK_DATABASE_URL="sqlite://$DB?mode=rw
   MK_PUBLIC_URL="$B" MK_DEV_LOGIN=1 MK_VENDOR_MOCK=1 "$ROOT/backend/target/debug/masterkey-server" >"$TMP/server.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER ${SIMPID:-} 2>/dev/null; rm -rf "$TMP"' EXIT
-for _ in $(seq 50); do curl -sf "$B/healthz" >/dev/null && break; sleep 0.2; done
-curl -sf "$B/healthz" >/dev/null || { echo "server did not start:"; cat "$TMP/server.log"; exit 1; }
+READY=0
+for _ in $(seq 50); do
+  if ! kill -0 "$SERVER" 2>/dev/null; then break; fi
+  if curl -sf "$B/healthz" >/dev/null; then READY=1; break; fi
+  sleep 0.2
+done
+sleep 0.1
+if [[ $READY != 1 ]] || ! kill -0 "$SERVER" 2>/dev/null; then
+  echo "the demo server did not start on port $PORT:" >&2
+  cat "$TMP/server.log" >&2
+  exit 1
+fi
 
 SESS=$(curl -s "$B/v1/auth/dev" -d '{"email":"demo@masterkey.dev"}' | jq -r .session_token)
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/openai" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-FAKE-demo-key-0000"}'
