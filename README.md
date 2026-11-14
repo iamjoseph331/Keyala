@@ -15,10 +15,43 @@ key and records the response for both sides to inspect.
 
 [Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
-> Early development. The first milestone is a local, auditable approval flow with
-> simulated provider responses. This repository is not yet a hosted service or a
-> production credential vault. Verified build and demo instructions will be added
-> as each component lands.
+> Working MVP. Native iOS pairing, approval, denial, and response inspection are
+> tested against the Rust server with a mock provider. This is not a hosted key
+> vault. Live vendor billing, signed-device Apple login, and APNs delivery still
+> require operator configuration and verification.
+
+## Try the local demo
+
+You need Rust, Node.js 20+, Xcode for the iOS app, and `curl`, `jq`, and `openssl`.
+
+```sh
+git clone https://github.com/iamjoseph331/MasterKey.git
+cd MasterKey
+bash sdk/demo.sh
+```
+
+The script starts a disposable SQLite database with a fake provider key and mock
+responses. It prints the exact command for starting the example chat app in a
+second terminal. No real provider credits are used.
+
+Open [the iOS project](ios/MasterKey/MasterKey.xcodeproj) in Xcode and run it in a
+simulator. In Settings, turn off **Demo mode**, use `http://localhost:8080`, enable
+**Allow HTTP for localhost**, and sign in as `demo@masterkey.dev`. Connect from the
+chat example, review its code on the phone, then inspect and approve its request.
+See [iOS setup](ios/README.md) for signing and simulator-runtime notes.
+
+Without Xcode, `bash sdk/demo.sh --simulate-phone` runs a script that plays the
+phone's part. That tests the backend and developer flow; it is not an iOS test.
+The example is a local, single-user demonstration, not a deployable multi-user
+application.
+
+## From the running iOS app
+
+The native inspector below is connected to the local Rust server. The provider
+is mocked, and the prompt is test data.
+
+<img src="site/media/ios-request.jpg" width="320" alt="Native iOS app inspecting an exact mock request before approval">
+<img src="site/media/ios-completed.jpg" width="320" alt="Native iOS app showing the completed mock response and reported cost">
 
 ```text
 Your AI app             MasterKey                  User's iPhone
@@ -53,7 +86,7 @@ responses they receive.
 
 ## Designed for solo developers
 
-The planned integration uses an app-scoped connection token in place of a vendor
+The integration uses an app-scoped connection token in place of a vendor
 key and a MasterKey base URL. The developer never receives the user's vendor key.
 The backend supports bounded, non-streaming OpenAI and Anthropic text requests
 first. Unsupported request options must fail visibly rather than bypass approval.
@@ -66,13 +99,16 @@ from openai import OpenAI
 client = OpenAI(
     base_url="http://localhost:8080/v1/openai",
     api_key=masterkey_grant_token,
+    max_retries=0,
 )
 ```
 
 A request awaiting human approval can return HTTP 202 after the wait window.
 Official vendor SDKs do not inherently handle that approval workflow: the
 MasterKey wrapper must poll the request ID. See the [shared contract](docs/PLAN.md)
-before integrating. Streaming is outside the first version.
+before integrating. Disable SDK automatic retries: after an uncertain outcome,
+inspect the existing request instead of submitting another chargeable call.
+Streaming is outside the first version.
 
 ## A small, self-hostable foundation
 
@@ -80,7 +116,7 @@ before integrating. Streaming is outside the first version.
 | --- | --- | --- |
 | Approval server and persistence | Rust, Axum, SQLite | Claude Code |
 | User app | SwiftUI, iOS 17+ | Codex |
-| Developer clients | Thin TypeScript and Python wrappers | Claude Code |
+| Developer integration | Official vendor SDK compatibility and Node chat example | Claude Code |
 | Developer page | Static HTML, CSS, JavaScript on GitHub Pages | Codex |
 
 The project is being built in public by Joseph Chen with Codex and Claude Code.
