@@ -51,8 +51,21 @@ Developer DX goal: **change one line — the base URL** — and use the official
 5. **Audit** — every request stores payload, estimated + actual cost (from vendor `usage`),
    response, timestamps. User browses it any time.
 
-Cost estimate (ponytail: heuristic, upgrade to real tokenizers later): input tokens ≈ chars/4,
-output = `max_tokens` (or model default) → upper-bound USD via a static per-model price table.
+### Cost & money safety (per Codex security review)
+- Estimate is a **conservative reservation, not a guarantee**: input tokens ≈ `utf8_bytes / 2`
+  (overestimates vs chars/4 for Unicode) + fixed per-message overhead; output = `max_tokens`,
+  **required and capped** per model (server injects a cap if missing). Text-only in v1:
+  requests with images/audio/tools/files are rejected (`400 unsupported_content`).
+- Models are **allowlisted** (static price table); unknown model → `400 model_not_allowed`.
+  Billable options outside the allowlist (e.g. `n>1`, web search) → rejected.
+- Internal money is **integer micro-USD** (`i64`). Public JSON `*_usd` floats are display only.
+- Budget/count consumption is an **atomic reservation** in one SQL transaction before sending;
+  settled to actual cost from vendor `usage` afterwards (refund the difference).
+- Each request executes **at most once** (status transition `approved → sending` guarded in SQL).
+  Timeout/network error after send → status `uncertain`, reserved amount kept, **never retried**.
+- Provider URLs are fixed constants; nothing from the request picks the upstream host.
+- A grant is bound to exactly one user + vendor at creation; the key used is always
+  `grant.user_id`'s key — never selectable by the caller.
 
 ## Contract (v1) — source of truth for backend and iOS
 All JSON, `snake_case`, timestamps RFC3339 UTC, money as `usd` floats (display only) .
@@ -69,7 +82,7 @@ App      { "id", "name", "homepage", "icon_url" }
 Grant    { "id", "app": App, "vendor": "openai"|"anthropic", "policy": Policy,
            "created_at", "last_used_at", "spent_usd", "request_count" }
 Request  { "id", "grant_id", "app": App, "vendor", "model", "endpoint",
-           "status": "pending"|"approved"|"denied"|"expired"|"completed"|"failed",
+           "status": "pending"|"approved"|"sending"|"denied"|"expired"|"completed"|"failed"|"uncertain",
            "estimated_usd", "actual_usd", "created_at", "decided_at", "completed_at",
            "payload": {...},            // full request body (detail view only)
            "response": {...} }          // full vendor response (detail view only)
@@ -120,9 +133,12 @@ Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app
   4 scopes), history + detail (payload/response), grants list with revoke.
 - **M3 connect pairing** — QR / universal link + code entry; `sdk/` example app ("Chat with your
   own key") demonstrating the full loop.
-- **M4 real-world** — Sign in with Apple, APNs, deploy recipe (Dockerfile + Fly.io).
+- **M4 real-world** — Sign in with Apple, APNs (owner has a paid Apple Developer account),
+  Dockerfile + `render.yaml` (owner deploys to Render for live testing; SQLite needs a Render
+  persistent disk or data resets on redeploy).
 - **M5 launch page** — `site/` with hero, 30-s demo video (simulator recording of the example
   app + phone approval side by side), quickstart, trust model. README mirrors it.
 
 ## Open questions (owner)
-See `AGENTS.md` log for answers once given.
+Answered 2026-11-14: paid Apple Developer account = yes; login = Sign in with Apple + dev
+login (Google later); hosting = local + Docker, owner deploys to Render; ownership split approved.
