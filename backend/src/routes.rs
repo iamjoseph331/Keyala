@@ -266,10 +266,12 @@ async fn pending_connect(s: &AppState, code: &str) -> R<ConnectRow> {
 }
 
 pub async fn preview_connect(State(s): State<AppState>, h: HeaderMap, Path(code): Path<String>) -> R<Json<Value>> {
-    auth_session(&s, &h).await?;
+    let u = auth_session(&s, &h).await?;
     let c = pending_connect(&s, &code).await?;
     let sp: Value = serde_json::from_str(&c.suggested_policy).unwrap_or(Value::Null);
-    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin})))
+    let has_prior_grant: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
+        .bind(&u).bind(&c.app_id).fetch_one(&s.db).await?;
+    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin, "requires_ask": !has_prior_grant})))
 }
 
 #[derive(Deserialize)]
@@ -290,10 +292,17 @@ pub async fn approve_connect(State(s): State<AppState>, h: HeaderMap, Path(code)
     }
     let gid = new_id("grt");
     let mut tx = s.db.begin().await?;
-    // first statement is the write (single-use guard); also takes the SQLite write lock.
+    // First statement is the write (single-use guard), serializing concurrent approvals
+    // before checking history. If the policy is too broad, dropping this transaction rolls
+    // the status change back so the user can retry with ask.
     let r = sqlx::query("UPDATE connect_codes SET status='approved', grant_id=? WHERE code=? AND status='pending' AND expires_at>?").bind(&gid).bind(&code).bind(now()).execute(&mut *tx).await?;
     if r.rows_affected() != 1 {
         return Err(api(409, "already_used", "connect code already used or expired"));
+    }
+    let has_prior_grant: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
+        .bind(&u).bind(&c.app_id).fetch_one(&mut *tx).await?;
+    if !has_prior_grant && p.mode != "ask" {
+        return Err(api(400, "policy_not_allowed_yet", "approve calls one at a time first; widen the policy later from Grants"));
     }
     sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at) VALUES (?,?,?,?,'ask',?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).execute(&mut *tx).await?;
     set_policy(&mut tx, &gid, &p).await?;

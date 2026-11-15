@@ -77,12 +77,20 @@ impl T {
         assert_eq!(json_of(poll(&self.c).await.unwrap()).await["status"], "pending");
         let prev = self.user_get(&format!("/v1/me/connect/{code}")).await;
         assert_eq!(prev["app"]["name"], "Demo");
-        let g = json_of(self.user_post(&format!("/v1/me/connect/{code}/approve"), json!({"policy": policy})).await).await;
+        // Each helper-created app is new. Model a user deliberately widening the
+        // first ask-only grant through the Grants screen when a test needs a broad policy.
+        let approved_policy = if policy["mode"] == "ask" { policy.clone() } else { json!({"mode": "ask"}) };
+        let g = json_of(self.user_post(&format!("/v1/me/connect/{code}/approve"), json!({"policy": approved_policy})).await).await;
         assert_eq!(g["vendor"], vendor);
         let p = json_of(poll(&self.c).await.unwrap()).await;
         assert_eq!(p["status"], "approved");
         let tok = p["grant_token"].as_str().unwrap().to_string();
         assert!(tok.starts_with("mk_grant_"));
+        if policy["mode"] != "ask" {
+            let r = self.c.patch(format!("{}/v1/me/grants/{}", self.base, g["id"].as_str().unwrap()))
+                .bearer_auth(&self.sess).json(&json!({"policy": policy})).send().await.unwrap();
+            assert_eq!(r.status(), 200);
+        }
         // token is delivered once
         assert!(json_of(poll(&self.c).await.unwrap()).await.get("grant_token").is_none());
         tok
@@ -114,6 +122,52 @@ impl T {
 
 fn msg() -> Value {
     json!({"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 50})
+}
+
+#[tokio::test]
+async fn first_grant_is_ask_only_per_user_and_app_even_after_revoke() {
+    let t = T::new().await;
+    assert_eq!(t.user_put("/v1/me/keys/anthropic", json!({"api_key":"sk-ant-test-SECRET1234"})).await.status(), 200);
+    let app = json_of(t.c.post(format!("{}/v1/apps", t.base)).json(&json!({"name": "Same app"})).send().await.unwrap()).await;
+    let secret = app["app_secret"].as_str().unwrap();
+    async fn new_code(t: &T, secret: &str, vendor: &str) -> String {
+        let resp = t.c.post(format!("{}/v1/connect", t.base)).bearer_auth(secret)
+            .json(&json!({"vendor": vendor})).send().await.unwrap();
+        json_of(resp).await["connect_code"].as_str().unwrap().to_owned()
+    }
+
+    let first_code = new_code(&t, secret, "openai").await;
+    let first_preview = t.user_get(&format!("/v1/me/connect/{first_code}")).await;
+    assert_eq!(first_preview["requires_ask"], true);
+    let rejected = t.user_post(&format!("/v1/me/connect/{first_code}/approve"), json!({"policy":{"mode":"budget","remaining_usd":2.0}})).await;
+    assert_eq!(rejected.status(), 400);
+    assert_eq!(json_of(rejected).await["error"]["type"], "policy_not_allowed_yet");
+    // Rejection rolled back the connect status, so ask can still be approved.
+    let first = json_of(t.user_post(&format!("/v1/me/connect/{first_code}/approve"), json!({"policy":{"mode":"ask"}})).await).await;
+    assert_eq!(first["policy"]["mode"], "ask");
+    let first_id = first["id"].as_str().unwrap();
+    assert_eq!(t.c.delete(format!("{}/v1/me/grants/{first_id}", t.base)).bearer_auth(&t.sess).send().await.unwrap().status(), 204);
+
+    // Any grant history counts, including revoked grants and grants for another vendor.
+    let later_code = new_code(&t, secret, "anthropic").await;
+    let later_preview = t.user_get(&format!("/v1/me/connect/{later_code}")).await;
+    assert_eq!(later_preview["requires_ask"], false);
+    let later = t.user_post(&format!("/v1/me/connect/{later_code}/approve"), json!({"policy":{"mode":"trust"}})).await;
+    assert_eq!(later.status(), 200);
+
+    // History is scoped to the authenticated user, even for the same app.
+    let other = json_of(t.c.post(format!("{}/v1/auth/dev", t.base)).json(&json!({"email":"other@b.co"})).send().await.unwrap()).await;
+    let other_session = other["session_token"].as_str().unwrap();
+    let key = t.c.put(format!("{}/v1/me/keys/openai", t.base)).bearer_auth(other_session).json(&json!({"api_key":"sk-other-SECRET1234"})).send().await.unwrap();
+    assert_eq!(key.status(), 200);
+    let other_code = new_code(&t, secret, "openai").await;
+    let preview = t.c.get(format!("{}/v1/me/connect/{other_code}", t.base)).bearer_auth(other_session).send().await.unwrap();
+    let preview = json_of(preview).await;
+    assert_eq!(preview["requires_ask"], true);
+    let rejected = t.c.post(format!("{}/v1/me/connect/{other_code}/approve", t.base)).bearer_auth(other_session)
+        .json(&json!({"policy":{"mode":"count","remaining_count":3}})).send().await.unwrap();
+    assert_eq!(rejected.status(), 400);
+    assert_eq!(json_of(rejected).await["error"]["type"], "policy_not_allowed_yet");
 }
 
 #[tokio::test]
@@ -854,7 +908,15 @@ async fn public_client_connect_and_cors() {
     let prev = t.user_get(&format!("/v1/me/connect/{code}")).await;
     assert_eq!(prev["origin"], ORIGIN);
     assert_eq!(prev["app"]["name"], "Static");
-    assert_eq!(t.user_post(&format!("/v1/me/connect/{code}/approve"), json!({"policy": {"mode": "trust"}})).await.status(), 200);
+    assert_eq!(prev["requires_ask"], true);
+    let denied_wide = t.user_post(&format!("/v1/me/connect/{code}/approve"), json!({"policy": {"mode": "trust"}})).await;
+    assert_eq!(denied_wide.status(), 400);
+    assert_eq!(json_of(denied_wide).await["error"]["type"], "policy_not_allowed_yet");
+    let first_grant = json_of(t.user_post(&format!("/v1/me/connect/{code}/approve"), json!({"policy": {"mode": "ask"}})).await).await;
+    assert_eq!(first_grant["policy"]["mode"], "ask");
+    let r = t.c.patch(format!("{b}/v1/me/grants/{}", first_grant["id"].as_str().unwrap())).bearer_auth(&t.sess)
+        .json(&json!({"policy": {"mode": "trust"}})).send().await.unwrap();
+    assert_eq!(r.status(), 200);
     let p = json_of(poll(cs).await.unwrap()).await;
     let grant = p["grant_token"].as_str().unwrap();
     assert!(json_of(poll(cs).await.unwrap()).await.get("grant_token").is_none(), "token is shown once");

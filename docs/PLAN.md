@@ -37,8 +37,9 @@ Developer DX goal: **change one line — the base URL** — and use the official
 1. **Register app** — developer calls `POST /v1/apps` → `app_id` + `app_secret`.
 2. **Connect a user (device-code style, no web UI needed)** — developer backend calls
    `POST /v1/connect` → short `connect_code` (e.g. `MK-4F7Q`) + `connect_url` (universal link /
-   QR). User opens it in the iOS app, sees the app name + requested vendor, picks an initial
-   policy, approves. Developer polls `GET /v1/connect/{code}` → receives a `grant_token`.
+   QR). User opens it in the iOS app, sees the app name + requested vendor, and approves the
+   first grant for that app with `ask` (one phone approval per call). Afterward, the user can
+   widen the policy from Grants. Developer polls `GET /v1/connect/{code}` → receives a `grant_token`.
 3. **Call the model** — developer calls `POST /v1/openai/chat/completions` (or
    `/v1/anthropic/messages`) with `Authorization: Bearer mk_grant_…`. Server estimates cost,
    checks the grant policy:
@@ -120,7 +121,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned) |
 | DELETE | `/v1/me/keys/{vendor}` | |
 | POST | `/v1/me/devices` | `{apns_token}` |
-| GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin}` (`origin` null for server apps) |
+| GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin, requires_ask}` (`origin` null for server apps; `requires_ask` is true when this user has no prior grant for this app) |
 | POST | `/v1/me/connect/{code}/approve` | `{policy}` → `Grant` |
 | POST | `/v1/me/connect/{code}/deny` | |
 | GET | `/v1/me/grants` | `[Grant]` |
@@ -134,6 +135,14 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 
 Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
 `mk_sess_` (so a leaked token is identifiable).
+
+**First-grant protection:** For a user and app pair, the first grant can only be approved with
+policy mode `ask`. Any earlier grant counts, including revoked grants and grants for another
+vendor. Other policy modes return `400 policy_not_allowed_yet`; the pending connect remains
+available to retry with `ask`. After approval, the user can deliberately widen the policy with
+`PATCH /v1/me/grants/{id}`. The preview's `requires_ask` reflects this same user+app history rule;
+approval checks it again transactionally, so the preview is guidance and the server remains
+authoritative if another grant is created concurrently.
 
 ## Milestones
 - **M0** plan + contract (this file) — both agents ACK.
