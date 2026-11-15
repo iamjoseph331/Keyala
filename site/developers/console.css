@@ -25,3 +25,8 @@
 
 .form-error[data-kind="info"]{color:var(--teal-strong)}
 @media(min-width:801px){.volume-card{grid-row:span 2}}
+.rotate-confirmation{width:min(460px,calc(100vw - 32px));padding:26px;border:1px solid var(--line);background:var(--white);color:var(--ink);box-shadow:0 22px 68px #10202b50}
+.rotate-confirmation::backdrop{background:#101c2880}
+.rotate-confirmation h2{margin:0;font:600 23px var(--display);letter-spacing:-.035em}
+.rotate-confirmation p{margin:12px 0;color:var(--muted);font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
