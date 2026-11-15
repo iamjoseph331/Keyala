@@ -45,6 +45,7 @@
         <label for="api-url">MasterKey API</label>
         <div class="api-input-wrap"><input id="api-url" name="api_url" type="url" value="https://masterkey-prod-vkgm.onrender.com" autocomplete="url" spellcheck="false" aria-describedby="api-help api-url-status"></div>
         <p id="api-help" class="field-help">Use the same server that issued your app token. For local testing, use http://127.0.0.1:8080.</p>
+        <p id="hosted-storage-note" class="field-help">The hosted free service clears report history, user grants, and provider keys when it restarts.</p>
         <p id="api-url-status" class="inline-status" aria-live="polite"></p>
       </div>
       <form id="register-form" class="form-grid" novalidate>
@@ -85,7 +86,6 @@
         <div class="field period-field"><label for="report-days">Time period</label><select id="report-days" name="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
         <button class="button button-bright report-action" type="submit">Load report <span aria-hidden="true">→</span></button>
         <button id="load-sample" class="sample-button" type="button">View sample report <span aria-hidden="true">↗</span></button>
-        <button id="rotate-token" class="sample-button" type="button">Token leaked? Rotate it</button>
       </form>
       <p id="console-status" class="console-status" role="status" aria-live="polite">Enter your app token to load its activity.</p>
       <section id="report" class="report-content" aria-labelledby="report-title" hidden>
@@ -130,6 +130,18 @@
     </section>
     <noscript><div class="noscript-note"><strong>JavaScript is required for the interactive console.</strong><span>You can still follow the <a href="../tutorials/">developer integration guide</a> to connect an app.</span></div></noscript>
   </main>
+  <dialog id="rotate-confirmation" class="rotate-confirmation" aria-labelledby="rotate-title">
+    <form method="dialog">
+      <h2 id="rotate-title">Rotate app token?</h2>
+      <p id="rotate-target"></p>
+      <p>The old token stops working immediately. Update every service that uses it.</p>
+      <p>After a database reset, the old token may work until you use the replacement. Use persistent storage for durable revocation.</p>
+      <div class="dialog-actions">
+        <button class="copy-button" value="cancel" autofocus>Cancel</button>
+        <button class="button button-bright primary-action" value="rotate">Rotate token</button>
+      </div>
+    </form>
+  </dialog>
   <footer class="console-footer"><a class="footer-wordmark" href="../">masterkey</a><span>Open source, self-hostable, user-controlled.</span><a href="../tutorials/">Developer guide <span aria-hidden="true">↗</span></a></footer>
 </body>
 </html>

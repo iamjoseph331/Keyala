@@ -180,6 +180,7 @@ reply = client.messages.create(
         <h2 id="reports-title">Review usage and cost</h2>
         <p>Open the <a href="../developers/#report-setup-title">developer console</a>, enter the app token for the same server, and pick a range. Daily request volume, known model costs, and model and country tables are scoped to that app.</p>
         <p>Known cost uses vendor-reported usage. The estimate is the pre-call reservation, and some completed requests have missing usage. Country is an approximation based on the phone network when the connection was approved. Unavailable locations appear as Unknown.</p>
+        <p>The hosted free service loses report history, grants, and provider keys on restart. A new app token can restore its app registration if the server keeps the same master key. Run with persistent storage to retain reports and ensure old tokens stay revoked after rotation.</p>
         <div class="code-block">
           <div class="code-label"><span>Fetch an aggregate report</span><span>Use the app token</span></div>
           <pre><code>curl -sS "$MK_URL/v1/app/report?days=30" \

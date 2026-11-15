@@ -7,6 +7,12 @@ const reportsForm = node("reports-form");
 const tokenInput = node("app-token");
 const periodInput = node("report-days");
 const status = node("console-status");
+const rotateButton = node("rotate-token");
+const rotateDialog = node("rotate-confirmation");
+const hostedServers = new Set([
+  "https://masterkey-prod-vkgm.onrender.com",
+  "https://masterkey-staging-vkgm.onrender.com",
+]);
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 const money = new Intl.NumberFormat("en-US", {
   style: "currency", currency: "USD", maximumFractionDigits: 6,
@@ -22,6 +28,7 @@ let created = null;
 let activeReport = null;
 let request = null;
 let registration = null;
+let activeApp = null;
 
 function message(element, text, kind = "info") {
   if (!element) return;
@@ -198,7 +205,8 @@ function renderReport(data, name, mode) {
     "total-denied": integer.format(totals.denied),
     "total-failed": integer.format(totals.failed),
     "total-uncertain": integer.format(totals.uncertain),
-    "total-users": `${integer.format(totals.users)}${totals.new_users > 0 ? ` (${integer.format(totals.new_users)} new)` : ""}`,
+    "total-users": integer.format(totals.users),
+    "total-new-users": integer.format(totals.new_users),
     "total-input-tokens": integer.format(totals.input_tokens),
     "total-output-tokens": integer.format(totals.output_tokens),
   };
@@ -209,6 +217,7 @@ function renderReport(data, name, mode) {
   fillRows("model-rows", rows(data.models, (item) => `${item.vendor} / ${item.model}`));
   drawChart(daily);
   node("report").hidden = false;
+  rotateButton.hidden = mode !== "live";
   activeReport = mode;
 }
 
@@ -231,7 +240,8 @@ function sampleReport(days) {
     totals: {
       requests, completed: requests - 6, denied: 3, failed: 2, uncertain: 1,
       cost_usd: actual, estimated_usd: actual * 1.4, unmetered: 2,
-      users: Math.ceil(requests / 4), input_tokens: requests * 112, output_tokens: requests * 32,
+      users: Math.ceil(requests / 4), new_users: Math.ceil(requests / 12),
+      input_tokens: requests * 112, output_tokens: requests * 32,
     },
     daily,
     countries: [
@@ -252,6 +262,7 @@ function clearReport() {
   setPending(reportsForm, false);
   node("report").hidden = true;
   activeReport = null;
+  activeApp = null;
 }
 
 async function loadReport() {
@@ -271,6 +282,7 @@ async function loadReport() {
     ]);
     if (request !== controller) return;
     renderReport(parseReport(data, app), app.name, "live");
+    activeApp = app;
     message(status, "Usage report loaded.");
   } catch (error) {
     if (request === controller) message(status, error.message, "error");
@@ -284,7 +296,7 @@ async function loadReport() {
 
 registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (registration) return;
+  if (registration || rotateButton.disabled) return;
   const controller = new AbortController();
   registration = controller;
   const output = node("creation-error") ?? status;
@@ -318,7 +330,7 @@ registerForm.addEventListener("submit", async (event) => {
 
 reportsForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  loadReport();
+  if (!rotateButton.disabled) loadReport();
 });
 node("load-sample").addEventListener("click", () => {
   clearReport();
@@ -345,8 +357,11 @@ apiInput.addEventListener("change", () => {
   message(node("creation-error"), "");
   message(status, "");
   try {
-    message(node("api-url-status"), `Using ${serverOrigin()}`);
+    const origin = serverOrigin();
+    node("hosted-storage-note").hidden = !hostedServers.has(origin);
+    message(node("api-url-status"), `Using ${origin}`);
   } catch (error) {
+    node("hosted-storage-note").hidden = true;
     message(node("api-url-status"), error.message, "error");
   }
 });
@@ -367,19 +382,39 @@ async function copy(value, label) {
 node("copy-id").addEventListener("click", () => copy(created?.app_id, "App ID"));
 node("copy-token").addEventListener("click", () => copy(created?.app_secret, "App token"));
 
-// Rotation: the old token stops working at once, the new one is shown here only.
-node("rotate-token").addEventListener("click", async () => {
+rotateButton.addEventListener("click", () => {
+  if (!activeApp || registration || rotateButton.disabled) return;
+  node("rotate-target").textContent = `App “${activeApp.name}” on ${serverOrigin()}`;
+  rotateDialog.returnValue = "";
+  rotateDialog.showModal();
+});
+
+rotateDialog.addEventListener("close", async () => {
+  if (rotateDialog.returnValue !== "rotate") return;
+  if (!activeApp || registration || rotateButton.disabled) return;
   const token = tokenInput.value.trim();
+  const app = activeApp;
+  const origin = serverOrigin();
   if (!isToken(token)) return message(status, "Paste the current app token first.", "error");
-  if (!confirm("Replace this app token? The current token stops working immediately, including on your servers.")) return;
+  const controls = [apiInput, tokenInput, periodInput, rotateButton, node("load-sample")];
+  controls.forEach((control) => { control.disabled = true; });
+  setPending(registerForm, true);
+  setPending(reportsForm, true);
+  message(status, "Rotating app token…");
   try {
-    const data = await call(serverOrigin(), "/v1/app/secret", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-    if (!isToken(data?.app_secret)) throw new Error("Unexpected rotation response.");
+    const data = await call(origin, "/v1/app/secret", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    if (!isToken(data.app_secret)) throw new Error("The server did not return a usable replacement token.");
+    created = { app_id: app.app_id, app_secret: data.app_secret };
     tokenInput.value = data.app_secret;
-    tokenInput.type = "text";
-    tokenInput.select();
-    message(status, "New app token is in the field. Copy it to your server's secret storage now; it is not shown again.", "success");
+    showCreatedCredentials();
+    message(status, "Token rotated. Update your services with the new token.");
+    message(node("creation-error"), "Replacement token created. Save it before you leave this page.");
+    node("copy-token").focus();
   } catch (error) {
     message(status, error.message, "error");
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+    setPending(registerForm, false);
+    setPending(reportsForm, false);
   }
 });
