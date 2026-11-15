@@ -179,4 +179,16 @@ struct Policy: Encodable {
     enum CodingKeys: String, CodingKey { case mode, expiresAt = "expires_at", remainingCount = "remaining_count", remainingUSD = "remaining_usd", alertUSDPerDay = "alert_usd_per_day" }
     static let once = Policy(mode: "ask")
 }
-struct DemoAuthResponse: Decodable { let sessionToken: String; enum CodingKeys: String, CodingKey { case sessionToken = "session_token" } }
+struct AccountProfile: Codable {
+    let id: String
+    let email: String
+
+    var displayEmail: String? { email.hasSuffix("@apple.invalid") ? nil : email }
+}
+
+struct AuthenticatedSession: Codable {
+    let sessionToken: String
+    let user: AccountProfile
+
+    enum CodingKeys: String, CodingKey { case user; case sessionToken = "session_token" }
+}

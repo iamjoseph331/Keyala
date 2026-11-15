@@ -2,6 +2,8 @@
 
 Native SwiftUI client, iOS 17 or newer. Demo mode starts with local sample data and never calls the server. For a live backend, turn demo mode off, enter the server URL, then sign in. HTTPS is required; HTTP is accepted only for loopback hosts when **Allow HTTP for localhost** is enabled.
 
+Use **Account** to sign in, view your profile, or choose **System**, **Light**, or **Dark** under Appearance. In **Requests → History**, tap a past request to inspect its full request and any recorded provider response.
+
 ## Signing and device services
 
 The release bundle identifier is `app.sorevan.masterkey`. Register it on the paid team with **Sign in with Apple** and **Push Notifications** enabled, and set the same value for `MK_APPLE_BUNDLE_ID` and `MK_APNS_TOPIC` on the server. Xcode development builds use sandbox APNs. TestFlight and App Store builds use production APNs.

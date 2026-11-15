@@ -39,14 +39,14 @@ struct InboxView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
-                PageHeader(eyebrow: "Your keys. Your call.", title: "Requests", subtitle: "Inspect every prompt before a call uses your key.")
+                PageHeader(eyebrow: "Your keys. Your call.", title: "Requests", subtitle: "Review pending calls and revisit past requests and responses.")
                 ModeBanner()
                 InfoBanner()
-                HStack {
-                    Text(showHistory ? "HISTORY" : "NEEDS YOUR REVIEW").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(MKStyle.muted)
-                    Spacer()
-                    Button(showHistory ? "Pending" : "History") { withAnimation(.snappy) { showHistory.toggle() } }.font(.subheadline.weight(.semibold))
+                Picker("Request list", selection: $showHistory) {
+                    Text("Pending").tag(false)
+                    Text("History").tag(true)
                 }
+                .pickerStyle(.segmented)
                 if visible.isEmpty {
                     Card { VStack(alignment: .leading, spacing: 10) { Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(MKStyle.teal); Text(showHistory ? (store.requests.isEmpty ? "No request history yet" : "No decided requests in this part of history") : "All clear").font(.headline); Text(showHistory ? "Older requests will load below when available." : "New requests appear here for your review.").font(.subheadline).foregroundStyle(MKStyle.muted) } }
                 }
@@ -72,6 +72,7 @@ struct InboxView: View {
             .sheet(item: $selected) { RequestDetailView(request: request(for: $0)) }
             .onChange(of: store.pendingRequestID) { _, _ in openNotificationRequest() }
             .onChange(of: store.requests.map(\.id)) { _, _ in openNotificationRequest() }
+            .onChange(of: store.contextGeneration) { _, _ in selected = nil }
             .onAppear { openNotificationRequest() }
     }
     private func openNotificationRequest() {
@@ -150,14 +151,20 @@ struct RequestDetailView: View {
                     if current.status == "uncertain" { Label("The provider may have processed this request and may have charged for it. MasterKey will not retry it automatically.", systemImage: "exclamationmark.triangle.fill").font(.footnote.weight(.medium)).foregroundStyle(.orange).padding(12).background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12)) }
                     if current.status == "sending" { Label("This request is being sent to the provider.", systemImage: "arrow.up.forward.circle").font(.footnote).foregroundStyle(MKStyle.teal) }
                     if loadingDetail { ProgressView("Loading exact request details…").tint(MKStyle.teal) }
-                    Text("EXACT REQUEST JSON").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
+                    Text("FULL REQUEST JSON").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
                     if let payload = current.payload {
-                        ScrollView([.horizontal, .vertical]) { Text(payload.prettyPrinted).font(.system(size: 12, weight: .regular, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.frame(minHeight: 170, maxHeight: 360).background(Color.black.opacity(0.32), in: RoundedRectangle(cornerRadius: 14))
+                        ScrollView([.horizontal, .vertical]) { Text(payload.prettyPrinted).font(.system(size: 12, weight: .regular, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.frame(minHeight: 170, maxHeight: 360).background(MKStyle.codeBackground, in: RoundedRectangle(cornerRadius: 14))
                     } else { Text("Full payload unavailable. Refresh before making a decision.").font(.footnote).foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12)) }
                     Text("Cost is a conservative reservation estimate, not a guarantee of the provider’s final charge.").font(.caption).foregroundStyle(MKStyle.muted)
+                    if current.status != "pending" {
+                        Text("FULL RESPONSE JSON").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
+                    }
                     if let response = current.response {
-                        Text("RESPONSE").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
-                        ScrollView(.horizontal) { Text(response.prettyPrinted).font(.system(size: 12, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.background(Color.black.opacity(0.32), in: RoundedRectangle(cornerRadius: 14))
+                        ScrollView(.horizontal) { Text(response.prettyPrinted).font(.system(size: 12, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.background(MKStyle.codeBackground, in: RoundedRectangle(cornerRadius: 14))
+                    } else if ["approved", "sending"].contains(current.status) {
+                        Text("Waiting for the provider response.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    } else if current.status != "pending", !loadingDetail {
+                        Text(current.error ?? "No provider response was recorded.").font(.footnote).foregroundStyle(MKStyle.muted)
                     }
                     if current.status == "pending" {
                         HStack(spacing: 12) {
@@ -167,10 +174,15 @@ struct RequestDetailView: View {
                     }
                 }.padding(20)
             }.background(MKStyle.navy.ignoresSafeArea()).navigationTitle("Request detail").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
-                .sheet(isPresented: $showPolicy) { ApprovalPolicyView { policy in Task { await store.decide(current, approve: true, policy: policy); showPolicy = false; dismiss() } } }
+                .sheet(isPresented: $showPolicy) {
+                    ApprovalPolicyView { policy in
+                        showPolicy = false
+                        Task { await store.decide(current, approve: true, policy: policy) }
+                    }
+                }
                 .task(id: "\(request.id):\(current.status)") { loadingDetail = true; await store.loadRequestDetails(id: current.id); loadingDetail = false }
                 .refreshable { await store.loadRequestDetails(id: current.id) }
-        }.preferredColorScheme(.dark)
+        }
     }
 }
 
@@ -201,7 +213,7 @@ struct ApprovalPolicyView: View {
                 }
             }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Approve request").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-        }.presentationDetents([.medium, .large]).preferredColorScheme(.dark)
+        }.presentationDetents([.medium, .large])
     }
 }
 
@@ -274,7 +286,67 @@ struct GrantDetailView: View {
             Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }
             Button(role: .destructive) { Task { await store.revoke(grant); dismiss() } } label: { Label("Revoke grant", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }
             Spacer()
-        }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }.sheet(isPresented: $showPolicy) { ApprovalPolicyView { policy in Task { await store.update(grant, policy: policy); showPolicy = false } } } }.preferredColorScheme(.dark)
+        }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }.sheet(isPresented: $showPolicy) { ApprovalPolicyView { policy in Task { await store.update(grant, policy: policy); showPolicy = false } } } }
+    }
+}
+
+struct AccountView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Form {
+            Section {
+                PageHeader(eyebrow: "MasterKey", title: "Account", subtitle: "Manage your sign-in and app appearance.")
+            }.listRowBackground(MKStyle.navy)
+            Section("Profile") {
+                if store.demoMode {
+                    Label("Demo workspace", systemImage: "person.crop.circle")
+                    Text("Turn off Demo mode in Settings to sign in.").font(.footnote).foregroundStyle(MKStyle.muted)
+                } else if let account = store.account {
+                    if let email = account.displayEmail {
+                        LabeledContent("Email", value: email)
+                    }
+                    LabeledContent("Account ID", value: account.id)
+                    LabeledContent("Server", value: store.serverURL)
+                    Button("Sign out", role: .destructive) { store.signOut() }
+                } else {
+                    SignInWithAppleButton(.signIn, onRequest: { $0.requestedScopes = [.email] }, onCompletion: handleAppleSignIn)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(height: 46)
+                        .disabled(store.busy)
+                }
+            }
+            if !store.demoMode, store.account == nil {
+                Section("Development sign-in") {
+                    TextField("Developer email", text: $store.email)
+                        .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button("Sign in to development server") {
+                        Task { store.saveSettings(); await store.signIn() }
+                    }.disabled(store.busy)
+                    Text("Available when the server enables development login.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }
+            Section("Appearance") { AppearancePicker() }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+    }
+
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+        do {
+            let authorization = try result.get()
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8) else {
+                store.errorMessage = "Apple did not return an identity token."
+                store.showError = true
+                return
+            }
+            Task { await store.signInApple(idToken: idToken) }
+        } catch {
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            store.errorMessage = error.localizedDescription
+            store.showError = true
+        }
     }
 }
 
@@ -282,9 +354,10 @@ struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var code = ""
     @State private var serverDraft = UserDefaults.standard.string(forKey: "serverURL") ?? "https://localhost:8443"
-    @State private var preview: ConnectPreview?
+    @State private var pairing: (code: String, preview: ConnectPreview)?
     @State private var showPairPolicy = false
-    @State private var pairPolicy = Policy.once
+    @State private var decidingPairing = false
+    private var enteredCode: String { code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
     var body: some View {
         Form {
             Section { PageHeader(eyebrow: "Connection", title: "Settings", subtitle: "Choose demo mode or connect to your server.") }.listRowBackground(MKStyle.navy)
@@ -297,31 +370,40 @@ struct SettingsView: View {
                     Button("Use this server") { store.serverURL = serverDraft.trimmingCharacters(in: .whitespacesAndNewlines); store.serverChanged(); store.saveSettings() }.disabled(serverDraft == store.serverURL)
                     Toggle("Allow HTTP for localhost", isOn: $store.allowLocalHTTP).onChange(of: store.allowLocalHTTP) { _, _ in store.saveSettings() }
                     Text("Use only for a local development server. Remote HTTP URLs are always rejected.").font(.footnote).foregroundStyle(MKStyle.muted)
-                    TextField("Developer email", text: $store.email).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    Button(store.connected ? "Refresh connection" : "Sign in (development server)") { Task { store.saveSettings(); await store.signIn() } }
-                    SignInWithAppleButton(.signIn, onRequest: { request in request.requestedScopes = [.email] }, onCompletion: { result in
-                        switch result {
-                        case .success(let authorization):
-                            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                                  let tokenData = credential.identityToken, let idToken = String(data: tokenData, encoding: .utf8) else { store.errorMessage = "Apple did not return an identity token."; store.showError = true; return }
-                            Task { await store.signInApple(idToken: idToken) }
-                        case .failure(let error): store.errorMessage = error.localizedDescription; store.showError = true
-                        }
-                    }).signInWithAppleButtonStyle(.white).frame(height: 46)
-                    if store.connected { Button("Sign out", role: .destructive) { store.signOut() } }
-                    Text("Development login works only when the server explicitly enables it.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    if store.account == nil {
+                        Text("Sign in from the Account tab.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    }
                 }
             }
             Section("Connect an app") {
-                HStack { TextField("Code, e.g. MK-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled(); Button("Preview") { Task { preview = await store.connectPreview(code: code.trimmingCharacters(in: .whitespacesAndNewlines)) } }.disabled(code.isEmpty) }
-                if let preview {
+                HStack {
+                    TextField("Code, e.g. MK-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                    Button("Preview") { loadCode(enteredCode) }.disabled(enteredCode.isEmpty || decidingPairing)
+                }
+                if let pairing, pairing.code == enteredCode {
+                    let preview = pairing.preview
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(preview.app.name).font(.headline)
-                        if let homepage = preview.app.homepage { Text(homepage).font(.caption).foregroundStyle(MKStyle.muted).textSelection(.enabled) }
+                        Text(preview.app.name).font(.title3.bold())
+                        if let host = preview.sourceHost {
+                            Label("From \(host)", systemImage: "globe").font(.headline).textSelection(.enabled)
+                            Text("Check that this host matches the page you’re using before approving.").font(.footnote).foregroundStyle(MKStyle.muted)
+                        } else {
+                            Label("Unverified app: name chosen by the developer", systemImage: "exclamationmark.triangle")
+                                .font(.footnote.weight(.semibold)).foregroundStyle(MKStyle.warning)
+                        }
                         Text("Requests access to your \(preview.vendor.title) key.").font(.subheadline).foregroundStyle(MKStyle.muted)
-                        if let mode = preview.suggestedPolicy?.mode { Text("Suggested access: \(mode.capitalized). Review the scope before approving.").font(.caption).foregroundStyle(MKStyle.muted) }
-                        Text("Developer-provided identity. MasterKey has not verified this app or website.").font(.footnote.weight(.medium)).foregroundStyle(.orange)
-                        HStack { Button("Deny", role: .destructive) { Task { await store.connectDecision(code: code, approve: false, policy: .once); self.preview = nil } }; Spacer(); Button("Choose access and approve") { showPairPolicy = true }.fontWeight(.bold) }
+                        if preview.requiresAsk != false {
+                            Text("Approve calls one at a time. You can widen access later in Grants.").font(.footnote).foregroundStyle(MKStyle.muted)
+                        }
+                        HStack {
+                            Button("Deny", role: .destructive) { decidePairing(code: pairing.code, approve: false) }
+                            Spacer()
+                            if preview.requiresAsk == false {
+                                Button("Choose access") { showPairPolicy = true }.fontWeight(.bold)
+                            } else {
+                                Button("Connect and ask each time") { decidePairing(code: pairing.code, approve: true) }.fontWeight(.bold)
+                            }
+                        }.buttonStyle(.borderless).disabled(decidingPairing)
                     }
                 }
             }
@@ -335,9 +417,33 @@ struct SettingsView: View {
             .onChange(of: store.pendingConnectCode) { _, value in
                 guard let value else { return }; loadCode(value)
             }
-            .sheet(isPresented: $showPairPolicy) { ApprovalPolicyView { policy in Task { await store.connectDecision(code: code, approve: true, policy: policy); showPairPolicy = false; preview = nil } } }
+            .onChange(of: store.contextGeneration) { _, _ in pairing = nil; showPairPolicy = false }
+            .sheet(isPresented: $showPairPolicy) {
+                ApprovalPolicyView { policy in
+                    showPairPolicy = false
+                    guard let pairing, pairing.code == enteredCode else { return }
+                    decidePairing(code: pairing.code, approve: true, policy: policy)
+                }
+            }
     }
-    private func loadCode(_ value: String) { code = value; Task { preview = await store.connectPreview(code: value); store.pendingConnectCode = nil } }
+    private func loadCode(_ value: String) {
+        code = value
+        pairing = nil
+        store.pendingConnectCode = nil
+        Task {
+            guard let preview = await store.connectPreview(code: value), enteredCode == value else { return }
+            pairing = (value, preview)
+        }
+    }
+    private func decidePairing(code: String, approve: Bool, policy: Policy = .once) {
+        decidingPairing = true
+        Task {
+            defer { decidingPairing = false }
+            if await store.connectDecision(code: code, approve: approve, policy: policy), pairing?.code == code {
+                pairing = nil
+            }
+        }
+    }
 }
 
 private extension String {
