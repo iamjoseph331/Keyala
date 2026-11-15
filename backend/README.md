@@ -27,6 +27,7 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `MK_APNS_TOPIC` | `app.masterkey.ios` | `apns-topic` (bundle id) |
 | `MK_APNS_SANDBOX` | off | `1` = api.sandbox.push.apple.com |
 | `MK_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
+| `MK_PUBLIC_APPS` | unset | JSON array of browser apps `[{"id":"app_x","name":"X","homepage":null,"allowed_origins":["https://x.github.io"]}]`, upserted on every start (survives the free-plan DB reset) so a static page can ship a fixed `app_id` |
 | `MK_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `MK_MOCK_FAIL` yields a 500) |
 
 `POST /v1/auth/apple` verifies Apple identity tokens; Google sign-in is not implemented. APNs push is optional (see env).

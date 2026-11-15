@@ -35,6 +35,8 @@ services:
         value: "0"
       - key: MK_APPLE_BUNDLE_ID
         value: app.masterkey.ios
+      - key: MK_PUBLIC_APPS # browser apps re-created on every start (data resets on free plan)
+        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/","allowed_origins":["https://iamjoseph331.github.io"]}]'
       - key: MK_APNS_TOPIC
         value: app.masterkey.ios
       - key: MK_APNS_SANDBOX # App Store / TestFlight builds use production APNs
@@ -70,6 +72,8 @@ services:
         value: "0"
       - key: MK_APPLE_BUNDLE_ID
         value: app.masterkey.ios
+      - key: MK_PUBLIC_APPS # browser apps re-created on every start (data resets on free plan)
+        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/","allowed_origins":["https://iamjoseph331.github.io"]}]'
       - key: MK_APNS_TOPIC
         value: app.masterkey.ios
       - key: MK_APNS_SANDBOX # Xcode-installed development builds use sandbox APNs

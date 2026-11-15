@@ -20,33 +20,42 @@ fn not_found(what: &str) -> ApiError {
 
 // ---------- developer: apps & connect ----------
 
+/// ponytail: in-memory per-IP sliding window, resets on restart and is per-instance; move to SQLite/edge if abused.
+/// Behind a proxy (Render) the last X-Forwarded-For entry is the one the proxy added.
+fn rate_limit(s: &AppState, peer: SocketAddr, headers: &HeaderMap, bucket: &str, max: usize, window: u64, what: &str) -> R<()> {
+    let ip = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit(',').next()).map(|v| v.trim().to_string()).unwrap_or_else(|| peer.ip().to_string());
+    let mut l = s.app_limits.lock().unwrap();
+    let hits = l.entry(format!("{bucket}:{ip}")).or_default();
+    hits.retain(|t| t.elapsed() < Duration::from_secs(window));
+    if hits.len() >= max {
+        return Err(api(429, "rate_limited", format!("too many {what} from this address; try again later")));
+    }
+    hits.push(Instant::now());
+    Ok(())
+}
+
 #[derive(Deserialize)]
 pub struct NewApp {
     name: String,
     homepage: Option<String>,
     icon_url: Option<String>,
+    /// browser (public) client: web origins allowed to start a connect with just the app id
+    allowed_origins: Option<Vec<String>>,
 }
 
 pub async fn create_app(State(s): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, J(b): J<NewApp>) -> R<Json<Value>> {
-    // ponytail: in-memory per-IP limit (10/hour), resets on restart and is per-instance; move to SQLite/edge if abused.
-    // Behind a proxy (Render) the last X-Forwarded-For entry is the one the proxy added.
-    let ip = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit(',').next()).map(|v| v.trim().to_string()).unwrap_or_else(|| peer.ip().to_string());
-    {
-        let mut l = s.app_limits.lock().unwrap();
-        let hits = l.entry(ip).or_default();
-        hits.retain(|t| t.elapsed() < Duration::from_secs(3600));
-        if hits.len() >= 10 {
-            return Err(api(429, "rate_limited", "too many apps registered from this address; try again later"));
-        }
-        hits.push(Instant::now());
-    }
+    rate_limit(&s, peer, &headers, "apps", 10, 3600, "apps registered")?;
     let name = b.name.trim();
     if name.is_empty() || name.len() > 100 {
         return Err(bad("name is required (max 100 chars)"));
     }
+    if b.allowed_origins.as_deref().is_some_and(|o| !origins_ok(o)) {
+        return Err(bad("allowed_origins: 1-10 origins like https://example.com (http only for localhost), no path"));
+    }
+    let origins = b.allowed_origins.map(|o| serde_json::to_string(&o).unwrap_or_default());
     let (id, secret) = (new_id("app"), new_token("mk_app_"));
-    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,created_at) VALUES (?,?,?,?,?,?)")
-        .bind(&id).bind(name).bind(&b.homepage).bind(&b.icon_url).bind(hash_token(&secret)).bind(now())
+    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?,?)")
+        .bind(&id).bind(name).bind(&b.homepage).bind(&b.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now())
         .execute(&s.db).await?;
     Ok(Json(json!({"app_id": id, "app_secret": secret})))
 }
@@ -55,30 +64,56 @@ pub async fn create_app(State(s): State<AppState>, ConnectInfo(peer): ConnectInf
 pub struct NewConnect {
     vendor: String,
     suggested_policy: Option<PolicyIn>,
+    /// browser clients only: identifies the app instead of the app secret
+    app_id: Option<String>,
 }
 
-pub async fn create_connect(State(s): State<AppState>, headers: HeaderMap, J(b): J<NewConnect>) -> R<Json<Value>> {
-    let app_id = auth_app(&s, &headers).await?;
+pub async fn create_connect(State(s): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, J(b): J<NewConnect>) -> R<Json<Value>> {
+    // Server apps authenticate with the app secret. Browser apps send their app id, and the
+    // browser's Origin must be one the app registered. That binding is browser-enforced only (a
+    // non-browser client can forge Origin), so the phone shows the origin and every call still
+    // follows the policy the user approves. The grant goes to whoever holds `connect_secret`.
+    let (app_id, connect_secret, origin) = if headers.contains_key("authorization") {
+        (auth_app(&s, &headers).await?, None, None)
+    } else {
+        let app_id = b.app_id.as_deref().ok_or_else(|| api(401, "unauthorized", "send the app secret, or app_id from an allowed browser origin"))?;
+        let origin = headers.get("origin").and_then(|v| v.to_str().ok()).unwrap_or("");
+        let allowed: Option<String> = sqlx::query_scalar("SELECT allowed_origins FROM apps WHERE id=?").bind(app_id).fetch_optional(&s.db).await?.flatten();
+        let allowed: Vec<String> = allowed.and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+        if !allowed.iter().any(|o| o == origin) {
+            return Err(api(403, "origin_not_allowed", "this origin is not allowed for this app"));
+        }
+        rate_limit(&s, peer, &headers, "connect", 20, 600, "connect codes")?;
+        (app_id.to_string(), Some(new_token("mk_cs_")), Some(origin.to_string()))
+    };
     vendor_ok(&b.vendor)?;
     let p = b.suggested_policy.unwrap_or(PolicyIn { mode: "ask".into(), ..Default::default() }).parse()?;
     let sp = policy_json(&p.mode, p.count, p.micro, p.alert, &p.expires_at).to_string();
     let expires = after(600);
     for _ in 0..5 {
         let code = format!("MK-{}", (0..4).map(|_| CODE_ALPHABET[rand::Rng::gen_range(&mut rand::thread_rng(), 0..CODE_ALPHABET.len())] as char).collect::<String>());
-        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at) VALUES (?,?,?,?,?,?)")
-            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires)
+        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at,secret_hash,origin) VALUES (?,?,?,?,?,?,?,?)")
+            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires).bind(connect_secret.as_deref().map(hash_token)).bind(&origin)
             .execute(&s.db).await?;
         if r.rows_affected() == 1 {
-            return Ok(Json(json!({"connect_code": code, "connect_url": format!("{}/connect/{code}", s.cfg.public_url), "expires_at": expires})));
+            let mut v = json!({"connect_code": code, "connect_url": format!("{}/connect/{code}", s.cfg.public_url), "expires_at": expires});
+            if let Some(cs) = connect_secret {
+                v["connect_secret"] = cs.into();
+            }
+            return Ok(Json(v));
         }
     }
     Err(api(500, "internal", "could not allocate a connect code"))
 }
 
 pub async fn poll_connect(State(s): State<AppState>, headers: HeaderMap, Path(code): Path<String>) -> R<Json<Value>> {
-    let app_id = auth_app(&s, &headers).await?;
-    let (status, grant_id, exp): (String, Option<String>, String) = sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND app_id=?")
-        .bind(&code).bind(&app_id).fetch_optional(&s.db).await?.ok_or_else(|| not_found("connect code"))?;
+    let row: Option<(String, Option<String>, String)> = if let Some(cs) = bearer(&headers, "mk_cs_") {
+        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND secret_hash=?").bind(&code).bind(hash_token(cs)).fetch_optional(&s.db).await?
+    } else {
+        let app_id = auth_app(&s, &headers).await?;
+        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND app_id=?").bind(&code).bind(&app_id).fetch_optional(&s.db).await?
+    };
+    let (status, grant_id, exp) = row.ok_or_else(|| not_found("connect code"))?;
     if status == "pending" {
         let st = if exp.as_str() <= now().as_str() { "expired" } else { "pending" };
         return Ok(Json(json!({"status": st})));
@@ -215,13 +250,14 @@ struct ConnectRow {
     vendor: String,
     suggested_policy: String,
     expires_at: String,
+    origin: Option<String>,
     app_name: String,
     app_homepage: Option<String>,
     app_icon_url: Option<String>,
 }
 
 async fn pending_connect(s: &AppState, code: &str) -> R<ConnectRow> {
-    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
+    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, c.origin, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
         .bind(code).fetch_optional(&s.db).await?.ok_or_else(|| not_found("connect code"))?;
     if c.expires_at.as_str() <= now().as_str() {
         return Err(api(410, "expired", "connect code expired"));
@@ -233,7 +269,7 @@ pub async fn preview_connect(State(s): State<AppState>, h: HeaderMap, Path(code)
     auth_session(&s, &h).await?;
     let c = pending_connect(&s, &code).await?;
     let sp: Value = serde_json::from_str(&c.suggested_policy).unwrap_or(Value::Null);
-    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at})))
+    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin})))
 }
 
 #[derive(Deserialize)]
