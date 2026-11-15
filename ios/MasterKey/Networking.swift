@@ -23,19 +23,20 @@ enum APIError: LocalizedError {
 
 final class SessionVault {
     private let service = "app.masterkey.session"
-    func read(origin: String) -> String? {
+    func read(origin: String) -> AuthenticatedSession? {
         var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         query[kSecAttrAccount as String] = origin
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        return try? JSONDecoder().decode(AuthenticatedSession.self, from: data)
     }
-    func write(_ token: String?, origin: String) throws {
+    func write(_ session: AuthenticatedSession?, origin: String) throws {
+        let data = try session.map { try JSONEncoder().encode($0) }
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: origin]
         SecItemDelete(query as CFDictionary)
-        guard let token else { return }
-        var item = query; item[kSecValueData as String] = Data(token.utf8); item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        guard let data else { return }
+        var item = query; item[kSecValueData as String] = data; item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         let status = SecItemAdd(item as CFDictionary, nil)
         guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     }
@@ -92,13 +93,13 @@ final class APIClient {
         do { return try decoder.decode(T.self, from: data) } catch { throw APIError.invalidResponse }
     }
 
-    func devLogin(email: String) async throws -> String {
+    func devLogin(email: String) async throws -> AuthenticatedSession {
         struct LoginBody: Encodable { let email: String }
-        return try await send("/v1/auth/dev", method: "POST", body: LoginBody(email: email), authenticated: false, response: DemoAuthResponse.self).sessionToken
+        return try await send("/v1/auth/dev", method: "POST", body: LoginBody(email: email), authenticated: false)
     }
-    func appleLogin(idToken: String) async throws -> String {
+    func appleLogin(idToken: String) async throws -> AuthenticatedSession {
         struct LoginBody: Encodable { let idToken: String; enum CodingKeys: String, CodingKey { case idToken = "id_token" } }
-        return try await send("/v1/auth/apple", method: "POST", body: LoginBody(idToken: idToken), authenticated: false, response: DemoAuthResponse.self).sessionToken
+        return try await send("/v1/auth/apple", method: "POST", body: LoginBody(idToken: idToken), authenticated: false)
     }
     func requests(status: String? = nil, limit: Int = 100, beforeID: String? = nil) async throws -> [RequestRecord] {
         return try await send(Self.requestListPath(status: status, limit: limit, beforeID: beforeID), response: [RequestRecord].self)
@@ -149,6 +150,17 @@ struct EmptyResponse: Decodable { init() {} }
 struct ConnectPreview: Decodable {
     struct App: Decodable { let name: String; let homepage: String? }
     let app: App; let vendor: Provider; let suggestedPolicy: PolicyPreview?
-    enum CodingKeys: String, CodingKey { case app, vendor; case suggestedPolicy = "suggested_policy" }
+    var origin: String?
+    var requiresAsk: Bool?
+
+    var sourceHost: String? {
+        guard let origin, let url = URLComponents(string: origin), let host = url.host else { return nil }
+        return url.port.map { "\(host):\($0)" } ?? host
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case app, vendor, origin
+        case suggestedPolicy = "suggested_policy", requiresAsk = "requires_ask"
+    }
 }
 struct PolicyPreview: Decodable { let mode: String?; let remainingCount: Int?; enum CodingKeys: String, CodingKey { case mode; case remainingCount = "remaining_count" } }

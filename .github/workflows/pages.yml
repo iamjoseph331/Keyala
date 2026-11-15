@@ -3,7 +3,7 @@ name: Publish developer page
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "examples/resume-tailor/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -26,9 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
+      # site/ at the root, static example apps under /examples/ (e.g. /examples/resume-tailor/)
+      - run: |
+          mkdir -p _site/examples
+          cp -R site/. _site/
+          cp -R examples/resume-tailor _site/examples/
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: _site
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4

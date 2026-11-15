@@ -36,7 +36,7 @@ second terminal. No real provider credits are used.
 
 Open [the iOS project](ios/MasterKey/MasterKey.xcodeproj) in Xcode and run it in a
 simulator. In Settings, turn off **Demo mode**, use `http://localhost:8080`, enable
-**Allow HTTP for localhost**, and sign in as `demo@masterkey.dev`. Connect from the
+**Allow HTTP for localhost**, and sign in as `demo@masterkey.dev` in **Account**. Connect from the
 chat example, review its code on the phone, then inspect and approve its request.
 See [iOS setup](ios/README.md) for signing and simulator-runtime notes.
 
@@ -44,6 +44,10 @@ Without Xcode, `bash sdk/demo.sh --simulate-phone` runs a script that plays the
 phone's part. That tests the backend and developer flow; it is not an iOS test.
 The example is a local, single-user demonstration, not a deployable multi-user
 application.
+
+## Example apps
+
+[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect their own OpenAI or Anthropic key through MasterKey and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/)
 
 ## From the running iOS app
 

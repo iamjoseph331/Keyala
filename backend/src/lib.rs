@@ -12,7 +12,8 @@ use aes_gcm::{
 use axum::{
     body::Bytes,
     extract::{FromRequest, Request},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, patch, post, put},
     Json, Router,
@@ -47,6 +48,35 @@ pub struct Config {
     /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
+    /// Browser apps declared by the operator (MK_PUBLIC_APPS), upserted on every start so they
+    /// survive a database reset (Render free plan). Lets a static page ship a fixed app id.
+    pub public_apps: Vec<PublicApp>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct PublicApp {
+    pub id: String,
+    pub name: String,
+    pub homepage: Option<String>,
+    pub allowed_origins: Vec<String>,
+}
+
+/// A web origin as browsers send it: `https://host[:port]`, or `http://` for localhost only. No path.
+pub fn origin_ok(o: &str) -> bool {
+    let (https, rest) = match (o.strip_prefix("https://"), o.strip_prefix("http://")) {
+        (Some(r), _) => (true, r),
+        (_, Some(r)) => (false, r),
+        _ => return false,
+    };
+    let host = match rest.rsplit_once(':') {
+        Some((h, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => h,
+        _ => rest,
+    };
+    let chars = rest.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-:[]".contains(&b));
+    o.len() <= 200 && !host.is_empty() && chars && (https || matches!(host, "localhost" | "127.0.0.1" | "[::1]"))
+}
+pub fn origins_ok(v: &[String]) -> bool {
+    !v.is_empty() && v.len() <= 10 && v.iter().all(|o| origin_ok(o))
 }
 
 impl Config {
@@ -67,6 +97,19 @@ impl Config {
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
+            public_apps: match env("MK_PUBLIC_APPS") {
+                None => vec![],
+                Some(j) => {
+                    let apps: Vec<PublicApp> = serde_json::from_str(&j).map_err(|_| "MK_PUBLIC_APPS must be a JSON array of {id, name, homepage?, allowed_origins}")?;
+                    for a in &apps {
+                        let id_ok = a.id.starts_with("app_") && a.id.len() <= 64 && a.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+                        if !id_ok || a.name.trim().is_empty() || a.name.len() > 100 || !origins_ok(&a.allowed_origins) {
+                            return Err(format!("MK_PUBLIC_APPS: invalid app '{}' (id app_[A-Za-z0-9_-], name 1-100 chars, 1-10 origins like https://example.com)", a.id));
+                        }
+                    }
+                    apps
+                }
+            },
             public_url: env("MK_PUBLIC_URL").or_else(|| env("RENDER_EXTERNAL_URL")).unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
         })
     }
@@ -108,6 +151,12 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         jwks: Default::default(),
         apns_jwt: Default::default(),
     });
+    for a in &state.cfg.public_apps {
+        // the secret is random and discarded: declared apps are browser-only
+        sqlx::query("INSERT INTO apps (id,name,homepage,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, homepage=excluded.homepage, allowed_origins=excluded.allowed_origins")
+            .bind(&a.id).bind(a.name.trim()).bind(&a.homepage).bind(hash_token(&new_token("mk_app_"))).bind(serde_json::to_string(&a.allowed_origins)?).bind(now())
+            .execute(&state.db).await?;
+    }
     if state.cfg.apns.is_none() {
         tracing::info!("APNs not configured (MK_APNS_*): push notifications are disabled");
     }
@@ -120,18 +169,43 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     Ok(state)
 }
 
+/// CORS for developer endpoints only. They authenticate with bearer tokens, never cookies, so
+/// allowing any origin exposes nothing a token holder couldn't already do; it lets static pages
+/// (public clients) call MasterKey directly. User endpoints (/v1/me) stay same-origin.
+async fn cors(req: Request, next: Next) -> Response {
+    let mut r = if req.method() == Method::OPTIONS {
+        let mut r = StatusCode::NO_CONTENT.into_response();
+        let h = r.headers_mut();
+        h.insert("access-control-allow-methods", HeaderValue::from_static("GET, POST, OPTIONS"));
+        h.insert("access-control-max-age", HeaderValue::from_static("600"));
+        if let Some(v) = req.headers().get("access-control-request-headers") {
+            h.insert("access-control-allow-headers", v.clone());
+        }
+        r
+    } else {
+        next.run(req).await
+    };
+    let h = r.headers_mut();
+    h.insert("access-control-allow-origin", HeaderValue::from_static("*"));
+    h.insert("access-control-expose-headers", HeaderValue::from_static("x-masterkey-request-id"));
+    r
+}
+
 pub fn router(state: AppState) -> Router {
     use routes::*;
-    Router::new()
-        .route("/healthz", get(|| async { "ok" }))
-        .route("/connect/{code}", get(connect_page))
-        .route("/v1/apps", post(create_app))
+    let developer = Router::new()
         .route("/v1/connect", post(create_connect))
         .route("/v1/connect/{code}", get(poll_connect))
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
         .route("/v1/requests/{id}", get(proxy::poll_request))
+        .layer(middleware::from_fn(cors));
+    Router::new()
+        .merge(developer)
+        .route("/healthz", get(|| async { "ok" }))
+        .route("/connect/{code}", get(connect_page))
+        .route("/v1/apps", post(create_app))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/me/keys", get(list_keys))
@@ -233,7 +307,7 @@ pub fn key_aad(user: &str, vendor: &str) -> String {
 
 // ---------- auth ----------
 
-fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
+pub(crate) fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
     h.get("authorization")?.to_str().ok()?.strip_prefix("Bearer ").map(str::trim).filter(|t| t.starts_with(prefix))
 }
 fn unauthorized() -> ApiError {

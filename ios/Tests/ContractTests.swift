@@ -4,6 +4,14 @@ import Foundation
 enum ContractTests {
     static func main() throws {
         let decoder = JSONDecoder()
+        let login = try decoder.decode(AuthenticatedSession.self, from: Data(#"{"session_token":"mk_sess_test","user":{"id":"usr_test","email":"preview@example.invalid"}}"#.utf8))
+        let restored = try decoder.decode(AuthenticatedSession.self, from: JSONEncoder().encode(login))
+        precondition(restored.user.id == "usr_test" && restored.user.displayEmail == "preview@example.invalid")
+        precondition(AccountProfile(id: "usr_apple", email: "placeholder@apple.invalid").displayEmail == nil)
+        let browserPreview = try decoder.decode(ConnectPreview.self, from: Data(#"{"app":{"name":"Resume Tailor"},"vendor":"openai","origin":"https://example.invalid:8443","requires_ask":true}"#.utf8))
+        precondition(browserPreview.sourceHost == "example.invalid:8443" && browserPreview.requiresAsk == true)
+        let serverPreview = try decoder.decode(ConnectPreview.self, from: Data(#"{"app":{"name":"Example app"},"vendor":"anthropic","origin":null,"requires_ask":false}"#.utf8))
+        precondition(serverPreview.sourceHost == nil && serverPreview.requiresAsk == false)
         let summary = #"{"id":"req-1","grant_id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","model":"gpt-4.1-mini","endpoint":"/v1/openai/chat/completions","status":"pending","estimated_usd":0.000028,"actual_usd":null,"created_at":"2026-11-14T08:22:00Z"}"#.data(using: .utf8)!
         let request = try decoder.decode(RequestRecord.self, from: summary)
         precondition(request.status == "pending" && request.payload == nil)
