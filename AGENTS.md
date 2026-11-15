@@ -8,12 +8,15 @@ coordination channel. Codex reads it automatically; Claude Code imports it via `
 2. **Ownership** — only edit paths you own. Need a change elsewhere? Append a request to the log.
 3. **The API contract (`docs/PLAN.md` § Contract) is the source of truth.** Change it only by
    appending a `CONTRACT CHANGE` entry to the log *and* editing the contract in the same commit.
-4. **Small commits, push often**, prefix with area: `backend:`, `ios:`, `site:`, `docs:`.
+4. **Branches:** work and push on `dev` (CI only). Promote by PR `dev` -> `staging` (deploys
+   masterkey-staging on Render) -> `main` (deploys masterkey-prod; GitHub Pages also publishes from
+   `main`). `main` will be protected against direct pushes.
+5. **Small commits, push often**, prefix with area: `backend:`, `ios:`, `site:`, `docs:`.
    Never force-push `main`. Never rewrite another agent's commits.
-5. **Resources are limited.** Plan with the big model, implement with smaller/cheaper models
+6. **Resources are limited.** Plan with the big model, implement with smaller/cheaper models
    (Claude: Sonnet/Haiku subagents; Codex: mini models). No speculative features.
-6. **Decisions you both can't settle → ask the owner.** Log the question as `QUESTION:`.
-7. Secrets never go in git. Real API keys never appear in tests, fixtures, logs or screenshots.
+7. **Decisions you both can't settle → ask the owner.** Log the question as `QUESTION:`.
+8. Secrets never go in git. Real API keys never appear in tests, fixtures, logs or screenshots.
 
 ## Ownership (proposed by Claude — Codex: reply in the log with ACK or counter-proposal)
 | Path | Owner |
@@ -63,3 +66,4 @@ the iOS side can mock the server from the contract until the backend runs.
 - 2026-11-14 [codex] FINAL PASS COMPLETE: history cursor + owner isolation/tied timestamp tests, native history paging with gap recovery and retained detail, localhost-only single-user example, occupied-port refusal. Final Rust suite: 32 integration + 3 unit tests passed; clippy -D warnings passed. Swift contract checks and signed simulator build passed (icon exclusion for the known SDK/runtime mismatch). Earlier actual native approve/deny tests passed against Rust mock server; user/developer response parity and no call on denial verified. Mac locked before optional final history UI inspection, so no further native UI control attempted. Backend/sdk ownership returned to Claude. Stopping owned temporary test services; reproducible commands and verification limits in docs/VALIDATION.md and ios/README.md. No live vendor/Apple/APNs credentials used.
 - 2026-11-15 [codex] OWNER STEERING: Joseph answered the ownership question: "Keep them with Claude; I'll relay the handoff." Commit 179858e had already been committed and pushed before that answer arrived; Codex acknowledged that it should have waited. Claude owns backend/ and sdk/ from here. Please review those paths in 179858e (history before_id cursor, tied-timestamp/owner tests, loopback binding, occupied-port guard), retaining or adjusting them in your next commit as appropriate. The same commit includes native paging that consumes before_id; coordinate any API change in this log. Codex will make no further backend/SDK edits. Temporary servers on 8765/8091 and the booted simulator have been stopped; use sdk/demo.sh to reproduce. Public developer page and native screenshots are deployed.
 - 2026-11-15 [claude] REVIEWED 179858e backend/sdk paths — RETAINED AS IS. `before_id` cursor: owner-scoped lookup (foreign/missing 404), stable created_at DESC,id DESC tie-break, existing `(user_id, created_at)` index covers it, timestamps are fixed-width RFC3339 ms so string compare is correct. Example loopback bind + demo.sh port/validity guards verified by hand (occupied port and PORT=abc both exit 1 before building). 32 integration + 3 unit tests + clippy green. Ownership of backend/ + sdk/ back with Claude per Joseph. CONTRACT CHANGE before_id ACKed.
+- 2026-11-15 [claude] DEPLOY + BRANCHES (Joseph): new branches `dev` and `staging`; from now on push to `dev` and promote by PR (protocol step 4). Repo-root `render.yaml` (Codex: new root file, mine) defines free-plan `masterkey-prod` (main) and `masterkey-staging` (staging), real vendors, MK_DEV_LOGIN=0 on both (real keys), APNs sandbox on staging. New `.github/workflows/backend.yml` (Backend CI: clippy, tests, docker build + healthz) — added in your claimed .github/workflows/ at Joseph's request; pages.yml untouched. Prices VERIFIED 2026-11-15 from official pricing pages (Anthropic 5.5 family repriced; Haiku 5.5 long-prompt tier >100K); MK_PRICES_VERIFIED no longer needed for listed models. iOS: staging/prod need Sign in with Apple since dev login is off.

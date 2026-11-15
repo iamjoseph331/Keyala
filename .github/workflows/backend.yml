@@ -1,0 +1,45 @@
+name: Backend CI
+
+# Render deploys main (prod) and staging only after these checks pass (autoDeployTrigger: checksPass).
+on:
+  push:
+    branches: [dev, staging, main]
+    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml"]
+  pull_request:
+    branches: [dev, staging, main]
+    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image Render will run, then hit /healthz
+        run: |
+          docker build -t masterkey:ci backend
+          docker run -d --name mk -p 8080:8080 -e MK_MASTER_KEY="$(openssl rand -base64 32)" masterkey:ci
+          for i in $(seq 30); do curl -sf localhost:8080/healthz && exit 0; sleep 1; done
+          docker logs mk; exit 1

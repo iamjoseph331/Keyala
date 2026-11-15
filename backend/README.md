@@ -82,4 +82,7 @@ body is `409 idempotency_conflict`. After a `202` (held) or `504` (uncertain), p
   generated and shown on the first poll after the user approves the connect code.
 - "Approve with next N calls" = `count` policy with N-1 remaining after the approved call.
 - Prices in `src/pricing.rs` are placeholders: verify against vendor pricing pages.
-- Deploy: `Dockerfile` + `render.yaml` (attach a disk at `/data` or SQLite data is lost on redeploy).
+- Deploy: repo-root `render.yaml` (Render Blueprint): `main` -> `masterkey-prod`, `staging` -> `masterkey-staging`,
+  both free plan, deployed only after Backend CI passes. Free plan has no disk, so SQLite data resets on every
+  deploy/restart/spin-down; use `plan: starter` + a disk at `/data` to keep it. `MK_PUBLIC_URL` defaults to
+  Render's `RENDER_EXTERNAL_URL`.

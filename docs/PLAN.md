@@ -138,8 +138,9 @@ Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app
 - **M3 connect pairing** — QR / universal link + code entry; `sdk/` example app ("Chat with your
   own key") demonstrating the full loop.
 - **M4 real-world** — Sign in with Apple, APNs (owner has a paid Apple Developer account),
-  Dockerfile + `render.yaml` (owner deploys to Render for live testing; SQLite needs a Render
-  persistent disk or data resets on redeploy).
+  Dockerfile + repo-root `render.yaml`: free-plan `masterkey-prod` (branch `main`) and
+  `masterkey-staging` (branch `staging`), real vendors, deploy after CI passes. No disk on free plan:
+  data resets on every deploy/restart.
 - **M5 launch page** — `site/` with hero, 30-s demo video (simulator recording of the example
   app + phone approval side by side), quickstart, trust model. README mirrors it.
 

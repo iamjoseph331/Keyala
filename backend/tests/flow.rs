@@ -504,11 +504,15 @@ async fn policy_validation() {
 }
 
 #[tokio::test]
-async fn unverified_prices_fail_closed_outside_mock() {
+async fn verified_prices_work_outside_mock_and_haiku_long_prompt_tier() {
+    use masterkey_server::pricing::{actual_cost, lookup, validate};
     let mut body = json!({"model": "gpt-4o", "messages": [{"role": "user", "content": "x"}]});
-    let e = masterkey_server::pricing::validate("openai", &mut body, false).err().unwrap();
-    assert_eq!(e.1, "model_not_priced");
-    assert!(masterkey_server::pricing::validate("openai", &mut body, true).is_ok());
+    assert!(validate("openai", &mut body, false).is_ok(), "verified models must not need MK_PRICES_VERIFIED");
+    let h = lookup("anthropic", "claude-haiku-5-5").unwrap();
+    // 100K input tokens: short tier $0.10 -> 10_000 micro; 100_001: long tier $0.50 -> 50_001 micro (ceil).
+    assert_eq!(actual_cost("anthropic", h, &json!({"usage": {"input_tokens": 100_000, "output_tokens": 0}})), Some(10_000));
+    assert_eq!(actual_cost("anthropic", h, &json!({"usage": {"input_tokens": 100_001, "output_tokens": 0}})), Some(50_001));
+    assert_eq!(actual_cost("anthropic", h, &json!({"usage": {"input_tokens": 200_000, "output_tokens": 1_000_000}})), Some(100_000 + 2_500_000));
 }
 
 /// helper: make a pending request on an ask grant and force it to `approved` in the DB (simulates a
@@ -710,7 +714,8 @@ async fn reservation_is_a_real_upper_bound() {
         let mut norm = body.clone();
         let chk = masterkey_server::pricing::validate("openai", &mut norm, true).unwrap();
         let sent_bytes = norm.to_string().len() as i64;
-        let ceiling = masterkey_server::pricing::cost(sent_bytes, chk.model.in_price) + masterkey_server::pricing::cost(50, chk.model.out_price);
+        let (ip, op) = chk.model.rates(sent_bytes);
+        let ceiling = masterkey_server::pricing::cost(sent_bytes, ip) + masterkey_server::pricing::cost(50, op);
         assert!(chk.estimate_micro >= ceiling, "case {i}: {} < {ceiling}", chk.estimate_micro);
         // mock reports prompt_tokens = payload bytes (worst case): actual must never exceed the reservation
         let r = t.chat(&tok, 0, body).await;

@@ -10,22 +10,38 @@ pub struct Model {
     pub out_price: i64,
     pub default_max: i64,
     pub max_cap: i64,
-    /// operator has checked these prices against the vendor pricing page
+    /// prompts with more than LONG_PROMPT input tokens bill at these rates instead (0 = no tier)
+    pub long_in: i64,
+    pub long_out: i64,
+    /// prices checked against the vendor pricing page; unverified models need MK_PRICES_VERIFIED=1
     pub verified: bool,
 }
 
-// PLACEHOLDER PRICES: verify against the vendors' pricing pages before any real deployment.
+pub const LONG_PROMPT: i64 = 100_000;
+
+impl Model {
+    /// (input, output) micro-USD per million tokens for a prompt of `in_tokens`.
+    pub fn rates(&self, in_tokens: i64) -> (i64, i64) {
+        if self.long_in > 0 && in_tokens > LONG_PROMPT { (self.long_in, self.long_out) } else { (self.in_price, self.out_price) }
+    }
+}
+
+// Verified 2026-11-15 (standard tier, USD per 1M tokens, no cache/batch discounts):
+//   https://developers.openai.com/api/docs/pricing
+//   https://platform.claude.com/docs/en/about-claude/pricing
+// When adding a model, leave `verified: false` until its price is checked the same way.
 const fn m(vendor: &'static str, name: &'static str, i: i64, o: i64) -> Model {
-    Model { vendor, name, in_price: i, out_price: o, default_max: 1024, max_cap: 4096, verified: false }
+    Model { vendor, name, in_price: i, out_price: o, default_max: 1024, max_cap: 4096, long_in: 0, long_out: 0, verified: true }
 }
 pub static MODELS: &[Model] = &[
     m("openai", "gpt-4o", 2_500_000, 10_000_000),
     m("openai", "gpt-4o-mini", 150_000, 600_000),
     m("openai", "gpt-4.1", 2_000_000, 8_000_000),
     m("openai", "gpt-4.1-mini", 400_000, 1_600_000),
-    m("anthropic", "claude-opus-5-5", 15_000_000, 75_000_000),
-    m("anthropic", "claude-sonnet-5-5", 3_000_000, 15_000_000),
-    m("anthropic", "claude-haiku-5-5", 1_000_000, 5_000_000),
+    m("anthropic", "claude-opus-5-5", 4_000_000, 20_000_000),
+    m("anthropic", "claude-sonnet-5-5", 2_000_000, 10_000_000),
+    // Haiku 5.5 bills prompts over 100K tokens at $0.50 / $2.50.
+    Model { long_in: 500_000, long_out: 2_500_000, ..m("anthropic", "claude-haiku-5-5", 100_000, 500_000) },
 ];
 
 pub fn lookup(vendor: &str, name: &str) -> Option<&'static Model> {
@@ -167,12 +183,16 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
     let n_msgs = msgs.len() as i64;
     let json_bytes = serde_json::to_string(&*body).map(|s| s.len()).unwrap_or(usize::MAX / 4) as i64; // exactly what is forwarded
     let in_tokens = json_bytes + 16 * n_msgs + 64;
-    Ok(Checked { model, estimate_micro: cost(in_tokens, model.in_price) + cost(max_tokens, model.out_price) })
+    // the estimate overcounts input tokens, so picking the tier from it is also conservative.
+    let (ip, op) = model.rates(in_tokens);
+    Ok(Checked { model, estimate_micro: cost(in_tokens, ip) + cost(max_tokens, op) })
 }
 
 /// Actual cost from the vendor `usage` block; None when usage is missing.
 pub fn actual_cost(vendor: &str, model: &Model, resp: &Value) -> Option<i64> {
     let u = resp.get("usage")?;
     let (i, o) = if vendor == "openai" { ("prompt_tokens", "completion_tokens") } else { ("input_tokens", "output_tokens") };
-    Some(cost(u.get(i)?.as_i64()?, model.in_price) + cost(u.get(o)?.as_i64()?, model.out_price))
+    let (it, ot) = (u.get(i)?.as_i64()?, u.get(o)?.as_i64()?);
+    let (ip, op) = model.rates(it);
+    Some(cost(it, ip) + cost(ot, op))
 }

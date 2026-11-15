@@ -67,7 +67,7 @@ impl Config {
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
-            public_url: env("MK_PUBLIC_URL").unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
+            public_url: env("MK_PUBLIC_URL").or_else(|| env("RENDER_EXTERNAL_URL")).unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
         })
     }
 }
