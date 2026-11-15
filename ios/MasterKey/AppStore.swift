@@ -23,12 +23,13 @@ import AuthenticationServices
     @Published var pendingConnectCode: String?
     @Published var pendingRequestID: String?
     private let vault = SessionVault()
-    private var sessionToken: String?
+    @Published private var session: AuthenticatedSession?
+    var account: AccountProfile? { session?.user }
     private var demoLoaded = false
-    private var contextGeneration = 0
+    @Published private(set) var contextGeneration = 0
     private let requestPageSize = 100
     private var requestHistoryCursor = RequestHistoryCursor()
-    private var client: APIClient { APIClient(baseURL: serverURL, allowLocalHTTP: allowLocalHTTP, token: sessionToken) }
+    private var client: APIClient { APIClient(baseURL: serverURL, allowLocalHTTP: allowLocalHTTP, token: session?.sessionToken) }
     private var origin: String {
         guard let url = URL(string: serverURL), let scheme = url.scheme, let host = url.host else { return serverURL }
         let port = url.port.map { ":\($0)" } ?? ""
@@ -36,8 +37,9 @@ import AuthenticationServices
     }
 
     func start() async {
-        sessionToken = vault.read(origin: origin)
-        if demoMode { loadDemo() } else if sessionToken != nil { await refresh() }
+        if demoMode { loadDemo(); return }
+        session = vault.read(origin: origin)
+        if session != nil { await refresh() }
     }
     func saveSettings() {
         UserDefaults.standard.set(demoMode, forKey: "demoMode")
@@ -46,45 +48,50 @@ import AuthenticationServices
         UserDefaults.standard.set(email, forKey: "email")
     }
     func setDemo(_ value: Bool) async {
-        contextGeneration += 1
-        resetRequestPaging()
+        signOut()
         demoMode = value; saveSettings()
-        if value { sessionToken = nil; try? vault.write(nil, origin: origin); connected = false; demoLoaded = false; loadDemo() }
-        else { keys = []; grants = []; connected = sessionToken != nil; if connected { await refresh() } }
+        if value { demoLoaded = false; loadDemo() }
     }
     func signIn() async {
-        guard !demoMode else { infoMessage = "Demo workspace is local sample data. No server session was created."; return }
-        contextGeneration += 1
-        let generation = contextGeneration
-        let loginOrigin = origin
-        let api = client
-        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []
-        busy = true; defer { busy = false }
-        do {
-            let token = try await api.devLogin(email: email)
-            guard generation == contextGeneration, !demoMode, origin == loginOrigin else { return }
-            try vault.write(token, origin: loginOrigin); sessionToken = token; connected = true
-            infoMessage = "Connected. Session token saved to this device’s Keychain."; await refresh()
-        }
-        catch { report(error) }
+        let address = email
+        await signIn { try await $0.devLogin(email: address) }
     }
     func signInApple(idToken: String) async {
-        guard !demoMode else { infoMessage = "Apple sign-in is unavailable in the local demo workspace."; return }
-        contextGeneration += 1
-        let generation = contextGeneration; let loginOrigin = origin; let api = client
-        try? vault.write(nil, origin: loginOrigin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []
-        do {
-            let token = try await api.appleLogin(idToken: idToken)
-            guard generation == contextGeneration, !demoMode, origin == loginOrigin else { return }
-            try vault.write(token, origin: loginOrigin); sessionToken = token; connected = true; await refresh()
-        }
-        catch { report(error) }
+        await signIn { try await $0.appleLogin(idToken: idToken) }
     }
-    func signOut() { contextGeneration += 1; try? vault.write(nil, origin: origin); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = [] }
-    func serverChanged() { contextGeneration += 1; vault.clear(); sessionToken = nil; connected = false; resetRequestPaging(); keys = []; grants = []; infoMessage = "Server changed. Sign in again to load that server’s account." }
+    private func signIn(using authenticate: (APIClient) async throws -> AuthenticatedSession) async {
+        guard !demoMode, !busy else { return }
+        signOut()
+        let generation = contextGeneration
+        let loginOrigin = origin
+        busy = true
+        defer { busy = false }
+        do {
+            let result = try await authenticate(client)
+            guard generation == contextGeneration, !demoMode, origin == loginOrigin else { return }
+            try vault.write(result, origin: loginOrigin)
+            session = result
+            await refresh()
+        }
+        catch { if generation == contextGeneration { report(error) } }
+    }
+    func signOut() {
+        contextGeneration += 1
+        try? vault.write(nil, origin: origin)
+        session = nil
+        connected = false
+        resetRequestPaging()
+        keys = []
+        grants = []
+    }
+    func serverChanged() {
+        vault.clear()
+        signOut()
+        infoMessage = "Server changed. Sign in again to load that server’s account."
+    }
     func refresh() async {
         if demoMode { if !demoLoaded { loadDemo() }; return }
-        guard sessionToken != nil else { return }
+        guard session != nil else { return }
         let generation = contextGeneration; let api = client
         do {
             async let req = api.requests(limit: requestPageSize)
@@ -98,7 +105,11 @@ import AuthenticationServices
             hasOlderRequests = requestHistoryCursor.hasMore
             keys = newKeys; grants = newGrants
             connected = true
-        } catch { report(error) }
+        } catch {
+            guard generation == contextGeneration else { return }
+            if case APIError.unauthorized = error { signOut() }
+            report(error)
+        }
     }
     func loadOlderRequests() async {
         guard !demoMode, !isLoadingOlderRequests, hasOlderRequests else { return }
@@ -129,14 +140,22 @@ import AuthenticationServices
         }
         guard !approve || request.payload != nil else { report(APIError.http(0, "The full request payload has not loaded. Open the request details and refresh before deciding.")); return }
         let generation = contextGeneration; let api = client
-        do { _ = try await api.decide(id: request.id, approve: approve, policy: policy); guard generation == contextGeneration else { return }; infoMessage = approve ? "Request approved." : "Request denied."; await refresh() }
-        catch { report(error) }
+        do {
+            let detail = try await api.decide(id: request.id, approve: approve, policy: policy)
+            guard generation == contextGeneration else { return }
+            requests = RequestHistory.merging(existing: requests, incoming: [detail])
+            infoMessage = approve ? "Request approved." : "Request denied."
+            await refresh()
+        } catch { if generation == contextGeneration { report(error) } }
     }
     func loadRequestDetails(id: String) async {
         guard !demoMode else { return }
         let generation = contextGeneration; let api = client
-        do { let detail = try await api.request(id: id); guard generation == contextGeneration else { return }; if let index = requests.firstIndex(where: { $0.id == id }) { requests[index] = detail } }
-        catch { report(error) }
+        do {
+            let detail = try await api.request(id: id)
+            guard generation == contextGeneration, !Task.isCancelled else { return }
+            requests = RequestHistory.merging(existing: requests, incoming: [detail])
+        } catch { if generation == contextGeneration, !Task.isCancelled { report(error) } }
     }
     func addKey(provider: Provider, value: String, label: String) async {
         guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { report(APIError.http(0, "Enter an API key.")); return }
@@ -164,7 +183,7 @@ import AuthenticationServices
         catch { report(error) }
     }
     func connectPreview(code: String) async -> ConnectPreview? {
-        if demoMode { return ConnectPreview(app: .init(name: "Sketchpad AI (DEMO)", homepage: "https://example.invalid"), vendor: .openAI, suggestedPolicy: .init(mode: "ask", remainingCount: nil)) }
+        if demoMode { return ConnectPreview(app: .init(name: "Sketchpad AI (DEMO)", homepage: nil), vendor: .openAI, suggestedPolicy: nil, origin: "https://example.invalid", requiresAsk: true) }
         let generation = contextGeneration; let api = client
         do { let preview = try await api.connectPreview(code: code); guard generation == contextGeneration else { return nil }; return preview } catch { if generation == contextGeneration { report(error) }; return nil }
     }
@@ -183,11 +202,22 @@ import AuthenticationServices
         guard code.range(of: "^[A-Z0-9-]{4,24}$", options: .regularExpression) != nil else { return }
         pendingConnectCode = code
     }
-    func connectDecision(code: String, approve: Bool, policy: Policy) async {
-        if demoMode { infoMessage = "Demo pairing action is local only. No grant token or connection was created."; return }
+    func connectDecision(code: String, approve: Bool, policy: Policy) async -> Bool {
+        if demoMode {
+            infoMessage = "Demo pairing action is local only. No grant token or connection was created."
+            return true
+        }
         let generation = contextGeneration; let api = client
-        do { try await api.connectDecision(code: code, approve: approve, policy: policy); guard generation == contextGeneration else { return }; infoMessage = approve ? "App connected." : "Connection denied."; await refresh() }
-        catch { report(error) }
+        do {
+            try await api.connectDecision(code: code, approve: approve, policy: policy)
+            guard generation == contextGeneration else { return false }
+            infoMessage = approve ? "App connected." : "Connection denied."
+            await refresh()
+            return generation == contextGeneration
+        } catch {
+            if generation == contextGeneration { report(error) }
+            return false
+        }
     }
     func requestNotifications() async {
         let center = UNUserNotificationCenter.current()
@@ -199,7 +229,7 @@ import AuthenticationServices
         } catch { report(error) }
     }
     func uploadDeviceToken(_ token: String) async {
-        guard !demoMode, sessionToken != nil else { return }
+        guard !demoMode, session != nil else { return }
         let generation = contextGeneration; let api = client
         do { try await api.registerDevice(token: token); guard generation == contextGeneration else { return }; infoMessage = "This device is registered for push notifications." }
         catch { report(error) }

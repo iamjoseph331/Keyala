@@ -37,8 +37,9 @@ Developer DX goal: **change one line — the base URL** — and use the official
 1. **Register app** — developer calls `POST /v1/apps` → `app_id` + `app_secret`.
 2. **Connect a user (device-code style, no web UI needed)** — developer backend calls
    `POST /v1/connect` → short `connect_code` (e.g. `MK-4F7Q`) + `connect_url` (universal link /
-   QR). User opens it in the iOS app, sees the app name + requested vendor, picks an initial
-   policy, approves. Developer polls `GET /v1/connect/{code}` → receives a `grant_token`.
+   QR). User opens it in the iOS app, sees the app name + requested vendor, and approves the
+   first grant for that app with `ask` (one phone approval per call). Afterward, the user can
+   widen the policy from Grants. Developer polls `GET /v1/connect/{code}` → receives a `grant_token`.
 3. **Call the model** — developer calls `POST /v1/openai/chat/completions` (or
    `/v1/anthropic/messages`) with `Authorization: Bearer mk_grant_…`. Server estimates cost,
    checks the grant policy:
@@ -93,12 +94,44 @@ Key      { "vendor", "last4", "created_at" }
 ### Developer-facing
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?}` → `{app_id, app_secret}` |
-| POST | `/v1/connect` | app secret | `{vendor, suggested_policy?}` → `{connect_code, connect_url, expires_at}` (10 min) |
-| GET | `/v1/connect/{code}` | app secret | `{status: pending\|approved\|denied\|expired, grant_token?}` |
+| POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?, allowed_origins?}` → `{app_id, app_secret}` |
+| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, expires_at}` (10 min). Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
+| GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?}` |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
 | GET | `/v1/requests/{id}` | grant | `{status, response?}` |
+| GET | `/v1/app` | app secret | `{app_id, name, homepage, icon_url, allowed_origins, created_at}` |
+| POST | `/v1/app/secret` | app secret | rotate: `{app_secret}`; the old secret stops working at once |
+| GET | `/v1/app/report?days=30` | app secret | usage report for the last `days` (1-365, UTC days, today included), see below |
+
+**Browser (public) clients:** an app registered with `allowed_origins` (1-10 origins like `https://x.github.io`,
+`http://` only for localhost; or declared by the operator in `MK_PUBLIC_APPS`) can run entirely in a static page:
+connect with its `app_id`, claim the grant with `connect_secret`, keep the grant in the browser. Developer endpoints
+(`/v1/apps`, `/v1/app*`, `/v1/connect*`, proxy, and `/v1/requests/*`) answer CORS with
+`Access-Control-Allow-Origin: *`. Authenticated developer routes use bearer tokens. `/v1/me/*` has no CORS.
+The browser pairing preview shows `origin` because only browsers enforce that header.
+
+**App secrets survive a database reset:** `app_secret` is opaque and carries the app record sealed
+(AES-GCM) with the server's master key. If the server's database was wiped (Render free plan) but the master key
+is unchanged, the first call with the secret re-creates the app with its name, homepage and origins. Rotation bumps a
+generation: after a reset, a rotated secret supersedes older ones as soon as it is used. User grants, keys and report
+history are not recoverable this way; users reconnect.
+
+**Developer report** (`GET /v1/app/report`), aggregates only, never user ids, emails, prompts or responses:
+```jsonc
+{ "app_id", "days": 30, "from": "2026-10-17", "to": "2026-11-15",
+  "totals":  { "requests", "completed", "denied", "expired", "failed", "uncertain", "pending",
+               "cost_usd",        // sum of vendor-reported cost of completed calls
+               "estimated_usd",   // sum of pre-call estimates of every approved call
+               "unmetered",       // completed calls whose vendor response had no usage
+               "input_tokens", "output_tokens", "users", "new_users" },
+  "daily":     [{ "date": "2026-11-15", "requests", "completed", "cost_usd" }],      // every day, zeros included
+  "models":    [{ "vendor", "model", "requests", "completed", "cost_usd", "input_tokens", "output_tokens" }],
+  "countries": [{ "country": "JP" | null, "users", "requests", "cost_usd" }] }  // most requests first
+```
+`country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
+operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
+the IP. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the
@@ -114,7 +147,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned) |
 | DELETE | `/v1/me/keys/{vendor}` | |
 | POST | `/v1/me/devices` | `{apns_token}` |
-| GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy}` |
+| GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin, requires_ask}` (`origin` null for server apps; `requires_ask` is true when this user has no prior grant for this app) |
 | POST | `/v1/me/connect/{code}/approve` | `{policy}` → `Grant` |
 | POST | `/v1/me/connect/{code}/deny` | |
 | GET | `/v1/me/grants` | `[Grant]` |
@@ -128,6 +161,14 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 
 Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
 `mk_sess_` (so a leaked token is identifiable).
+
+**First-grant protection:** For a user and app pair, the first grant can only be approved with
+policy mode `ask`. Any earlier grant counts, including revoked grants and grants for another
+vendor. Other policy modes return `400 policy_not_allowed_yet`; the pending connect remains
+available to retry with `ask`. After approval, the user can deliberately widen the policy with
+`PATCH /v1/me/grants/{id}`. The preview's `requires_ask` reflects this same user+app history rule;
+approval checks it again transactionally, so the preview is guidance and the server remains
+authoritative if another grant is created concurrently.
 
 ## Milestones
 - **M0** plan + contract (this file) — both agents ACK.

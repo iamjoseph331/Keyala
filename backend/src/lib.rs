@@ -12,7 +12,8 @@ use aes_gcm::{
 use axum::{
     body::Bytes,
     extract::{FromRequest, Request},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, patch, post, put},
     Json, Router,
@@ -21,7 +22,7 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqliteConnectOptions, SqliteConnection, SqlitePool};
@@ -47,6 +48,38 @@ pub struct Config {
     /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
+    /// Browser apps declared by the operator (MK_PUBLIC_APPS), upserted on every start so they
+    /// survive a database reset (Render free plan). Lets a static page ship a fixed app id.
+    pub public_apps: Vec<PublicApp>,
+    /// Header a trusted edge in front of the server sets to the client's country (MK_COUNTRY_HEADER,
+    /// e.g. cf-ipcountry). Unset = no country in reports; clients could otherwise forge it.
+    pub country_header: Option<String>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct PublicApp {
+    pub id: String,
+    pub name: String,
+    pub homepage: Option<String>,
+    pub allowed_origins: Vec<String>,
+}
+
+/// A web origin as browsers send it: `https://host[:port]`, or `http://` for localhost only. No path.
+pub fn origin_ok(o: &str) -> bool {
+    let (https, rest) = match (o.strip_prefix("https://"), o.strip_prefix("http://")) {
+        (Some(r), _) => (true, r),
+        (_, Some(r)) => (false, r),
+        _ => return false,
+    };
+    let host = match rest.rsplit_once(':') {
+        Some((h, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => h,
+        _ => rest,
+    };
+    let chars = rest.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-:[]".contains(&b));
+    o.len() <= 200 && !host.is_empty() && chars && (https || matches!(host, "localhost" | "127.0.0.1" | "[::1]"))
+}
+pub fn origins_ok(v: &[String]) -> bool {
+    !v.is_empty() && v.len() <= 10 && v.iter().all(|o| origin_ok(o))
 }
 
 impl Config {
@@ -67,6 +100,20 @@ impl Config {
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
+            country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
+            public_apps: match env("MK_PUBLIC_APPS") {
+                None => vec![],
+                Some(j) => {
+                    let apps: Vec<PublicApp> = serde_json::from_str(&j).map_err(|_| "MK_PUBLIC_APPS must be a JSON array of {id, name, homepage?, allowed_origins}")?;
+                    for a in &apps {
+                        let id_ok = a.id.starts_with("app_") && a.id.len() <= 64 && a.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+                        if !id_ok || a.name.trim().is_empty() || a.name.len() > 100 || !origins_ok(&a.allowed_origins) {
+                            return Err(format!("MK_PUBLIC_APPS: invalid app '{}' (id app_[A-Za-z0-9_-], name 1-100 chars, 1-10 origins like https://example.com)", a.id));
+                        }
+                    }
+                    apps
+                }
+            },
             public_url: env("MK_PUBLIC_URL").or_else(|| env("RENDER_EXTERNAL_URL")).unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
         })
     }
@@ -108,6 +155,12 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         jwks: Default::default(),
         apns_jwt: Default::default(),
     });
+    for a in &state.cfg.public_apps {
+        // the secret is random and discarded: declared apps are browser-only
+        sqlx::query("INSERT INTO apps (id,name,homepage,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, homepage=excluded.homepage, allowed_origins=excluded.allowed_origins")
+            .bind(&a.id).bind(a.name.trim()).bind(&a.homepage).bind(hash_token(&new_token("mk_app_"))).bind(serde_json::to_string(&a.allowed_origins)?).bind(now())
+            .execute(&state.db).await?;
+    }
     if state.cfg.apns.is_none() {
         tracing::info!("APNs not configured (MK_APNS_*): push notifications are disabled");
     }
@@ -120,18 +173,46 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     Ok(state)
 }
 
+/// CORS for developer endpoints only. They authenticate with bearer tokens, never cookies, so
+/// allowing any origin exposes nothing a token holder couldn't already do; it lets static pages
+/// (public clients) call MasterKey directly. User endpoints (/v1/me) stay same-origin.
+async fn cors(req: Request, next: Next) -> Response {
+    let mut r = if req.method() == Method::OPTIONS {
+        let mut r = StatusCode::NO_CONTENT.into_response();
+        let h = r.headers_mut();
+        h.insert("access-control-allow-methods", HeaderValue::from_static("GET, POST, OPTIONS"));
+        h.insert("access-control-max-age", HeaderValue::from_static("600"));
+        if let Some(v) = req.headers().get("access-control-request-headers") {
+            h.insert("access-control-allow-headers", v.clone());
+        }
+        r
+    } else {
+        next.run(req).await
+    };
+    let h = r.headers_mut();
+    h.insert("access-control-allow-origin", HeaderValue::from_static("*"));
+    h.insert("access-control-expose-headers", HeaderValue::from_static("x-masterkey-request-id"));
+    r
+}
+
 pub fn router(state: AppState) -> Router {
     use routes::*;
-    Router::new()
-        .route("/healthz", get(|| async { "ok" }))
-        .route("/connect/{code}", get(connect_page))
-        .route("/v1/apps", post(create_app))
+    let developer = Router::new()
         .route("/v1/connect", post(create_connect))
         .route("/v1/connect/{code}", get(poll_connect))
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
         .route("/v1/requests/{id}", get(proxy::poll_request))
+        .route("/v1/apps", post(create_app))
+        .route("/v1/app", get(get_app))
+        .route("/v1/app/secret", post(rotate_secret))
+        .route("/v1/app/report", get(app_report))
+        .layer(middleware::from_fn(cors));
+    Router::new()
+        .merge(developer)
+        .route("/healthz", get(|| async { "ok" }))
+        .route("/connect/{code}", get(connect_page))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/me/keys", get(list_keys))
@@ -233,7 +314,7 @@ pub fn key_aad(user: &str, vendor: &str) -> String {
 
 // ---------- auth ----------
 
-fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
+pub(crate) fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
     h.get("authorization")?.to_str().ok()?.strip_prefix("Bearer ").map(str::trim).filter(|t| t.starts_with(prefix))
 }
 fn unauthorized() -> ApiError {
@@ -243,9 +324,43 @@ pub async fn auth_session(s: &AppState, h: &HeaderMap) -> R<String> {
     let t = bearer(h, "mk_sess_").ok_or_else(unauthorized)?;
     sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
 }
+/// What an app secret carries: the app record, sealed (AES-GCM) with the master key.
+#[derive(Serialize, Deserialize)]
+pub struct AppRecord {
+    pub id: String,
+    pub name: String,
+    pub homepage: Option<String>,
+    pub icon_url: Option<String>,
+    pub allowed_origins: Option<Vec<String>>,
+    pub gen: i64,
+}
+const APP_AAD: &str = "app-secret";
+pub fn seal_app(master: &[u8; 32], a: &AppRecord) -> String {
+    let (ct, nonce) = encrypt(master, APP_AAD, &serde_json::to_string(a).unwrap_or_default());
+    format!("mk_app_{}", URL_SAFE_NO_PAD.encode([nonce, ct].concat()))
+}
+fn open_app(master: &[u8; 32], t: &str) -> Option<AppRecord> {
+    let b = URL_SAFE_NO_PAD.decode(t.strip_prefix("mk_app_")?).ok()?;
+    if b.len() < 13 {
+        return None;
+    }
+    serde_json::from_str(&decrypt(master, APP_AAD, &b[12..], &b[..12])?).ok()
+}
+/// Known secret -> its app. Unknown but sealed by this server -> the database was reset (free
+/// plan), so re-create the app from the token. A rotated secret (higher gen) supersedes older ones;
+/// an older one is refused once a newer one has been seen since the reset.
 pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
     let t = bearer(h, "mk_app_").ok_or_else(unauthorized)?;
-    sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
+    if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await? {
+        return Ok(id);
+    }
+    let a = open_app(&s.cfg.master_key, t).ok_or_else(unauthorized)?;
+    let origins = a.allowed_origins.as_ref().map(|o| serde_json::to_string(o).unwrap_or_default());
+    let r = sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,secret_gen,created_at) VALUES (?,?,?,?,?,?,?,?) \
+                         ON CONFLICT(id) DO UPDATE SET secret_hash=excluded.secret_hash, secret_gen=excluded.secret_gen WHERE excluded.secret_gen > apps.secret_gen")
+        .bind(&a.id).bind(&a.name).bind(&a.homepage).bind(&a.icon_url).bind(hash_token(t)).bind(&origins).bind(a.gen).bind(now())
+        .execute(&s.db).await?;
+    if r.rows_affected() == 1 { Ok(a.id) } else { Err(unauthorized()) }
 }
 /// `x_api_key`: Anthropic proxy routes also accept the grant token in `x-api-key` (official SDK).
 pub async fn auth_grant(s: &AppState, h: &HeaderMap, x_api_key: bool) -> R<GrantRow> {

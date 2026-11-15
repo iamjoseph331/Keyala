@@ -20,13 +20,19 @@ and try the developer experience without connecting to a server or sending a req
 
 ## Implementation constraints
 
-- Plain HTML, CSS, and JavaScript with no build step, dependencies, or network calls.
+- Plain HTML, CSS, and JavaScript with no build step or runtime dependencies. The console makes explicit API requests to the server the developer selects.
 - All assets use relative paths so the site works at GitHub Pages `/MasterKey/`.
 - The demo is explicitly simulated and stores nothing. It uses no credentials and makes
   no network requests.
 - Code examples use placeholder environment variables and the documented v1 routes.
 - The page makes no production readiness, customer, or security guarantee claims.
 - Responsive layout, keyboard operation, visible focus, and reduced-motion support.
+
+## Developer console and tutorials
+
+- `developers/` creates a server or browser app and shows the app token once. The token stays in memory and is sent only as a bearer to the selected API origin for reports.
+- App reports cover request volume, known model cost, missing usage, status, and country. The sample report is labeled and loaded only on request.
+- `tutorials/` documents local mock development, pairing, OpenAI and Anthropic calls, polling, and static browser integration.
 
 ## Acceptance checks
 

@@ -20,33 +20,46 @@ fn not_found(what: &str) -> ApiError {
 
 // ---------- developer: apps & connect ----------
 
+/// ponytail: in-memory per-IP sliding window, resets on restart and is per-instance; move to SQLite/edge if abused.
+/// Behind a proxy (Render) the last X-Forwarded-For entry is the one the proxy added.
+fn rate_limit(s: &AppState, peer: SocketAddr, headers: &HeaderMap, bucket: &str, max: usize, window: u64, what: &str) -> R<()> {
+    let ip = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit(',').next()).map(|v| v.trim().to_string()).unwrap_or_else(|| peer.ip().to_string());
+    let mut l = s.app_limits.lock().unwrap();
+    let hits = l.entry(format!("{bucket}:{ip}")).or_default();
+    hits.retain(|t| t.elapsed() < Duration::from_secs(window));
+    if hits.len() >= max {
+        return Err(api(429, "rate_limited", format!("too many {what} from this address; try again later")));
+    }
+    hits.push(Instant::now());
+    Ok(())
+}
+
 #[derive(Deserialize)]
 pub struct NewApp {
     name: String,
     homepage: Option<String>,
     icon_url: Option<String>,
+    /// browser (public) client: web origins allowed to start a connect with just the app id
+    allowed_origins: Option<Vec<String>>,
 }
 
 pub async fn create_app(State(s): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, J(b): J<NewApp>) -> R<Json<Value>> {
-    // ponytail: in-memory per-IP limit (10/hour), resets on restart and is per-instance; move to SQLite/edge if abused.
-    // Behind a proxy (Render) the last X-Forwarded-For entry is the one the proxy added.
-    let ip = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit(',').next()).map(|v| v.trim().to_string()).unwrap_or_else(|| peer.ip().to_string());
-    {
-        let mut l = s.app_limits.lock().unwrap();
-        let hits = l.entry(ip).or_default();
-        hits.retain(|t| t.elapsed() < Duration::from_secs(3600));
-        if hits.len() >= 10 {
-            return Err(api(429, "rate_limited", "too many apps registered from this address; try again later"));
-        }
-        hits.push(Instant::now());
-    }
+    rate_limit(&s, peer, &headers, "apps", 10, 3600, "apps registered")?;
     let name = b.name.trim();
     if name.is_empty() || name.len() > 100 {
         return Err(bad("name is required (max 100 chars)"));
     }
-    let (id, secret) = (new_id("app"), new_token("mk_app_"));
-    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,created_at) VALUES (?,?,?,?,?,?)")
-        .bind(&id).bind(name).bind(&b.homepage).bind(&b.icon_url).bind(hash_token(&secret)).bind(now())
+    if b.allowed_origins.as_deref().is_some_and(|o| !origins_ok(o)) {
+        return Err(bad("allowed_origins: 1-10 origins like https://example.com (http only for localhost), no path"));
+    }
+    if [&b.homepage, &b.icon_url].iter().any(|u| u.as_ref().is_some_and(|u| u.len() > 300)) {
+        return Err(bad("homepage and icon_url: max 300 chars"));
+    }
+    let origins = b.allowed_origins.as_ref().map(|o| serde_json::to_string(o).unwrap_or_default());
+    let rec = AppRecord { id: new_id("app"), name: name.to_string(), homepage: b.homepage, icon_url: b.icon_url, allowed_origins: b.allowed_origins, gen: 0 };
+    let (id, secret) = (rec.id.clone(), seal_app(&s.cfg.master_key, &rec));
+    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?,?)")
+        .bind(&id).bind(&rec.name).bind(&rec.homepage).bind(&rec.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now())
         .execute(&s.db).await?;
     Ok(Json(json!({"app_id": id, "app_secret": secret})))
 }
@@ -55,30 +68,56 @@ pub async fn create_app(State(s): State<AppState>, ConnectInfo(peer): ConnectInf
 pub struct NewConnect {
     vendor: String,
     suggested_policy: Option<PolicyIn>,
+    /// browser clients only: identifies the app instead of the app secret
+    app_id: Option<String>,
 }
 
-pub async fn create_connect(State(s): State<AppState>, headers: HeaderMap, J(b): J<NewConnect>) -> R<Json<Value>> {
-    let app_id = auth_app(&s, &headers).await?;
+pub async fn create_connect(State(s): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, J(b): J<NewConnect>) -> R<Json<Value>> {
+    // Server apps authenticate with the app secret. Browser apps send their app id, and the
+    // browser's Origin must be one the app registered. That binding is browser-enforced only (a
+    // non-browser client can forge Origin), so the phone shows the origin and every call still
+    // follows the policy the user approves. The grant goes to whoever holds `connect_secret`.
+    let (app_id, connect_secret, origin) = if headers.contains_key("authorization") {
+        (auth_app(&s, &headers).await?, None, None)
+    } else {
+        let app_id = b.app_id.as_deref().ok_or_else(|| api(401, "unauthorized", "send the app secret, or app_id from an allowed browser origin"))?;
+        let origin = headers.get("origin").and_then(|v| v.to_str().ok()).unwrap_or("");
+        let allowed: Option<String> = sqlx::query_scalar("SELECT allowed_origins FROM apps WHERE id=?").bind(app_id).fetch_optional(&s.db).await?.flatten();
+        let allowed: Vec<String> = allowed.and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+        if !allowed.iter().any(|o| o == origin) {
+            return Err(api(403, "origin_not_allowed", "this origin is not allowed for this app"));
+        }
+        rate_limit(&s, peer, &headers, "connect", 20, 600, "connect codes")?;
+        (app_id.to_string(), Some(new_token("mk_cs_")), Some(origin.to_string()))
+    };
     vendor_ok(&b.vendor)?;
     let p = b.suggested_policy.unwrap_or(PolicyIn { mode: "ask".into(), ..Default::default() }).parse()?;
     let sp = policy_json(&p.mode, p.count, p.micro, p.alert, &p.expires_at).to_string();
     let expires = after(600);
     for _ in 0..5 {
         let code = format!("MK-{}", (0..4).map(|_| CODE_ALPHABET[rand::Rng::gen_range(&mut rand::thread_rng(), 0..CODE_ALPHABET.len())] as char).collect::<String>());
-        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at) VALUES (?,?,?,?,?,?)")
-            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires)
+        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at,secret_hash,origin) VALUES (?,?,?,?,?,?,?,?)")
+            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires).bind(connect_secret.as_deref().map(hash_token)).bind(&origin)
             .execute(&s.db).await?;
         if r.rows_affected() == 1 {
-            return Ok(Json(json!({"connect_code": code, "connect_url": format!("{}/connect/{code}", s.cfg.public_url), "expires_at": expires})));
+            let mut v = json!({"connect_code": code, "connect_url": format!("{}/connect/{code}", s.cfg.public_url), "expires_at": expires});
+            if let Some(cs) = connect_secret {
+                v["connect_secret"] = cs.into();
+            }
+            return Ok(Json(v));
         }
     }
     Err(api(500, "internal", "could not allocate a connect code"))
 }
 
 pub async fn poll_connect(State(s): State<AppState>, headers: HeaderMap, Path(code): Path<String>) -> R<Json<Value>> {
-    let app_id = auth_app(&s, &headers).await?;
-    let (status, grant_id, exp): (String, Option<String>, String) = sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND app_id=?")
-        .bind(&code).bind(&app_id).fetch_optional(&s.db).await?.ok_or_else(|| not_found("connect code"))?;
+    let row: Option<(String, Option<String>, String)> = if let Some(cs) = bearer(&headers, "mk_cs_") {
+        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND secret_hash=?").bind(&code).bind(hash_token(cs)).fetch_optional(&s.db).await?
+    } else {
+        let app_id = auth_app(&s, &headers).await?;
+        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND app_id=?").bind(&code).bind(&app_id).fetch_optional(&s.db).await?
+    };
+    let (status, grant_id, exp) = row.ok_or_else(|| not_found("connect code"))?;
     if status == "pending" {
         let st = if exp.as_str() <= now().as_str() { "expired" } else { "pending" };
         return Ok(Json(json!({"status": st})));
@@ -215,13 +254,14 @@ struct ConnectRow {
     vendor: String,
     suggested_policy: String,
     expires_at: String,
+    origin: Option<String>,
     app_name: String,
     app_homepage: Option<String>,
     app_icon_url: Option<String>,
 }
 
 async fn pending_connect(s: &AppState, code: &str) -> R<ConnectRow> {
-    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
+    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, c.origin, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
         .bind(code).fetch_optional(&s.db).await?.ok_or_else(|| not_found("connect code"))?;
     if c.expires_at.as_str() <= now().as_str() {
         return Err(api(410, "expired", "connect code expired"));
@@ -230,10 +270,12 @@ async fn pending_connect(s: &AppState, code: &str) -> R<ConnectRow> {
 }
 
 pub async fn preview_connect(State(s): State<AppState>, h: HeaderMap, Path(code): Path<String>) -> R<Json<Value>> {
-    auth_session(&s, &h).await?;
+    let u = auth_session(&s, &h).await?;
     let c = pending_connect(&s, &code).await?;
     let sp: Value = serde_json::from_str(&c.suggested_policy).unwrap_or(Value::Null);
-    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at})))
+    let has_prior_grant: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
+        .bind(&u).bind(&c.app_id).fetch_one(&s.db).await?;
+    Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin, "requires_ask": !has_prior_grant})))
 }
 
 #[derive(Deserialize)]
@@ -254,12 +296,19 @@ pub async fn approve_connect(State(s): State<AppState>, h: HeaderMap, Path(code)
     }
     let gid = new_id("grt");
     let mut tx = s.db.begin().await?;
-    // first statement is the write (single-use guard); also takes the SQLite write lock.
+    // First statement is the write (single-use guard), serializing concurrent approvals
+    // before checking history. If the policy is too broad, dropping this transaction rolls
+    // the status change back so the user can retry with ask.
     let r = sqlx::query("UPDATE connect_codes SET status='approved', grant_id=? WHERE code=? AND status='pending' AND expires_at>?").bind(&gid).bind(&code).bind(now()).execute(&mut *tx).await?;
     if r.rows_affected() != 1 {
         return Err(api(409, "already_used", "connect code already used or expired"));
     }
-    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at) VALUES (?,?,?,?,'ask',?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).execute(&mut *tx).await?;
+    let has_prior_grant: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
+        .bind(&u).bind(&c.app_id).fetch_one(&mut *tx).await?;
+    if !has_prior_grant && p.mode != "ask" {
+        return Err(api(400, "policy_not_allowed_yet", "approve calls one at a time first; widen the policy later from Grants"));
+    }
+    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at,country) VALUES (?,?,?,?,'ask',?,?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).bind(country(&s, &h)).execute(&mut *tx).await?;
     set_policy(&mut tx, &gid, &p).await?;
     tx.commit().await?;
     let g = grant_for_user(&s, &u, &gid).await?;
@@ -274,6 +323,82 @@ pub async fn deny_connect(State(s): State<AppState>, h: HeaderMap, Path(code): P
         return Err(not_found("connect code"));
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Country of the approving phone, from the operator's trusted edge header (MK_COUNTRY_HEADER).
+fn country(s: &AppState, h: &HeaderMap) -> Option<String> {
+    let c = h.get(s.cfg.country_header.as_deref()?)?.to_str().ok()?;
+    (c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphanumeric()) && c != "XX").then(|| c.to_ascii_uppercase())
+}
+
+// ---------- developer: app info, secret rotation, report ----------
+
+pub async fn get_app(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let (name, homepage, icon_url, origins, created_at): (String, Option<String>, Option<String>, Option<String>, String) =
+        sqlx::query_as("SELECT name, homepage, icon_url, allowed_origins, created_at FROM apps WHERE id=?").bind(&id).fetch_one(&s.db).await?;
+    let origins: Option<Value> = origins.and_then(|o| serde_json::from_str(&o).ok());
+    Ok(Json(json!({"app_id": id, "name": name, "homepage": homepage, "icon_url": icon_url, "allowed_origins": origins, "created_at": created_at})))
+}
+
+pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let (name, homepage, icon_url, origins, gen): (String, Option<String>, Option<String>, Option<String>, i64) =
+        sqlx::query_as("SELECT name, homepage, icon_url, allowed_origins, secret_gen FROM apps WHERE id=?").bind(&id).fetch_one(&s.db).await?;
+    let rec = AppRecord { id: id.clone(), name, homepage, icon_url, allowed_origins: origins.and_then(|o| serde_json::from_str(&o).ok()), gen: gen + 1 };
+    let secret = seal_app(&s.cfg.master_key, &rec);
+    sqlx::query("UPDATE apps SET secret_hash=?, secret_gen=? WHERE id=?").bind(hash_token(&secret)).bind(rec.gen).bind(&id).execute(&s.db).await?;
+    Ok(Json(json!({"app_secret": secret})))
+}
+
+pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query<HashMap<String, String>>) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let days: i64 = q.get("days").map(|d| d.parse().map_err(|_| bad("days must be 1-365"))).transpose()?.unwrap_or(30);
+    if !(1..=365).contains(&days) {
+        return Err(bad("days must be 1-365"));
+    }
+    let today = chrono::Utc::now().date_naive();
+    let from = today - chrono::Duration::days(days - 1);
+    let since = format!("{from}T00:00:00");
+    // tokens come from the stored vendor response (OpenAI prompt/completion, Anthropic input/output)
+    const TOK: &str = "COALESCE(json_extract(r.response,'$.usage.prompt_tokens'), json_extract(r.response,'$.usage.input_tokens'), 0)";
+    const OUT: &str = "COALESCE(json_extract(r.response,'$.usage.completion_tokens'), json_extract(r.response,'$.usage.output_tokens'), 0)";
+    let base = "FROM requests r JOIN grants g ON g.id=r.grant_id WHERE r.app_id=? AND r.created_at>=?";
+    let n = |st: &str| format!("SUM(r.status='{st}')");
+    type Totals = (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64);
+    let t: Totals = sqlx::query_as(&format!(
+        "SELECT COUNT(*), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), \
+         COALESCE(SUM(CASE WHEN r.status='completed' THEN r.actual_micro END),0), \
+         COALESCE(SUM(CASE WHEN r.decided_at IS NOT NULL AND r.status NOT IN ('denied','expired') THEN r.estimated_micro END),0), \
+         COALESCE(SUM(r.status='completed' AND r.actual_micro IS NULL),0), COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0), COUNT(DISTINCT r.user_id) {base}",
+        n("completed"), n("denied"), n("expired"), n("failed"), n("uncertain"), n("pending")))
+        .bind(&id).bind(&since).fetch_one(&s.db).await?;
+    let new_users: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT user_id) FROM grants WHERE app_id=? AND created_at>=? AND user_id NOT IN (SELECT user_id FROM grants WHERE app_id=? AND created_at<?)")
+        .bind(&id).bind(&since).bind(&id).bind(&since).fetch_one(&s.db).await?;
+    let cost = "COALESCE(SUM(CASE WHEN r.status='completed' THEN r.actual_micro END),0)";
+    let by_day: Vec<(String, i64, i64, i64)> = sqlx::query_as(&format!("SELECT substr(r.created_at,1,10) d, COUNT(*), SUM(r.status='completed'), {cost} {base} GROUP BY d"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let by_day: HashMap<String, (i64, i64, i64)> = by_day.into_iter().map(|(d, a, b, c)| (d, (a, b, c))).collect();
+    let daily: Vec<Value> = (0..days).map(|i| {
+        let d = (from + chrono::Duration::days(i)).to_string();
+        let (req, done, c) = by_day.get(&d).copied().unwrap_or_default();
+        json!({"date": d, "requests": req, "completed": done, "cost_usd": usd(c)})
+    }).collect();
+    let models: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT r.vendor, r.model, COUNT(*), SUM(r.status='completed'), {cost}, COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0) {base} GROUP BY r.vendor, r.model ORDER BY 5 DESC, 3 DESC"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let countries: Vec<(Option<String>, i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT g.country, COUNT(DISTINCT r.user_id), COUNT(*), {cost} {base} GROUP BY g.country ORDER BY 3 DESC, 4 DESC"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    Ok(Json(json!({
+        "app_id": id, "days": days, "from": from.to_string(), "to": today.to_string(),
+        "totals": {"requests": t.0, "completed": t.1, "denied": t.2, "expired": t.3, "failed": t.4, "uncertain": t.5, "pending": t.6,
+                   "cost_usd": usd(t.7), "estimated_usd": usd(t.8), "unmetered": t.9, "input_tokens": t.10, "output_tokens": t.11,
+                   "users": t.12, "new_users": new_users},
+        "daily": daily,
+        "models": models.into_iter().map(|(v, m, r, c, u, i, o)| json!({"vendor": v, "model": m, "requests": r, "completed": c, "cost_usd": usd(u), "input_tokens": i, "output_tokens": o})).collect::<Vec<_>>(),
+        "countries": countries.into_iter().map(|(c, u, r, m)| json!({"country": c, "users": u, "requests": r, "cost_usd": usd(m)})).collect::<Vec<_>>(),
+    })))
 }
 
 // ---------- user: grants ----------
