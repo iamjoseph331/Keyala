@@ -419,7 +419,7 @@
 <footer>
   <div class="container">
     <span>A MasterKey example app. Open source under Apache-2.0.</span>
-    <span>For developers: the whole AI integration is <code>new Anthropic({ baseURL: MK_URL + '/v1/anthropic', apiKey: grant })</code></span>
+    <span>For developers: a static page with no backend. Each AI call is <code>fetch(MK_URL + '/v1/anthropic/messages', { headers: { Authorization: 'Bearer ' + grant } })</code></span>
   </div>
 </footer>
 
@@ -443,10 +443,96 @@ const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic' };
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const api = async (path, body) => (await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+
+// ================= MasterKey: the whole backend of this app =================
+// A static page: no server, no API key. The visitor's own key stays in MasterKey; this page only
+// ever holds a grant token, and every call follows the policy the visitor approves on their phone.
+// Local testing (localhost only): ?mk=http://localhost:8080&app=app_resume_tailor
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const qs = new URLSearchParams(location.search);
+const MK_URL = ((LOCAL && qs.get('mk')) || 'https://masterkey-prod-vkgm.onrender.com').replace(/\/$/, '');
+const APP_ID = (LOCAL && qs.get('app')) || 'app_resume_tailor';
+
+// Must match the MasterKey server's allowlist (backend/src/pricing.rs). USD per 1M tokens, display only.
+const MODELS = [
+  { id: 'claude-sonnet-5-5', vendor: 'anthropic', label: 'Claude Sonnet 5.5', price: '$2 / $10' },
+  { id: 'claude-opus-5-5', vendor: 'anthropic', label: 'Claude Opus 5.5', price: '$4 / $20' },
+  { id: 'claude-haiku-5-5', vendor: 'anthropic', label: 'Claude Haiku 5.5', price: '$0.10 / $0.50' },
+  { id: 'gpt-4.1', vendor: 'openai', label: 'GPT-4.1', price: '$2 / $8' },
+  { id: 'gpt-4.1-mini', vendor: 'openai', label: 'GPT-4.1 mini', price: '$0.40 / $1.60' },
+  { id: 'gpt-4o', vendor: 'openai', label: 'GPT-4o', price: '$2.50 / $10' },
+  { id: 'gpt-4o-mini', vendor: 'openai', label: 'GPT-4o mini', price: '$0.15 / $0.60' },
+];
+const MAX_TOKENS = 4096; // the server's per-model output cap; a full resume fits
+
+// ponytail: grant tokens live in localStorage (per browser, per MasterKey server). Revoking in the app or a server reset just means reconnecting.
+const store = {
+  get: (v) => { try { return localStorage.getItem(`rt-grant:${MK_URL}:${v}`); } catch { return null; } },
+  set: (v, t) => { try { t ? localStorage.setItem(`rt-grant:${MK_URL}:${v}`, t) : localStorage.removeItem(`rt-grant:${MK_URL}:${v}`); } catch {} },
+};
+
+async function mk(path, { body, token, headers = {} } = {}) {
+  const auth = token ? { Authorization: 'Bearer ' + token } : {};
+  const r = await fetch(MK_URL + path, body === undefined ? { headers: { ...auth, ...headers } }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth, ...headers }, body: JSON.stringify(body) });
+  return { status: r.status, json: await r.json().catch(() => ({})) };
+}
+
+function failure(status, j = {}) {
+  const type = j.error?.type;
+  if (status === 403 && type === 'masterkey_denied') return { kind: 'denied', message: 'You denied this request in MasterKey.' };
+  if (status === 410) return { kind: 'expired', message: 'The request expired before you approved it.' };
+  if (status === 401) return { kind: 'disconnected', message: 'The MasterKey connection was revoked or reset. Connect again.' };
+  if (status === 504) return { kind: 'error', message: 'The AI provider did not answer in time. Check the result in your MasterKey app; it was not retried.' };
+  return { kind: 'error', message: j.error?.message || `MasterKey returned ${status}` };
+}
+
+// The app's actual value: the prompt. The visitor sees it on their phone before approving.
+function prompt({ resume, jd, language, tone, extra }) {
+  const system = [
+    'You are an expert resume writer and recruiter.',
+    "Rewrite the candidate's resume so it is tailored to the job description.",
+    'Rules: never invent employers, titles, dates, degrees, metrics or skills. Use only facts from the resume and the',
+    "additional experiences. Reorder, rephrase and emphasise what matches the job; mirror the job's key terms where",
+    'they truthfully apply; drop or shorten what is irrelevant. Keep it ATS-friendly: plain Markdown, one "#" name',
+    'heading, "##" section headings, "-" bullets, no tables, no images, no commentary before or after the resume.',
+    `Tone: ${tone}.`,
+    language ? `Write the entire resume in ${language}.` : 'Write the resume in the same language as the original resume.',
+  ].join(' ');
+  const user = [`<resume>\n${resume}\n</resume>`, extra ? `<additional_experiences>\n${extra}\n</additional_experiences>` : '', `<job_description>\n${jd}\n</job_description>`].filter(Boolean).join('\n\n');
+  return { system, user };
+}
+
+const textOf = (vendor, r) => vendor === 'openai' ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
+
+// One job: a plain OpenAI / Anthropic request, sent to MasterKey with the grant instead of an API key.
+// No retries: a slow approval returns 202 and we poll; the Idempotency-Key guards against double billing.
+async function tailor(model, input, idemKey) {
+  const token = store.get(model.vendor);
+  const { system, user } = prompt(input);
+  const [path, body] = model.vendor === 'openai'
+    ? ['/v1/openai/chat/completions', { model: model.id, max_tokens: MAX_TOKENS, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }]
+    : ['/v1/anthropic/messages', { model: model.id, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content: user }] }];
+  let r = await mk(path, { body, token, headers: { 'Idempotency-Key': idemKey, 'X-MasterKey-Wait': '25' } });
+  while (r.status === 202) {
+    await sleep(1500);
+    const p = await mk('/v1/requests/' + encodeURIComponent(r.json.request_id), { token });
+    if (p.status !== 200) { r = p; break; }
+    const st = p.json.status;
+    if (st === 'completed') return { text: textOf(model.vendor, p.json.response || {}) };
+    if (st === 'denied') r = { status: 403, json: { error: { type: 'masterkey_denied' } } };
+    else if (st === 'expired') r = { status: 410, json: {} };
+    else if (st === 'failed' || st === 'uncertain') r = { status: st === 'uncertain' ? 504 : 502, json: { error: { message: p.json.response?.error?.message || `Request ${st}.` } } };
+  }
+  if (r.status === 200) return { text: textOf(model.vendor, r.json) };
+  const err = failure(r.status, r.json);
+  if (err.kind === 'disconnected') store.set(model.vendor, null);
+  return { error: err };
+}
+// =============================================================================
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 
-let models = [], connected = {}, jobs = [], active = 0, running = false;
+let models = MODELS, connected = {}, jobs = [], active = 0, running = false;
 
 // ---------- inputs ----------
 function addJd(value = '') {
@@ -527,11 +613,16 @@ $('model').onchange = () => { try { localStorage.setItem('rt-model', $('model').
 
 // ---------- MasterKey connect ----------
 async function connect(vendor) {
-  const c = await api('/api/connect', { vendor });
-  if (c.error) throw new Error(c.error);
+  const slow = setTimeout(() => formError('Waking up the MasterKey server, this can take up to a minute…'), 3000);
+  let res;
+  try { res = await mk('/v1/connect', { body: { app_id: APP_ID, vendor } }); }
+  catch { throw new Error(`Could not reach MasterKey at ${MK_URL}.`); }
+  finally { clearTimeout(slow); formError(''); }
+  if (res.status !== 200) throw new Error(res.json.error?.message || `MasterKey refused the connection (${res.status}).`);
+  const c = res.json;
   $('c-vendor').textContent = VENDOR[vendor];
-  $('c-code').textContent = c.code;
-  $('c-url').textContent = $('c-url').href = c.url;
+  $('c-code').textContent = c.connect_code;
+  $('c-url').textContent = $('c-url').href = c.connect_url;
   $('c-status').textContent = 'Waiting for approval on your phone…';
   const dlg = $('connect');
   let cancelled = false;
@@ -541,8 +632,9 @@ async function connect(vendor) {
   for (;;) {
     await sleep(1500);
     if (cancelled) return false;
-    const s = await api('/api/connect/status?vendor=' + vendor);
-    if (s.status === 'approved') { connected[vendor] = true; renderModelHint(); dlg.onclose = null; dlg.close(); return true; }
+    const s = (await mk('/v1/connect/' + encodeURIComponent(c.connect_code), { token: c.connect_secret })).json;
+    if (s.status === 'approved' && s.grant_token) store.set(vendor, s.grant_token);
+    if (s.status === 'approved') { connected[vendor] = !!store.get(vendor); renderModelHint(); dlg.onclose = null; dlg.close(); return true; }
     if (s.status !== 'pending') { dlg.onclose = null; dlg.close(); throw new Error(s.status === 'denied' ? 'Connection denied on your phone.' : 'The connect code expired. Try again.'); }
   }
 }
@@ -560,7 +652,7 @@ $('form').onsubmit = async (e) => {
   if (!resume) return formError('Add your resume first: upload a file or paste the text.');
   if (!jds.length) return formError('Paste at least one job description.');
   const model = models.find((m) => m.id === $('model').value);
-  const base = { resume, extra: $('extra').value.trim(), language: $('language').value, tone: document.querySelector('[name=tone]:checked').value, model: model.id };
+  const base = { resume: resume.slice(0, 60000), extra: $('extra').value.trim().slice(0, 60000), language: $('language').value, tone: document.querySelector('[name=tone]:checked').value };
 
   running = true; $('go').disabled = true;
   try {
@@ -570,8 +662,9 @@ $('form').onsubmit = async (e) => {
     if (innerWidth < 980) document.querySelector('.out').scrollIntoView({ behavior: 'smooth' });
     for (const job of jobs) {
       job.status = 'waiting'; renderResults();
-      let r = await api('/api/tailor', { ...base, jd: job.jd, key: job.key });
-      while (r.pending) { await sleep(1500); r = await api(`/api/request?vendor=${model.vendor}&id=${encodeURIComponent(r.request_id)}`); }
+      let r;
+      try { r = await tailor(model, { ...base, jd: job.jd.slice(0, 60000) }, job.key); }
+      catch { r = { error: { kind: 'error', message: `Could not reach MasterKey at ${MK_URL}.` } }; }
       Object.assign(job, r.error ? { status: 'error', error: r.error.message } : { status: 'done', text: r.text });
       renderResults();
       if (r.error?.kind === 'disconnected') {
@@ -618,7 +711,8 @@ function renderResults() {
 }
 
 addJd();
-api('/api/state').then((s) => { models = s.models; connected = s.connected; renderModels(); });
+connected = { openai: !!store.get('openai'), anthropic: !!store.get('anthropic') };
+renderModels();
 </script>
 </body>
 </html>
