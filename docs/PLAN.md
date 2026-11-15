@@ -107,8 +107,9 @@ Key      { "vendor", "last4", "created_at" }
 **Browser (public) clients:** an app registered with `allowed_origins` (1-10 origins like `https://x.github.io`,
 `http://` only for localhost; or declared by the operator in `MK_PUBLIC_APPS`) can run entirely in a static page:
 connect with its `app_id`, claim the grant with `connect_secret`, keep the grant in the browser. Developer endpoints
-(`/v1/connect*`, proxy, `/v1/requests/*`) answer CORS with `Access-Control-Allow-Origin: *` (bearer auth, no cookies);
-`/v1/me/*` and `/v1/apps` have no CORS. The Origin binding is browser-enforced only, so the phone shows `origin`.
+(`/v1/apps`, `/v1/app*`, `/v1/connect*`, proxy, and `/v1/requests/*`) answer CORS with
+`Access-Control-Allow-Origin: *`. Authenticated developer routes use bearer tokens. `/v1/me/*` has no CORS.
+The browser pairing preview shows `origin` because only browsers enforce that header.
 
 **App secrets survive a database reset:** `app_secret` is opaque and carries the app record sealed
 (AES-GCM) with the server's master key. If the server's database was wiped (Render free plan) but the master key
@@ -130,8 +131,7 @@ history are not recoverable this way; users reconnect.
 ```
 `country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
 operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
-the IP. `users` = distinct users with a request in range; `new_users` = grants first created in range.
-`/v1/apps` and `/v1/app*` answer CORS like the other developer endpoints, so a static dashboard can use them.
+the IP. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the
