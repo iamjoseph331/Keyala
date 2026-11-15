@@ -17,28 +17,38 @@ xcodebuild -project ios/MasterKey/MasterKey.xcodeproj -scheme MasterKey -showdes
 xcrun devicectl list devices
 ```
 
-From the repository root, build with the destination ID listed by `xcodebuild`:
+Build from a temporary copy so the shipping target keeps its paid capabilities. From the repository root:
 
 ```sh
-xcodebuild -project ios/MasterKey/MasterKey.xcodeproj \
+preview_dir=$(mktemp -d /private/tmp/masterkey-preview.XXXXXXXX)
+cp -R ios/MasterKey "$preview_dir/MasterKey"
+preview_project="$preview_dir/MasterKey/MasterKey.xcodeproj"
+plutil -convert xml1 "$preview_project/project.pbxproj"
+/usr/libexec/PlistBuddy \
+  -c 'Delete :objects:A10000000000000000000001:attributes:TargetAttributes:A10000000000000000000002:SystemCapabilities' \
+  -c 'Delete :objects:A10000000000000000000042:buildSettings:CODE_SIGN_ENTITLEMENTS' \
+  -c 'Delete :objects:A10000000000000000000043:buildSettings:CODE_SIGN_ENTITLEMENTS' \
+  "$preview_project/project.pbxproj"
+/usr/libexec/PlistBuddy -c 'Clear dict' "$preview_dir/MasterKey/MasterKey.entitlements"
+
+xcodebuild -project "$preview_project" \
   -scheme MasterKey -configuration Debug \
   -destination 'id=YOUR_XCODE_DESTINATION_ID' \
   -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
   CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=YOUR_TEAM_ID \
   PRODUCT_BUNDLE_IDENTIFIER=app.sorevan.masterkey.preview \
-  CODE_SIGN_ENTITLEMENTS= \
-  -derivedDataPath /private/tmp/masterkey-iphone-preview build
+  -derivedDataPath "$preview_dir/build" build
 ```
 
-The preview uses `app.sorevan.masterkey.preview` and omits the paid-team entitlements. Sign in with Apple and remote push require the paid team. Install and launch with the device ID listed by `devicectl`:
+The preview uses `app.sorevan.masterkey.preview` and omits the paid-team entitlements. Sign in with Apple and remote push require the paid team. Install with the device ID listed by `devicectl`:
 
 ```sh
 xcrun devicectl device install app \
   --device YOUR_COREDEVICE_ID \
-  /private/tmp/masterkey-iphone-preview/Build/Products/Debug-iphoneos/MasterKey.app
-xcrun devicectl device process launch \
-  --device YOUR_COREDEVICE_ID app.sorevan.masterkey.preview
+  "$preview_dir/build/Build/Products/Debug-iphoneos/MasterKey.app"
 ```
+
+Open MasterKey on the iPhone. If iOS asks you to trust your developer profile, select your Apple Account under **Settings → General → VPN & Device Management** and follow the prompts.
 
 Personal Team provisioning expires after seven days. Rebuild and reinstall when it expires.
 
