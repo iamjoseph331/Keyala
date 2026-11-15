@@ -97,7 +97,7 @@ impl Config {
             dev_login: env("MK_DEV_LOGIN").as_deref() == Some("1"),
             vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
             prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
-            apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
+            apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.sorevan.masterkey".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
             country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
