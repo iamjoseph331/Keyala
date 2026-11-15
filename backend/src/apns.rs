@@ -21,7 +21,7 @@ impl ApnsCfg {
             key_pem: env("MK_APNS_KEY_P8")?.replace("\\n", "\n"),
             key_id: env("MK_APNS_KEY_ID")?,
             team_id: env("MK_APNS_TEAM_ID")?,
-            topic: env("MK_APNS_TOPIC").unwrap_or_else(|| "app.masterkey.ios".into()),
+            topic: env("MK_APNS_TOPIC").unwrap_or_else(|| "app.sorevan.masterkey".into()),
             sandbox: env("MK_APNS_SANDBOX").as_deref() == Some("1"),
             detailed: env("MK_APNS_DETAILED").as_deref() == Some("1"),
         })
