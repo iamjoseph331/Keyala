@@ -47,6 +47,22 @@ polling `GET /v1/requests/{id}` when the visitor takes longer than 25 s to appro
 `maxRetries: 0` and an `Idempotency-Key` per job keep a slow or lost approval from ever being
 billed twice.
 
+## The page
+
+- A hero with a **"Powered by MasterKey"** panel (top right) explaining the three steps: get the
+  app, add your key once, approve each request. The App Store QR is a placeholder: replace the SVG
+  inside `.qr .box` in `index.html` with `<img src="appstore-qr.png" alt="...">` once the app is live.
+- The result pane shows an **example tailored resume** (with job keywords highlighted) until the
+  first run, plus a before/after section, features and "how it works" below the tool.
+- Light and dark mode, works down to phone width.
+
+## Why not GitHub Pages (yet)
+
+The page needs a small server: `MK_APP_SECRET` must stay secret, and the MasterKey server has no
+CORS for browsers. A static build would need a MasterKey "public client" mode (e.g. an app id with
+allowed origins instead of a secret, plus CORS). Until then, host it on any Node host (Render,
+Fly, Railway) with `HOST=0.0.0.0`.
+
 ## Notes
 
 - Grants are kept per browser session in server memory (an HttpOnly cookie maps to them), so
