@@ -110,6 +110,12 @@ connect with its `app_id`, claim the grant with `connect_secret`, keep the grant
 (`/v1/connect*`, proxy, `/v1/requests/*`) answer CORS with `Access-Control-Allow-Origin: *` (bearer auth, no cookies);
 `/v1/me/*` and `/v1/apps` have no CORS. The Origin binding is browser-enforced only, so the phone shows `origin`.
 
+**App secrets survive a database reset:** `app_secret` is opaque and carries the app record sealed
+(AES-GCM) with the server's master key. If the server's database was wiped (Render free plan) but the master key
+is unchanged, the first call with the secret re-creates the app with its name, homepage and origins. Rotation bumps a
+generation: after a reset, a rotated secret supersedes older ones as soon as it is used. User grants, keys and report
+history are not recoverable this way; users reconnect.
+
 **Developer report** (`GET /v1/app/report`), aggregates only, never user ids, emails, prompts or responses:
 ```jsonc
 { "app_id", "days": 30, "from": "2026-10-17", "to": "2026-11-15",

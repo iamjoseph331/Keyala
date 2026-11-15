@@ -1021,3 +1021,34 @@ async fn developer_app_info_rotation_and_report() {
     assert_eq!(rep["totals"]["requests"], 0);
     assert_eq!(rep["countries"], json!([]));
 }
+
+#[tokio::test]
+async fn app_secret_survives_database_reset_and_rotation_wins() {
+    let t = T::new().await;
+    let app = json_of(t.c.post(format!("{}/v1/apps", t.base)).json(&json!({"name": "Durable", "allowed_origins": ["https://d.dev"]})).send().await.unwrap()).await;
+    let old = app["app_secret"].as_str().unwrap().to_string();
+    let get = |s: &str| t.c.get(format!("{}/v1/app", t.base)).bearer_auth(s).send();
+    let wipe = || async { sqlx_query(&t.state, "DELETE FROM connect_codes WHERE app_id IN (SELECT id FROM apps WHERE name='Durable'); DELETE FROM apps WHERE name='Durable'").await };
+
+    // free-plan reset: the app row is gone, the token brings it back with its settings
+    wipe().await;
+    let info = json_of(get(&old).await.unwrap()).await;
+    assert_eq!((info["app_id"].as_str(), info["name"].as_str(), info["allowed_origins"][0].as_str()), (app["app_id"].as_str(), Some("Durable"), Some("https://d.dev")));
+    // and it can connect again
+    assert_eq!(t.c.post(format!("{}/v1/connect", t.base)).bearer_auth(&old).json(&json!({"vendor": "openai"})).send().await.unwrap().status(), 200);
+
+    // rotate, reset, then the leaked old token arrives first: the newer token still takes over
+    let new = json_of(t.c.post(format!("{}/v1/app/secret", t.base)).bearer_auth(&old).send().await.unwrap()).await["app_secret"].as_str().unwrap().to_string();
+    assert_eq!(get(&old).await.unwrap().status(), 401);
+    wipe().await;
+    assert_eq!(get(&old).await.unwrap().status(), 200);
+    assert_eq!(get(&new).await.unwrap().status(), 200);
+    assert_eq!(get(&old).await.unwrap().status(), 401);
+
+    // tampered or foreign tokens are refused
+    let mut bad = new.clone().into_bytes();
+    let i = bad.len() - 5;
+    bad[i] = if bad[i] == b'A' { b'B' } else { b'A' };
+    assert_eq!(get(&String::from_utf8(bad).unwrap()).await.unwrap().status(), 401);
+    assert_eq!(get("mk_app_not-a-real-token").await.unwrap().status(), 401);
+}

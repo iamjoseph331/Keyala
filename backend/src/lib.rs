@@ -22,7 +22,7 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqliteConnectOptions, SqliteConnection, SqlitePool};
@@ -324,9 +324,43 @@ pub async fn auth_session(s: &AppState, h: &HeaderMap) -> R<String> {
     let t = bearer(h, "mk_sess_").ok_or_else(unauthorized)?;
     sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
 }
+/// What an app secret carries: the app record, sealed (AES-GCM) with the master key.
+#[derive(Serialize, Deserialize)]
+pub struct AppRecord {
+    pub id: String,
+    pub name: String,
+    pub homepage: Option<String>,
+    pub icon_url: Option<String>,
+    pub allowed_origins: Option<Vec<String>>,
+    pub gen: i64,
+}
+const APP_AAD: &str = "app-secret";
+pub fn seal_app(master: &[u8; 32], a: &AppRecord) -> String {
+    let (ct, nonce) = encrypt(master, APP_AAD, &serde_json::to_string(a).unwrap_or_default());
+    format!("mk_app_{}", URL_SAFE_NO_PAD.encode([nonce, ct].concat()))
+}
+fn open_app(master: &[u8; 32], t: &str) -> Option<AppRecord> {
+    let b = URL_SAFE_NO_PAD.decode(t.strip_prefix("mk_app_")?).ok()?;
+    if b.len() < 13 {
+        return None;
+    }
+    serde_json::from_str(&decrypt(master, APP_AAD, &b[12..], &b[..12])?).ok()
+}
+/// Known secret -> its app. Unknown but sealed by this server -> the database was reset (free
+/// plan), so re-create the app from the token. A rotated secret (higher gen) supersedes older ones;
+/// an older one is refused once a newer one has been seen since the reset.
 pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
     let t = bearer(h, "mk_app_").ok_or_else(unauthorized)?;
-    sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
+    if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await? {
+        return Ok(id);
+    }
+    let a = open_app(&s.cfg.master_key, t).ok_or_else(unauthorized)?;
+    let origins = a.allowed_origins.as_ref().map(|o| serde_json::to_string(o).unwrap_or_default());
+    let r = sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,secret_gen,created_at) VALUES (?,?,?,?,?,?,?,?) \
+                         ON CONFLICT(id) DO UPDATE SET secret_hash=excluded.secret_hash, secret_gen=excluded.secret_gen WHERE excluded.secret_gen > apps.secret_gen")
+        .bind(&a.id).bind(&a.name).bind(&a.homepage).bind(&a.icon_url).bind(hash_token(t)).bind(&origins).bind(a.gen).bind(now())
+        .execute(&s.db).await?;
+    if r.rows_affected() == 1 { Ok(a.id) } else { Err(unauthorized()) }
 }
 /// `x_api_key`: Anthropic proxy routes also accept the grant token in `x-api-key` (official SDK).
 pub async fn auth_grant(s: &AppState, h: &HeaderMap, x_api_key: bool) -> R<GrantRow> {

@@ -52,10 +52,14 @@ pub async fn create_app(State(s): State<AppState>, ConnectInfo(peer): ConnectInf
     if b.allowed_origins.as_deref().is_some_and(|o| !origins_ok(o)) {
         return Err(bad("allowed_origins: 1-10 origins like https://example.com (http only for localhost), no path"));
     }
-    let origins = b.allowed_origins.map(|o| serde_json::to_string(&o).unwrap_or_default());
-    let (id, secret) = (new_id("app"), new_token("mk_app_"));
+    if [&b.homepage, &b.icon_url].iter().any(|u| u.as_ref().is_some_and(|u| u.len() > 300)) {
+        return Err(bad("homepage and icon_url: max 300 chars"));
+    }
+    let origins = b.allowed_origins.as_ref().map(|o| serde_json::to_string(o).unwrap_or_default());
+    let rec = AppRecord { id: new_id("app"), name: name.to_string(), homepage: b.homepage, icon_url: b.icon_url, allowed_origins: b.allowed_origins, gen: 0 };
+    let (id, secret) = (rec.id.clone(), seal_app(&s.cfg.master_key, &rec));
     sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?,?)")
-        .bind(&id).bind(name).bind(&b.homepage).bind(&b.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now())
+        .bind(&id).bind(&rec.name).bind(&rec.homepage).bind(&rec.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now())
         .execute(&s.db).await?;
     Ok(Json(json!({"app_id": id, "app_secret": secret})))
 }
@@ -339,8 +343,11 @@ pub async fn get_app(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> 
 
 pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     let id = auth_app(&s, &h).await?;
-    let secret = new_token("mk_app_");
-    sqlx::query("UPDATE apps SET secret_hash=? WHERE id=?").bind(hash_token(&secret)).bind(&id).execute(&s.db).await?;
+    let (name, homepage, icon_url, origins, gen): (String, Option<String>, Option<String>, Option<String>, i64) =
+        sqlx::query_as("SELECT name, homepage, icon_url, allowed_origins, secret_gen FROM apps WHERE id=?").bind(&id).fetch_one(&s.db).await?;
+    let rec = AppRecord { id: id.clone(), name, homepage, icon_url, allowed_origins: origins.and_then(|o| serde_json::from_str(&o).ok()), gen: gen + 1 };
+    let secret = seal_app(&s.cfg.master_key, &rec);
+    sqlx::query("UPDATE apps SET secret_hash=?, secret_gen=? WHERE id=?").bind(hash_token(&secret)).bind(rec.gen).bind(&id).execute(&s.db).await?;
     Ok(Json(json!({"app_secret": secret})))
 }
 
