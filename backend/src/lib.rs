@@ -51,6 +51,9 @@ pub struct Config {
     /// Browser apps declared by the operator (MK_PUBLIC_APPS), upserted on every start so they
     /// survive a database reset (Render free plan). Lets a static page ship a fixed app id.
     pub public_apps: Vec<PublicApp>,
+    /// Header a trusted edge in front of the server sets to the client's country (MK_COUNTRY_HEADER,
+    /// e.g. cf-ipcountry). Unset = no country in reports; clients could otherwise forge it.
+    pub country_header: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -97,6 +100,7 @@ impl Config {
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.masterkey.ios".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
+            country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
             public_apps: match env("MK_PUBLIC_APPS") {
                 None => vec![],
                 Some(j) => {
@@ -200,12 +204,15 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
         .route("/v1/requests/{id}", get(proxy::poll_request))
+        .route("/v1/apps", post(create_app))
+        .route("/v1/app", get(get_app))
+        .route("/v1/app/secret", post(rotate_secret))
+        .route("/v1/app/report", get(app_report))
         .layer(middleware::from_fn(cors));
     Router::new()
         .merge(developer)
         .route("/healthz", get(|| async { "ok" }))
         .route("/connect/{code}", get(connect_page))
-        .route("/v1/apps", post(create_app))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/me/keys", get(list_keys))

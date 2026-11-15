@@ -304,7 +304,7 @@ pub async fn approve_connect(State(s): State<AppState>, h: HeaderMap, Path(code)
     if !has_prior_grant && p.mode != "ask" {
         return Err(api(400, "policy_not_allowed_yet", "approve calls one at a time first; widen the policy later from Grants"));
     }
-    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at) VALUES (?,?,?,?,'ask',?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).execute(&mut *tx).await?;
+    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at,country) VALUES (?,?,?,?,'ask',?,?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).bind(country(&s, &h)).execute(&mut *tx).await?;
     set_policy(&mut tx, &gid, &p).await?;
     tx.commit().await?;
     let g = grant_for_user(&s, &u, &gid).await?;
@@ -319,6 +319,79 @@ pub async fn deny_connect(State(s): State<AppState>, h: HeaderMap, Path(code): P
         return Err(not_found("connect code"));
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Country of the approving phone, from the operator's trusted edge header (MK_COUNTRY_HEADER).
+fn country(s: &AppState, h: &HeaderMap) -> Option<String> {
+    let c = h.get(s.cfg.country_header.as_deref()?)?.to_str().ok()?;
+    (c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphanumeric()) && c != "XX").then(|| c.to_ascii_uppercase())
+}
+
+// ---------- developer: app info, secret rotation, report ----------
+
+pub async fn get_app(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let (name, homepage, icon_url, origins, created_at): (String, Option<String>, Option<String>, Option<String>, String) =
+        sqlx::query_as("SELECT name, homepage, icon_url, allowed_origins, created_at FROM apps WHERE id=?").bind(&id).fetch_one(&s.db).await?;
+    let origins: Option<Value> = origins.and_then(|o| serde_json::from_str(&o).ok());
+    Ok(Json(json!({"app_id": id, "name": name, "homepage": homepage, "icon_url": icon_url, "allowed_origins": origins, "created_at": created_at})))
+}
+
+pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let secret = new_token("mk_app_");
+    sqlx::query("UPDATE apps SET secret_hash=? WHERE id=?").bind(hash_token(&secret)).bind(&id).execute(&s.db).await?;
+    Ok(Json(json!({"app_secret": secret})))
+}
+
+pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query<HashMap<String, String>>) -> R<Json<Value>> {
+    let id = auth_app(&s, &h).await?;
+    let days: i64 = q.get("days").map(|d| d.parse().map_err(|_| bad("days must be 1-365"))).transpose()?.unwrap_or(30);
+    if !(1..=365).contains(&days) {
+        return Err(bad("days must be 1-365"));
+    }
+    let today = chrono::Utc::now().date_naive();
+    let from = today - chrono::Duration::days(days - 1);
+    let since = format!("{from}T00:00:00");
+    // tokens come from the stored vendor response (OpenAI prompt/completion, Anthropic input/output)
+    const TOK: &str = "COALESCE(json_extract(r.response,'$.usage.prompt_tokens'), json_extract(r.response,'$.usage.input_tokens'), 0)";
+    const OUT: &str = "COALESCE(json_extract(r.response,'$.usage.completion_tokens'), json_extract(r.response,'$.usage.output_tokens'), 0)";
+    let base = "FROM requests r JOIN grants g ON g.id=r.grant_id WHERE r.app_id=? AND r.created_at>=?";
+    let n = |st: &str| format!("SUM(r.status='{st}')");
+    type Totals = (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64);
+    let t: Totals = sqlx::query_as(&format!(
+        "SELECT COUNT(*), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), COALESCE({},0), \
+         COALESCE(SUM(CASE WHEN r.status='completed' THEN r.actual_micro END),0), \
+         COALESCE(SUM(CASE WHEN r.decided_at IS NOT NULL AND r.status NOT IN ('denied','expired') THEN r.estimated_micro END),0), \
+         COALESCE(SUM(r.status='completed' AND r.actual_micro IS NULL),0), COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0), COUNT(DISTINCT r.user_id) {base}",
+        n("completed"), n("denied"), n("expired"), n("failed"), n("uncertain"), n("pending")))
+        .bind(&id).bind(&since).fetch_one(&s.db).await?;
+    let new_users: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT user_id) FROM grants WHERE app_id=? AND created_at>=? AND user_id NOT IN (SELECT user_id FROM grants WHERE app_id=? AND created_at<?)")
+        .bind(&id).bind(&since).bind(&id).bind(&since).fetch_one(&s.db).await?;
+    let cost = "COALESCE(SUM(CASE WHEN r.status='completed' THEN r.actual_micro END),0)";
+    let by_day: Vec<(String, i64, i64, i64)> = sqlx::query_as(&format!("SELECT substr(r.created_at,1,10) d, COUNT(*), SUM(r.status='completed'), {cost} {base} GROUP BY d"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let by_day: HashMap<String, (i64, i64, i64)> = by_day.into_iter().map(|(d, a, b, c)| (d, (a, b, c))).collect();
+    let daily: Vec<Value> = (0..days).map(|i| {
+        let d = (from + chrono::Duration::days(i)).to_string();
+        let (req, done, c) = by_day.get(&d).copied().unwrap_or_default();
+        json!({"date": d, "requests": req, "completed": done, "cost_usd": usd(c)})
+    }).collect();
+    let models: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT r.vendor, r.model, COUNT(*), SUM(r.status='completed'), {cost}, COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0) {base} GROUP BY r.vendor, r.model ORDER BY 5 DESC, 3 DESC"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let countries: Vec<(Option<String>, i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT g.country, COUNT(DISTINCT r.user_id), COUNT(*), {cost} {base} GROUP BY g.country ORDER BY 3 DESC, 4 DESC"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    Ok(Json(json!({
+        "app_id": id, "days": days, "from": from.to_string(), "to": today.to_string(),
+        "totals": {"requests": t.0, "completed": t.1, "denied": t.2, "expired": t.3, "failed": t.4, "uncertain": t.5, "pending": t.6,
+                   "cost_usd": usd(t.7), "estimated_usd": usd(t.8), "unmetered": t.9, "input_tokens": t.10, "output_tokens": t.11,
+                   "users": t.12, "new_users": new_users},
+        "daily": daily,
+        "models": models.into_iter().map(|(v, m, r, c, u, i, o)| json!({"vendor": v, "model": m, "requests": r, "completed": c, "cost_usd": usd(u), "input_tokens": i, "output_tokens": o})).collect::<Vec<_>>(),
+        "countries": countries.into_iter().map(|(c, u, r, m)| json!({"country": c, "users": u, "requests": r, "cost_usd": usd(m)})).collect::<Vec<_>>(),
+    })))
 }
 
 // ---------- user: grants ----------
