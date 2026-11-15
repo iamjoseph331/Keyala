@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resume Tailor</title>
+<style>
+  :root {
+    --bg:#f5f6f8; --card:#fff; --ink:#15171c; --muted:#6b7280; --line:#e4e6eb; --soft:#f0f1f4;
+    --accent:#4f46e5; --accent-ink:#fff; --accent-soft:#eef0ff; --ok:#047857; --okbg:#d1fae5;
+    --warn:#a16207; --warnbg:#fef3c7; --bad:#b91c1c; --badbg:#fee2e2; --paper:#fff; --paper-ink:#1b1d22;
+    --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d0f12; --card:#16191e; --ink:#eceef2; --muted:#8e96a3; --line:#272b33; --soft:#1d2127;
+      --accent:#8b92ff; --accent-ink:#0d0f12; --accent-soft:#22254a; --ok:#6ee7b7; --okbg:#0f2f25;
+      --warn:#fcd34d; --warnbg:#33290b; --bad:#fca5a5; --badbg:#3b1414; --paper:#1b1e24; --paper-ink:#e8eaee;
+      --shadow:none; }
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--accent) }
+  .wrap { max-width:1240px; margin:0 auto; padding:28px 16px 48px }
+  header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:24px }
+  header h1 { margin:0; font-size:1.5rem; letter-spacing:-.02em }
+  header p { margin:2px 0 0; color:var(--muted) }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:.85rem; font-weight:600 }
+  .grid { display:grid; gap:20px; grid-template-columns:minmax(0,1fr) }
+  @media (min-width:980px) { .grid { grid-template-columns:minmax(0,5fr) minmax(0,6fr); align-items:start } .out { position:sticky; top:20px } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow) }
+  form.card { padding:8px 22px 22px }
+  fieldset { border:0; margin:0; padding:18px 0 4px; border-bottom:1px solid var(--line) }
+  fieldset:last-of-type { border-bottom:0 }
+  legend { float:left; width:100%; display:flex; align-items:center; gap:10px; font-weight:650; margin-bottom:10px; padding:0 }
+  legend + * { clear:both }
+  legend .n { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:var(--soft); font-size:.75rem; color:var(--muted) }
+  legend .opt { font-weight:400; color:var(--muted); font-size:.85rem }
+  .hint { color:var(--muted); font-size:.85rem; margin:6px 0 10px }
+  textarea, select, input[type=text] { width:100%; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  textarea { resize:vertical; min-height:96px }
+  textarea:focus, select:focus, input:focus-visible { outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent }
+  .drop { display:flex; align-items:center; gap:14px; padding:16px; border:1.5px dashed var(--line); border-radius:12px; cursor:pointer; margin-bottom:10px; transition:border-color .15s, background .15s }
+  .drop:hover, .drop.over { border-color:var(--accent); background:var(--accent-soft) }
+  .drop:focus-within { outline:2px solid var(--accent) }
+  .drop svg { flex:none; color:var(--accent) }
+  .drop b { display:block }
+  .drop small { color:var(--muted) }
+  .drop input { position:absolute; width:1px; height:1px; opacity:0 }
+  .jd { position:relative; margin-bottom:10px }
+  .jd textarea { min-height:120px; padding-right:40px }
+  .jd .rm { position:absolute; top:8px; right:8px; width:26px; height:26px; padding:0; border-radius:8px; background:transparent; color:var(--muted); font-size:18px; line-height:1 }
+  .jd .rm:hover { background:var(--soft); color:var(--ink) }
+  label.sub { display:block; font-size:.85rem; color:var(--muted); margin-bottom:6px }
+  .chips { display:flex; flex-wrap:wrap; gap:8px }
+  .chips label { position:relative }
+  .chips input { position:absolute; opacity:0; inset:0 }
+  .chips span { display:inline-block; padding:7px 14px; border-radius:999px; border:1px solid var(--line); cursor:pointer; font-size:.9rem; user-select:none }
+  .chips input:checked + span { background:var(--accent); border-color:var(--accent); color:var(--accent-ink) }
+  .chips input:focus-visible + span { outline:2px solid var(--accent); outline-offset:2px }
+  .conn { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:.85rem; color:var(--muted) }
+  .conn .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--line); margin-right:6px }
+  .conn .on .dot { background:var(--ok) }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer; background:var(--soft); color:var(--ink) }
+  button:hover { filter:brightness(.97) }
+  button:disabled { opacity:.5; cursor:default }
+  button.primary { background:var(--accent); color:var(--accent-ink); width:100%; padding:14px; font-size:1rem; margin-top:18px }
+  button.ghost { background:transparent; color:var(--accent); padding:6px 0 }
+  .err { color:var(--bad); font-size:.9rem; margin:10px 0 0 }
+  .out { min-height:420px; display:flex; flex-direction:column; overflow:hidden }
+  .empty { flex:1; display:grid; place-items:center; text-align:center; padding:48px 24px; color:var(--muted) }
+  .empty svg { color:var(--line); margin-bottom:12px }
+  .tabs { display:flex; gap:4px; padding:10px 10px 0; border-bottom:1px solid var(--line); overflow-x:auto }
+  .tab { display:flex; align-items:center; gap:8px; white-space:nowrap; background:transparent; border-radius:8px 8px 0 0; padding:9px 12px; color:var(--muted); font-weight:550; border-bottom:2px solid transparent }
+  .tab[aria-selected=true] { color:var(--ink); border-bottom-color:var(--accent) }
+  .st { width:8px; height:8px; border-radius:50%; background:var(--line) }
+  .st.waiting { background:var(--warn); animation:p 1.2s infinite } .st.done { background:var(--ok) } .st.error { background:var(--bad) }
+  @keyframes p { 50% { opacity:.25 } }
+  .bar { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--line) }
+  .bar .acts { display:flex; gap:8px }
+  .bar button { padding:7px 12px; font-size:.88rem }
+  .note { display:flex; align-items:center; gap:10px; margin:16px; padding:12px 14px; border-radius:10px; background:var(--warnbg); color:var(--warn); font-size:.92rem }
+  .note.bad { background:var(--badbg); color:var(--bad) }
+  .note .st { flex:none }
+  .paper { margin:16px; padding:36px 40px; background:var(--paper); color:var(--paper-ink); border:1px solid var(--line); border-radius:8px; max-height:70vh; overflow:auto; font-size:14px; line-height:1.5 }
+  @media (max-width:520px) { .paper { padding:22px 18px } }
+  .paper h1 { font-size:1.6rem; margin:0 0 4px; letter-spacing:-.01em }
+  .paper h2 { font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin:22px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--line) }
+  .paper h3 { font-size:1rem; margin:14px 0 2px }
+  .paper p { margin:4px 0 }
+  .paper ul { margin:4px 0 8px; padding-left:20px }
+  .paper li { margin:2px 0 }
+  dialog { border:0; border-radius:18px; padding:28px; width:min(420px, calc(100% - 32px)); background:var(--card); color:var(--ink); text-align:center; box-shadow:0 24px 64px rgba(0,0,0,.25) }
+  dialog::backdrop { background:rgba(10,12,16,.45); backdrop-filter:blur(3px) }
+  dialog h2 { margin:0 0 6px; font-size:1.15rem }
+  .code { font:700 2.6rem/1.1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; margin:16px 0 }
+  .waitline { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--warn); font-size:.9rem; margin:16px 0 }
+  footer { margin-top:28px; color:var(--muted); font-size:.88rem }
+  footer code { background:var(--soft); padding:2px 6px; border-radius:6px; font-size:.85em }
+  .hidden { display:none !important }
+  @media print {
+    body { background:#fff } .wrap > *:not(.grid), form, .tabs, .bar, .note, dialog { display:none !important }
+    .grid { display:block } .card { border:0; box-shadow:none } .out { position:static }
+    .paper { margin:0; padding:0; border:0; max-height:none; overflow:visible; background:#fff; color:#000 }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Resume Tailor</h1>
+      <p>Tailor your resume to any job in a minute.</p>
+    </div>
+    <span class="pill" title="This app has no API key. Calls run on your own key through MasterKey, and you approve each one on your phone.">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg>
+      Runs on your own key via MasterKey
+    </span>
+  </header>
+
+  <div class="grid">
+    <form class="card" id="form" novalidate>
+      <fieldset>
+        <legend><span class="n">1</span>Your resume</legend>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept=".pdf,.docx,.txt,.md,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15l3-3 3 3"/></svg>
+          <span><b id="drop-title">Upload your resume</b><small id="drop-sub">PDF, DOCX, TXT or Markdown. Drop it here or click to choose.</small></span>
+        </label>
+        <textarea id="resume" rows="6" placeholder="…or paste your resume text here. Uploaded files appear here so you can check them."></textarea>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="n">2</span><span>Job description<span id="jd-plural">s</span></span></legend>
+        <div id="jds"></div>
+        <button type="button" class="ghost" id="add-jd">+ Add another job</button>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="n">3</span>Style</legend>
+        <label class="sub" for="language">Language</label>
+        <select id="language">
+          <option value="">Same as my resume</option>
+          <option>English</option><option>Japanese</option><option>Simplified Chinese</option><option>Traditional Chinese</option>
+          <option>Korean</option><option>Spanish</option><option>French</option><option>German</option><option>Portuguese</option>
+        </select>
+        <label class="sub" style="margin-top:14px">Tone</label>
+        <div class="chips" role="radiogroup" aria-label="Tone">
+          <label><input type="radio" name="tone" value="professional" checked><span>Professional</span></label>
+          <label><input type="radio" name="tone" value="confident and achievement-focused"><span>Confident</span></label>
+          <label><input type="radio" name="tone" value="concise and to the point"><span>Concise</span></label>
+          <label><input type="radio" name="tone" value="warm and personable"><span>Warm</span></label>
+          <label><input type="radio" name="tone" value="technical and precise"><span>Technical</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="n">4</span>Anything missing? <span class="opt">(optional)</span></legend>
+        <textarea id="extra" rows="3" placeholder="Projects, achievements or experience that aren't in your resume yet. Only facts you give here or in your resume will be used."></textarea>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="n">5</span><label for="model">Model</label></legend>
+        <select id="model"></select>
+        <p class="hint" id="model-hint">Billed to your own API key. You approve every call on your phone before it runs.</p>
+        <div class="conn" id="conn"></div>
+      </fieldset>
+
+      <button class="primary" id="go">Tailor my resume</button>
+      <p class="err hidden" id="form-err" role="alert"></p>
+    </form>
+
+    <section class="card out" aria-live="polite">
+      <div class="empty" id="empty">
+        <div>
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+          <div><b style="color:var(--ink)">Your tailored resume appears here</b></div>
+          <div>One version per job description.</div>
+        </div>
+      </div>
+      <div id="results" class="hidden">
+        <div class="tabs" role="tablist" id="tabs"></div>
+        <div id="panel"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    For developers: this app has no API key. Its server uses the official OpenAI and Anthropic SDKs pointed at MasterKey,
+    with the visitor's grant where a key would go: <code>new Anthropic({ baseURL: MK_URL + '/v1/anthropic', apiKey: grant })</code>.
+    The visitor sees every prompt and its estimated cost on their phone before it runs.
+  </footer>
+</div>
+
+<dialog id="connect">
+  <h2>Connect your <span id="c-vendor">Anthropic</span> key</h2>
+  <div class="hint">Open the MasterKey app and enter this code</div>
+  <div class="code" id="c-code">MK-----</div>
+  <div class="hint">or on this device, open <a id="c-url" href="#"></a></div>
+  <div class="waitline"><span class="st waiting"></span><span id="c-status">Waiting for approval on your phone…</span></div>
+  <button type="button" id="c-cancel">Cancel</button>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic' };
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const api = async (path, body) => (await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+
+let models = [], connected = {}, jobs = [], active = 0, running = false;
+
+// ---------- inputs ----------
+function addJd(value = '') {
+  const box = el('div', { className: 'jd' });
+  const ta = el('textarea', { rows: 5, value, placeholder: 'Paste the job description: title, company, responsibilities, requirements…' });
+  ta.setAttribute('aria-label', 'Job description');
+  const rm = el('button', { type: 'button', className: 'rm', title: 'Remove this job', textContent: '×' });
+  rm.setAttribute('aria-label', 'Remove this job');
+  rm.onclick = () => { box.remove(); syncJds(); };
+  box.append(ta, rm);
+  $('jds').append(box);
+  syncJds();
+  return ta;
+}
+function syncJds() {
+  const n = $('jds').children.length;
+  $('jds').querySelectorAll('.rm').forEach((b) => b.classList.toggle('hidden', n < 2));
+  $('jd-plural').classList.toggle('hidden', n < 2);
+  $('go').textContent = n > 1 ? `Tailor for ${n} jobs` : 'Tailor my resume';
+}
+$('add-jd').onclick = () => addJd().focus();
+
+const loadScript = (src) => new Promise((ok, fail) => document.head.append(el('script', { src, onload: ok, onerror: () => fail(new Error('could not load ' + src)) })));
+async function extract(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') {
+    const pdfjs = await import(PDFJS);
+    pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+    let out = '';
+    for (let i = 1; i <= doc.numPages; i++) {
+      const { items } = await (await doc.getPage(i)).getTextContent();
+      out += items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join('') + '\n\n';
+    }
+    return out.normalize('NFKC'); // PDFs often map CJK to lookalike radicals (U+2F00 block); NFKC folds them back
+  }
+  if (ext === 'docx') {
+    if (!window.mammoth) await loadScript(MAMMOTH);
+    return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+  }
+  if (ext === 'doc') throw new Error('Old .doc files are not supported. Save it as .docx or PDF.');
+  return file.text();
+}
+async function useFile(file) {
+  if (!file) return;
+  $('drop-title').textContent = 'Reading ' + file.name + '…';
+  try {
+    const t = (await extract(file)).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (!t) throw new Error('No text found. If it is a scanned PDF, paste the text instead.');
+    $('resume').value = t;
+    $('drop-title').textContent = file.name;
+    $('drop-sub').textContent = `${t.length.toLocaleString()} characters read. Check the text below, or drop another file.`;
+  } catch (e) {
+    $('drop-title').textContent = 'Upload your resume';
+    $('drop-sub').textContent = e.message;
+  }
+}
+$('file').onchange = (e) => useFile(e.target.files[0]);
+['dragenter', 'dragover'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', (e) => useFile(e.dataTransfer.files[0]));
+
+function renderModels() {
+  $('model').replaceChildren(...Object.keys(VENDOR).sort().map((v) => {
+    const g = el('optgroup', { label: VENDOR[v] });
+    g.append(...models.filter((m) => m.vendor === v).map((m) => el('option', { value: m.id, textContent: m.label })));
+    return g;
+  }));
+  try { const saved = localStorage.getItem('rt-model'); if (models.some((m) => m.id === saved)) $('model').value = saved; } catch {}
+  renderModelHint();
+}
+function renderModelHint() {
+  const m = models.find((x) => x.id === $('model').value);
+  if (m) $('model-hint').textContent = `${m.price} per 1M tokens (in / out), billed to your own ${VENDOR[m.vendor]} key. You approve every call on your phone before it runs.`;
+  $('conn').replaceChildren(...Object.keys(VENDOR).map((v) => el('span', { className: connected[v] ? 'on' : '' }, el('span', { className: 'dot' }), `${VENDOR[v]} ${connected[v] ? 'connected' : 'not connected'}`)));
+}
+$('model').onchange = () => { try { localStorage.setItem('rt-model', $('model').value); } catch {} renderModelHint(); };
+
+// ---------- MasterKey connect ----------
+async function connect(vendor) {
+  const c = await api('/api/connect', { vendor });
+  if (c.error) throw new Error(c.error);
+  $('c-vendor').textContent = VENDOR[vendor];
+  $('c-code').textContent = c.code;
+  $('c-url').textContent = $('c-url').href = c.url;
+  $('c-status').textContent = 'Waiting for approval on your phone…';
+  const dlg = $('connect');
+  let cancelled = false;
+  $('c-cancel').onclick = () => { cancelled = true; dlg.close(); };
+  dlg.onclose = () => { cancelled = true; };
+  dlg.showModal();
+  for (;;) {
+    await sleep(1500);
+    if (cancelled) return false;
+    const s = await api('/api/connect/status?vendor=' + vendor);
+    if (s.status === 'approved') { connected[vendor] = true; renderModelHint(); dlg.onclose = null; dlg.close(); return true; }
+    if (s.status !== 'pending') { dlg.onclose = null; dlg.close(); throw new Error(s.status === 'denied' ? 'Connection denied on your phone.' : 'The connect code expired. Try again.'); }
+  }
+}
+
+// ---------- run ----------
+function formError(msg) { $('form-err').textContent = msg; $('form-err').classList.toggle('hidden', !msg); }
+const titleOf = (jd, i) => (jd.split('\n').map((s) => s.trim()).find(Boolean) || `Job ${i + 1}`).replace(/^#+\s*/, '').slice(0, 36);
+
+$('form').onsubmit = async (e) => {
+  e.preventDefault();
+  if (running) return;
+  formError('');
+  const resume = $('resume').value.trim();
+  const jds = [...$('jds').querySelectorAll('textarea')].map((t) => t.value.trim()).filter(Boolean);
+  if (!resume) return formError('Add your resume first: upload a file or paste the text.');
+  if (!jds.length) return formError('Paste at least one job description.');
+  const model = models.find((m) => m.id === $('model').value);
+  const base = { resume, extra: $('extra').value.trim(), language: $('language').value, tone: document.querySelector('[name=tone]:checked').value, model: model.id };
+
+  running = true; $('go').disabled = true;
+  try {
+    if (!connected[model.vendor] && !(await connect(model.vendor))) return;
+    jobs = jds.map((jd, i) => ({ jd, title: titleOf(jd, i), status: 'queued', key: crypto.randomUUID() }));
+    active = 0; renderResults();
+    for (const job of jobs) {
+      job.status = 'waiting'; renderResults();
+      let r = await api('/api/tailor', { ...base, jd: job.jd, key: job.key });
+      while (r.pending) { await sleep(1500); r = await api(`/api/request?vendor=${model.vendor}&id=${encodeURIComponent(r.request_id)}`); }
+      Object.assign(job, r.error ? { status: 'error', error: r.error.message } : { status: 'done', text: r.text });
+      renderResults();
+      if (r.error?.kind === 'disconnected') {
+        connected[model.vendor] = false; renderModelHint();
+        jobs.filter((j) => j.status === 'queued').forEach((j) => Object.assign(j, { status: 'error', error: 'Not run: reconnect MasterKey and try again.' }));
+        break;
+      }
+    }
+  } catch (err) {
+    formError(err.message);
+  } finally {
+    running = false; $('go').disabled = false; renderResults();
+  }
+};
+
+function renderResults() {
+  $('empty').classList.toggle('hidden', jobs.length > 0);
+  $('results').classList.toggle('hidden', !jobs.length);
+  $('tabs').classList.toggle('hidden', jobs.length < 2);
+  $('tabs').replaceChildren(...jobs.map((j, i) => {
+    const t = el('button', { type: 'button', className: 'tab', onclick: () => { active = i; renderResults(); } }, el('span', { className: 'st ' + j.status }), j.title);
+    t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', i === active);
+    return t;
+  }));
+  const j = jobs[active];
+  if (!j) return;
+  if (j.status === 'done') {
+    const copy = el('button', { type: 'button', textContent: 'Copy' });
+    copy.onclick = async () => { await navigator.clipboard.writeText(j.text); copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy'), 1400); };
+    const dl = el('button', { type: 'button', textContent: 'Download .md', onclick: () => {
+      const a = el('a', { href: URL.createObjectURL(new Blob([j.text], { type: 'text/markdown' })), download: `resume-${j.title.replace(/[^\w-]+/g, '-').toLowerCase()}.md` });
+      a.click(); URL.revokeObjectURL(a.href);
+    } });
+    const pr = el('button', { type: 'button', textContent: 'Print / PDF', onclick: () => window.print() });
+    const paper = el('article', { className: 'paper' });
+    paper.innerHTML = DOMPurify.sanitize(marked.parse(j.text));
+    $('panel').replaceChildren(el('div', { className: 'bar' }, el('b', { textContent: j.title }), el('div', { className: 'acts' }, copy, dl, pr)), paper);
+  } else if (j.status === 'error') {
+    $('panel').replaceChildren(el('div', { className: 'note bad' }, el('span', { className: 'st error' }), j.error));
+  } else {
+    const msg = j.status === 'waiting' ? 'Waiting for your approval in the MasterKey app…' : 'Queued. Runs after the job before it.';
+    $('panel').replaceChildren(el('div', { className: 'note' }, el('span', { className: 'st ' + j.status }), msg));
+  }
+}
+
+addJd();
+api('/api/state').then((s) => { models = s.models; connected = s.connected; renderModels(); });
+</script>
+</body>
+</html>

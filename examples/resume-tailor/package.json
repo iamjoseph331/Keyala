@@ -1,0 +1,11 @@
+{
+  "name": "resume-tailor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MasterKey demo: an AI resume tailor that ships with no API key; each user pays with their own",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "@anthropic-ai/sdk": "^1.8.0", "openai": "^4.104.0" }
+}

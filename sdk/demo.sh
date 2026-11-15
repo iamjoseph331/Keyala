@@ -39,7 +39,9 @@ fi
 
 SESS=$(curl -s "$B/v1/auth/dev" -d '{"email":"demo@masterkey.dev"}' | jq -r .session_token)
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/openai" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-FAKE-demo-key-0000"}'
+curl -s -o /dev/null -X PUT "$B/v1/me/keys/anthropic" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-ant-FAKE-demo-key-0000"}'
 APP=$(curl -s "$B/v1/apps" -d '{"name":"Chat with your key"}' | jq -r .app_secret)
+RT_APP=$(curl -s "$B/v1/apps" -d '{"name":"Resume Tailor"}' | jq -r .app_secret)
 
 cat <<EOF
 
@@ -50,6 +52,11 @@ Run the example in another terminal:
   cd $ROOT/sdk/examples/chat-with-your-key && npm install
   MK_URL=$B MK_APP_SECRET=$APP npm start
   open http://localhost:3000
+
+Or the resume tailor (OpenAI + Anthropic models):
+  cd $ROOT/examples/resume-tailor && npm install
+  MK_URL=$B MK_APP_SECRET=$RT_APP npm start
+  open http://localhost:3001
 EOF
 
 if [[ $SIM == 1 ]]; then
