@@ -85,10 +85,14 @@
         <div class="field period-field"><label for="report-days">Time period</label><select id="report-days" name="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
         <button class="button button-bright report-action" type="submit">Load report <span aria-hidden="true">→</span></button>
         <button id="load-sample" class="sample-button" type="button">View sample report <span aria-hidden="true">↗</span></button>
+        <button id="rotate-token" class="sample-button" type="button">Token leaked? Rotate it</button>
       </form>
       <p id="console-status" class="console-status" role="status" aria-live="polite">Enter your app token to load its activity.</p>
       <section id="report" class="report-content" aria-labelledby="report-title" hidden>
-        <div class="report-title-row"><div><p id="report-mode" class="report-mode"></p><h3 id="report-title">Request activity</h3><p id="report-period" class="report-period"></p></div><span class="privacy-mark"><span aria-hidden="true">◆</span> AGGREGATE DATA</span></div>
+        <div class="report-title-row">
+          <div><p id="report-mode" class="report-mode"></p><h3 id="report-title">Request activity</h3><p id="report-period" class="report-period"></p></div>
+          <button id="rotate-token" class="copy-button" type="button" hidden>Rotate app token</button>
+        </div>
         <div class="summary-grid" aria-label="Activity summary">
           <article class="summary-card"><span>Total requests</span><strong id="total-requests">—</strong><small>Calls received</small></article>
           <article class="summary-card"><span>Completed</span><strong id="total-completed">—</strong><small>Successful responses</small></article>
@@ -101,6 +105,7 @@
           <div><dt>Failed</dt><dd id="total-failed">—</dd></div>
           <div><dt>Uncertain</dt><dd id="total-uncertain">—</dd></div>
           <div><dt>Users</dt><dd id="total-users">—</dd></div>
+          <div><dt>New users</dt><dd id="total-new-users">—</dd></div>
           <div><dt>Input tokens</dt><dd id="total-input-tokens">—</dd></div>
           <div><dt>Output tokens</dt><dd id="total-output-tokens">—</dd></div>
         </dl>

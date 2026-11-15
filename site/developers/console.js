@@ -198,7 +198,7 @@ function renderReport(data, name, mode) {
     "total-denied": integer.format(totals.denied),
     "total-failed": integer.format(totals.failed),
     "total-uncertain": integer.format(totals.uncertain),
-    "total-users": integer.format(totals.users),
+    "total-users": `${integer.format(totals.users)}${totals.new_users > 0 ? ` (${integer.format(totals.new_users)} new)` : ""}`,
     "total-input-tokens": integer.format(totals.input_tokens),
     "total-output-tokens": integer.format(totals.output_tokens),
   };
@@ -366,3 +366,20 @@ async function copy(value, label) {
 }
 node("copy-id").addEventListener("click", () => copy(created?.app_id, "App ID"));
 node("copy-token").addEventListener("click", () => copy(created?.app_secret, "App token"));
+
+// Rotation: the old token stops working at once, the new one is shown here only.
+node("rotate-token").addEventListener("click", async () => {
+  const token = tokenInput.value.trim();
+  if (!isToken(token)) return message(status, "Paste the current app token first.", "error");
+  if (!confirm("Replace this app token? The current token stops working immediately, including on your servers.")) return;
+  try {
+    const data = await call(serverOrigin(), "/v1/app/secret", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    if (!isToken(data?.app_secret)) throw new Error("Unexpected rotation response.");
+    tokenInput.value = data.app_secret;
+    tokenInput.type = "text";
+    tokenInput.select();
+    message(status, "New app token is in the field. Copy it to your server's secret storage now; it is not shown again.", "success");
+  } catch (error) {
+    message(status, error.message, "error");
+  }
+});
