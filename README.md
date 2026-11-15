@@ -20,6 +20,10 @@ key and records the response for both sides to inspect.
 > vault. Live vendor billing, signed-device Apple login, and APNs delivery still
 > require operator configuration and verification.
 
+## Start building
+
+[Developer console](https://iamjoseph331.github.io/MasterKey/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/MasterKey/tutorials/) walk through app registration, phone approval, both model providers, and a browser integration.
+
 ## Try the local demo
 
 You need Rust, Node.js 20+, Xcode for the iOS app, and `curl`, `jq`, and `openssl`.

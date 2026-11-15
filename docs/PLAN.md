@@ -100,12 +100,38 @@ Key      { "vendor", "last4", "created_at" }
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
 | GET | `/v1/requests/{id}` | grant | `{status, response?}` |
+| GET | `/v1/app` | app secret | `{app_id, name, homepage, icon_url, allowed_origins, created_at}` |
+| POST | `/v1/app/secret` | app secret | rotate: `{app_secret}`; the old secret stops working at once |
+| GET | `/v1/app/report?days=30` | app secret | usage report for the last `days` (1-365, UTC days, today included), see below |
 
 **Browser (public) clients:** an app registered with `allowed_origins` (1-10 origins like `https://x.github.io`,
 `http://` only for localhost; or declared by the operator in `MK_PUBLIC_APPS`) can run entirely in a static page:
 connect with its `app_id`, claim the grant with `connect_secret`, keep the grant in the browser. Developer endpoints
 (`/v1/connect*`, proxy, `/v1/requests/*`) answer CORS with `Access-Control-Allow-Origin: *` (bearer auth, no cookies);
 `/v1/me/*` and `/v1/apps` have no CORS. The Origin binding is browser-enforced only, so the phone shows `origin`.
+
+**App secrets survive a database reset:** `app_secret` is opaque and carries the app record sealed
+(AES-GCM) with the server's master key. If the server's database was wiped (Render free plan) but the master key
+is unchanged, the first call with the secret re-creates the app with its name, homepage and origins. Rotation bumps a
+generation: after a reset, a rotated secret supersedes older ones as soon as it is used. User grants, keys and report
+history are not recoverable this way; users reconnect.
+
+**Developer report** (`GET /v1/app/report`), aggregates only, never user ids, emails, prompts or responses:
+```jsonc
+{ "app_id", "days": 30, "from": "2026-10-17", "to": "2026-11-15",
+  "totals":  { "requests", "completed", "denied", "expired", "failed", "uncertain", "pending",
+               "cost_usd",        // sum of vendor-reported cost of completed calls
+               "estimated_usd",   // sum of pre-call estimates of every approved call
+               "unmetered",       // completed calls whose vendor response had no usage
+               "input_tokens", "output_tokens", "users", "new_users" },
+  "daily":     [{ "date": "2026-11-15", "requests", "completed", "cost_usd" }],      // every day, zeros included
+  "models":    [{ "vendor", "model", "requests", "completed", "cost_usd", "input_tokens", "output_tokens" }],
+  "countries": [{ "country": "JP" | null, "users", "requests", "cost_usd" }] }  // most requests first
+```
+`country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
+operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
+the IP. `users` = distinct users with a request in range; `new_users` = grants first created in range.
+`/v1/apps` and `/v1/app*` answer CORS like the other developer endpoints, so a static dashboard can use them.
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the

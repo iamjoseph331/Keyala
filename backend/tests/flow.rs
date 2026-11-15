@@ -7,7 +7,7 @@ use std::{net::SocketAddr, time::Duration};
 fn extra() -> Config {
     Config {
         database_url: String::new(), master_key: [0; 32], dev_login: false, vendor_mock: false, public_url: String::new(), prices_verified: false,
-        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![],
+        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None,
     }
 }
 
@@ -32,6 +32,7 @@ async fn server_with(public_apps: Vec<PublicApp>) -> (String, Client, AppState) 
         public_url: "http://mk.test".into(),
         prices_verified: false,
         public_apps,
+        country_header: Some("cf-ipcountry".into()),
         ..extra()
     };
     let state = build_state(cfg).await.unwrap();
@@ -967,4 +968,87 @@ async fn public_connect_is_rate_limited() {
         last = c.post(format!("{b}/v1/connect")).header("origin", ORIGIN).json(&json!({"vendor": "openai", "app_id": "app_rl"})).send().await.unwrap().status().as_u16();
     }
     assert_eq!(last, 429);
+}
+
+#[tokio::test]
+async fn developer_app_info_rotation_and_report() {
+    let t = T::new().await;
+    let r = t.c.request(reqwest::Method::OPTIONS, format!("{}/v1/apps", t.base)).header("origin", "https://x.dev").header("access-control-request-method", "POST").send().await.unwrap();
+    assert_eq!(r.headers()["access-control-allow-origin"], "*");
+    let app = json_of(t.c.post(format!("{}/v1/apps", t.base)).json(&json!({"name": "Reports", "allowed_origins": ["https://x.dev"]})).send().await.unwrap()).await;
+    let secret = app["app_secret"].as_str().unwrap().to_string();
+    let info = json_of(t.c.get(format!("{}/v1/app", t.base)).bearer_auth(&secret).send().await.unwrap()).await;
+    assert_eq!((info["name"].as_str(), info["allowed_origins"][0].as_str()), (Some("Reports"), Some("https://x.dev")));
+    // empty report: every day present, zeros
+    let rep = json_of(t.c.get(format!("{}/v1/app/report?days=7", t.base)).bearer_auth(&secret).send().await.unwrap()).await;
+    assert_eq!(rep["daily"].as_array().unwrap().len(), 7);
+    assert_eq!(rep["totals"]["requests"], 0);
+    assert_eq!(t.c.get(format!("{}/v1/app/report?days=0", t.base)).bearer_auth(&secret).send().await.unwrap().status(), 400);
+
+    // connect approved from a phone in Japan, then 2 completed calls and 1 denied
+    let conn = json_of(t.c.post(format!("{}/v1/connect", t.base)).bearer_auth(&secret).json(&json!({"vendor": "openai"})).send().await.unwrap()).await;
+    let code = conn["connect_code"].as_str().unwrap();
+    let r = t.c.post(format!("{}/v1/me/connect/{code}/approve", t.base)).bearer_auth(&t.sess).header("cf-ipcountry", "jp").json(&json!({"policy": {"mode": "ask"}})).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    let tok = json_of(t.c.get(format!("{}/v1/connect/{code}", t.base)).bearer_auth(&secret).send().await.unwrap()).await["grant_token"].as_str().unwrap().to_string();
+    for decision in ["approve", "approve", "deny"] {
+        assert_eq!(t.chat(&tok, 0, msg()).await.status(), 202);
+        let id = t.pending().await;
+        assert_eq!(t.user_post(&format!("/v1/me/requests/{id}/{decision}"), json!({})).await.status(), 200);
+        t.wait_status(&id, if decision == "approve" { "completed" } else { "denied" }).await;
+    }
+
+    // rotation: old secret stops working
+    let new = json_of(t.c.post(format!("{}/v1/app/secret", t.base)).bearer_auth(&secret).send().await.unwrap()).await["app_secret"].as_str().unwrap().to_string();
+    assert_eq!(t.c.get(format!("{}/v1/app", t.base)).bearer_auth(&secret).send().await.unwrap().status(), 401);
+
+    let rep = json_of(t.c.get(format!("{}/v1/app/report", t.base)).bearer_auth(&new).send().await.unwrap()).await;
+    let tot = &rep["totals"];
+    assert_eq!((tot["requests"].as_i64(), tot["completed"].as_i64(), tot["denied"].as_i64(), tot["users"].as_i64(), tot["new_users"].as_i64()), (Some(3), Some(2), Some(1), Some(1), Some(1)));
+    assert!(tot["cost_usd"].as_f64().unwrap() > 0.0 && tot["input_tokens"].as_i64().unwrap() > 0 && tot["output_tokens"].as_i64().unwrap() > 0);
+    assert_eq!(tot["unmetered"], 0);
+    assert_eq!(rep["daily"].as_array().unwrap().len(), 30);
+    assert_eq!(rep["daily"][29]["requests"], 3);
+    assert_eq!(rep["models"][0]["model"], "gpt-4o-mini");
+    assert_eq!(rep["models"][0]["completed"], 2);
+    assert_eq!(rep["countries"], json!([{"country": "JP", "users": 1, "requests": 3, "cost_usd": tot["cost_usd"]}]));
+    let s = rep.to_string();
+    assert!(!s.contains(&t.sess) && !s.contains("a@b.co") && !s.contains("\"hi\""), "report leaks user data");
+
+    // another app sees none of it
+    let other = json_of(t.c.post(format!("{}/v1/apps", t.base)).json(&json!({"name": "Other"})).send().await.unwrap()).await;
+    let rep = json_of(t.c.get(format!("{}/v1/app/report", t.base)).bearer_auth(other["app_secret"].as_str().unwrap()).send().await.unwrap()).await;
+    assert_eq!(rep["totals"]["requests"], 0);
+    assert_eq!(rep["countries"], json!([]));
+}
+
+#[tokio::test]
+async fn app_secret_survives_database_reset_and_rotation_wins() {
+    let t = T::new().await;
+    let app = json_of(t.c.post(format!("{}/v1/apps", t.base)).json(&json!({"name": "Durable", "allowed_origins": ["https://d.dev"]})).send().await.unwrap()).await;
+    let old = app["app_secret"].as_str().unwrap().to_string();
+    let get = |s: &str| t.c.get(format!("{}/v1/app", t.base)).bearer_auth(s).send();
+    let wipe = || async { sqlx_query(&t.state, "DELETE FROM connect_codes WHERE app_id IN (SELECT id FROM apps WHERE name='Durable'); DELETE FROM apps WHERE name='Durable'").await };
+
+    // free-plan reset: the app row is gone, the token brings it back with its settings
+    wipe().await;
+    let info = json_of(get(&old).await.unwrap()).await;
+    assert_eq!((info["app_id"].as_str(), info["name"].as_str(), info["allowed_origins"][0].as_str()), (app["app_id"].as_str(), Some("Durable"), Some("https://d.dev")));
+    // and it can connect again
+    assert_eq!(t.c.post(format!("{}/v1/connect", t.base)).bearer_auth(&old).json(&json!({"vendor": "openai"})).send().await.unwrap().status(), 200);
+
+    // rotate, reset, then the leaked old token arrives first: the newer token still takes over
+    let new = json_of(t.c.post(format!("{}/v1/app/secret", t.base)).bearer_auth(&old).send().await.unwrap()).await["app_secret"].as_str().unwrap().to_string();
+    assert_eq!(get(&old).await.unwrap().status(), 401);
+    wipe().await;
+    assert_eq!(get(&old).await.unwrap().status(), 200);
+    assert_eq!(get(&new).await.unwrap().status(), 200);
+    assert_eq!(get(&old).await.unwrap().status(), 401);
+
+    // tampered or foreign tokens are refused
+    let mut bad = new.clone().into_bytes();
+    let i = bad.len() - 5;
+    bad[i] = if bad[i] == b'A' { b'B' } else { b'A' };
+    assert_eq!(get(&String::from_utf8(bad).unwrap()).await.unwrap().status(), 401);
+    assert_eq!(get("mk_app_not-a-real-token").await.unwrap().status(), 401);
 }
