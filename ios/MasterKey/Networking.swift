@@ -8,12 +8,14 @@ private final class RedirectBlocker: NSObject, URLSessionTaskDelegate {
 }
 
 enum APIError: LocalizedError {
-    case invalidURL, insecureServer, unauthorized, http(Int, String), invalidResponse, missingSession
+    case invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession
     var errorDescription: String? {
         switch self {
         case .invalidURL: "Enter a valid server URL."
         case .insecureServer: "Live connections require HTTPS. Enable the separate localhost development option to use local HTTP."
         case .unauthorized: "Your session expired. Sign in again."
+        case .invalidCredentials: "Check your username and password and try again."
+        case .passwordLoginUnavailable: "Password sign-in is unavailable on this server."
         case .http(let code, let message): "Server error (\(code)): \(message)"
         case .invalidResponse: "The server returned data this app could not read."
         case .missingSession: "Sign in to connect to your MasterKey server."
@@ -100,6 +102,19 @@ final class APIClient {
     func appleLogin(idToken: String) async throws -> AuthenticatedSession {
         struct LoginBody: Encodable { let idToken: String; enum CodingKeys: String, CodingKey { case idToken = "id_token" } }
         return try await send("/v1/auth/apple", method: "POST", body: LoginBody(idToken: idToken), authenticated: false)
+    }
+    func passwordLogin(username: String, password: String) async throws -> AuthenticatedSession {
+        struct LoginBody: Encodable {
+            let username: String
+            let password: String
+        }
+        do {
+            return try await send("/v1/auth/password", method: "POST", body: LoginBody(username: username, password: password), authenticated: false)
+        } catch APIError.unauthorized {
+            throw APIError.invalidCredentials
+        } catch APIError.http(404, _) {
+            throw APIError.passwordLoginUnavailable
+        }
     }
     func requests(status: String? = nil, limit: Int = 100, beforeID: String? = nil) async throws -> [RequestRecord] {
         return try await send(Self.requestListPath(status: status, limit: limit, beforeID: beforeID), response: [RequestRecord].self)

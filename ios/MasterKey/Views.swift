@@ -293,6 +293,8 @@ struct GrantDetailView: View {
 struct AccountView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.colorScheme) private var colorScheme
+    @State private var stagingUsername = ""
+    @State private var stagingPassword = ""
 
     var body: some View {
         Form {
@@ -317,7 +319,21 @@ struct AccountView: View {
                         .disabled(store.busy)
                 }
             }
-            if !store.demoMode, store.account == nil {
+            if !store.demoMode, store.account == nil, store.supportsStagingPassword {
+                Section("Staging sign-in") {
+                    TextField("Username", text: $stagingUsername)
+                        .textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    SecureField("Password", text: $stagingPassword)
+                        .textContentType(.password)
+                    Button("Sign in with password") {
+                        let username = stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let password = stagingPassword
+                        stagingPassword = ""
+                        Task { await store.signInPassword(username: username, password: password) }
+                    }.disabled(store.busy || stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stagingPassword.isEmpty)
+                }
+            }
+            if !store.demoMode, store.account == nil, !store.supportsStagingPassword {
                 Section("Development sign-in") {
                     TextField("Developer email", text: $store.email)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
