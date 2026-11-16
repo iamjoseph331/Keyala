@@ -82,6 +82,8 @@ services:
         value: app.sorevan.masterkey
       - key: MK_APNS_SANDBOX # Xcode-installed development builds use sandbox APNs
         value: "1"
+      - key: MK_PASSWORD_LOGIN # staging QA account `username:sha256hex(password)`, entered in the dashboard
+        sync: false
       - key: MK_APNS_KEY_P8 # contents of AuthKey_XXXX.p8; push stays off until all three are set
         sync: false
       - key: MK_APNS_KEY_ID
