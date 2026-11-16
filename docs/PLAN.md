@@ -142,6 +142,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/v1/auth/apple` / `/v1/auth/google` | `{id_token}` → `{session_token, user}` |
+| POST | `/v1/auth/password` | only if `MK_PASSWORD_LOGIN` is set (one operator-provisioned account, a fallback while Apple sign-in is unavailable): `{username, password}` → `{session_token, user}`; 404 unconfigured, 401 `invalid_credentials`, 429 `rate_limited` (10 per 10 min per address). Identity `{username}@password.invalid`, never linked to Apple or email accounts |
 | POST | `/v1/auth/dev` | only if `MK_DEV_LOGIN=1`: `{email}` → `{session_token, user}` |
 | GET | `/v1/me/keys` | `[Key]` |
 | PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned) |

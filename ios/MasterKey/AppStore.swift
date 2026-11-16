@@ -25,6 +25,10 @@ import AuthenticationServices
     private let vault = SessionVault()
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
+    var supportsStagingPassword: Bool {
+        (try? client.resolvedURL(for: "/v1/auth/password").absoluteString)
+            == "https://masterkey-staging-vkgm.onrender.com/v1/auth/password"
+    }
     private var demoLoaded = false
     @Published private(set) var contextGeneration = 0
     private let requestPageSize = 100
@@ -58,6 +62,10 @@ import AuthenticationServices
     }
     func signInApple(idToken: String) async {
         await signIn { try await $0.appleLogin(idToken: idToken) }
+    }
+    func signInPassword(username: String, password: String) async {
+        guard supportsStagingPassword else { return }
+        await signIn { try await $0.passwordLogin(username: username, password: password) }
     }
     private func signIn(using authenticate: (APIClient) async throws -> AuthenticatedSession) async {
         guard !demoMode, !busy else { return }
