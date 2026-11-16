@@ -179,7 +179,9 @@ pub struct AppleLogin {
 
 /// Identity is Apple's `sub`, never the email (emails can be relays, changed, or collide).
 pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Json<Value>> {
-    let c = crate::apple::verify(&s, &b.id_token).await?;
+    // one line per attempt (outcome only: no token, sub or IP) so hosted sign-in failures are diagnosable
+    let c = crate::apple::verify(&s, &b.id_token).await.inspect_err(|e| tracing::warn!("apple sign-in rejected: {} ({})", e.1, e.2))?;
+    tracing::info!("apple sign-in verified");
     let existing: Option<(String, String)> = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_optional(&s.db).await?;
     if let Some((uid, email)) = existing {
         return new_session(&s, &uid, &email).await;
