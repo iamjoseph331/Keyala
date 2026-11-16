@@ -292,7 +292,6 @@ struct GrantDetailView: View {
 
 struct AccountView: View {
     @EnvironmentObject private var store: AppStore
-    @Environment(\.colorScheme) private var colorScheme
     @State private var stagingUsername = ""
     @State private var stagingPassword = ""
 
@@ -313,10 +312,8 @@ struct AccountView: View {
                     LabeledContent("Server", value: store.serverURL)
                     Button("Sign out", role: .destructive) { store.signOut() }
                 } else {
-                    SignInWithAppleButton(.signIn, onRequest: { $0.requestedScopes = [.email] }, onCompletion: handleAppleSignIn)
-                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                        .frame(height: 46)
-                        .disabled(store.busy)
+                    AppleAuthenticationButton(mode: .signIn)
+                    NavigationLink("Sign up") { SignUpView() }
                 }
             }
             if !store.demoMode, store.account == nil, store.supportsStagingPassword {
@@ -345,6 +342,46 @@ struct AccountView: View {
             }
             Section("Appearance") { AppearancePicker() }
         }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+    }
+}
+
+private struct SignUpView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form {
+            Section {
+                AppleAuthenticationButton(mode: .signUp)
+            }
+            if store.supportsStagingPassword {
+                Section {
+                    Text("For password sign-in on staging, ask the server operator for a test account.")
+                        .font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(MKStyle.navy.ignoresSafeArea())
+        .navigationTitle("Sign up")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .onChange(of: store.account?.id) { _, accountID in
+            if accountID != nil { dismiss() }
+        }
+    }
+}
+
+private struct AppleAuthenticationButton: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var colorScheme
+    let mode: SignInWithAppleButton.Label
+
+    var body: some View {
+        SignInWithAppleButton(mode, onRequest: { $0.requestedScopes = [.email] }, onCompletion: handleAppleSignIn)
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(height: 46)
+            .disabled(store.busy)
     }
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
