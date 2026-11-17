@@ -20,6 +20,7 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `MK_DATABASE_URL` | `sqlite://masterkey.db?mode=rwc` | SQLite file |
 | `MK_PUBLIC_URL` | `http://localhost:8080` | base of `connect_url` |
 | `MK_DEV_LOGIN` | off | `1` enables `POST /v1/auth/dev` (testing only) |
+| `MK_PASSWORD_LOGIN` | unset | `username:sha256hex(password)` enables `POST /v1/auth/password` for that one account. Use a random password, e.g. `P=$(openssl rand -base64 24); printf 'qa:%s' "$(printf %s "$P" \| shasum -a 256 \| cut -d' ' -f1)"`. Keep `$P` out of git and logs |
 | `MK_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
 | `MK_APPLE_BUNDLE_ID` | `app.sorevan.masterkey` | required `aud` of Apple identity tokens |
 | `MK_APPLE_JWKS_URL` | Apple's | override only for tests |

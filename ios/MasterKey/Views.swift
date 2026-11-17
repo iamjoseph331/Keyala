@@ -292,7 +292,8 @@ struct GrantDetailView: View {
 
 struct AccountView: View {
     @EnvironmentObject private var store: AppStore
-    @Environment(\.colorScheme) private var colorScheme
+    @State private var stagingUsername = ""
+    @State private var stagingPassword = ""
 
     var body: some View {
         Form {
@@ -311,13 +312,25 @@ struct AccountView: View {
                     LabeledContent("Server", value: store.serverURL)
                     Button("Sign out", role: .destructive) { store.signOut() }
                 } else {
-                    SignInWithAppleButton(.signIn, onRequest: { $0.requestedScopes = [.email] }, onCompletion: handleAppleSignIn)
-                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                        .frame(height: 46)
-                        .disabled(store.busy)
+                    AppleAuthenticationButton(mode: .signIn)
+                    NavigationLink("Sign up") { SignUpView() }
                 }
             }
-            if !store.demoMode, store.account == nil {
+            if !store.demoMode, store.account == nil, store.supportsStagingPassword {
+                Section("Staging sign-in") {
+                    TextField("Username", text: $stagingUsername)
+                        .textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    SecureField("Password", text: $stagingPassword)
+                        .textContentType(.password)
+                    Button("Sign in with password") {
+                        let username = stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let password = stagingPassword
+                        stagingPassword = ""
+                        Task { await store.signInPassword(username: username, password: password) }
+                    }.disabled(store.busy || stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stagingPassword.isEmpty)
+                }
+            }
+            if !store.demoMode, store.account == nil, !store.supportsStagingPassword {
                 Section("Development sign-in") {
                     TextField("Developer email", text: $store.email)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -329,6 +342,46 @@ struct AccountView: View {
             }
             Section("Appearance") { AppearancePicker() }
         }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+    }
+}
+
+private struct SignUpView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form {
+            Section {
+                AppleAuthenticationButton(mode: .signUp)
+            }
+            if store.supportsStagingPassword {
+                Section {
+                    Text("For password sign-in on staging, ask the server operator for a test account.")
+                        .font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(MKStyle.navy.ignoresSafeArea())
+        .navigationTitle("Sign up")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .onChange(of: store.account?.id) { _, accountID in
+            if accountID != nil { dismiss() }
+        }
+    }
+}
+
+private struct AppleAuthenticationButton: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var colorScheme
+    let mode: SignInWithAppleButton.Label
+
+    var body: some View {
+        SignInWithAppleButton(mode, onRequest: { $0.requestedScopes = [.email] }, onCompletion: handleAppleSignIn)
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(height: 46)
+            .disabled(store.busy)
     }
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {

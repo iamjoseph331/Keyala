@@ -7,7 +7,7 @@ use std::{net::SocketAddr, time::Duration};
 fn extra() -> Config {
     Config {
         database_url: String::new(), master_key: [0; 32], dev_login: false, vendor_mock: false, public_url: String::new(), prices_verified: false,
-        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None,
+        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None, password_login: None,
     }
 }
 
@@ -23,18 +23,24 @@ async fn server() -> (String, Client, AppState) {
 }
 
 async fn server_with(public_apps: Vec<PublicApp>) -> (String, Client, AppState) {
+    serve(Config { public_apps, ..test_cfg() }).await
+}
+
+fn test_cfg() -> Config {
     let db = std::env::temp_dir().join(format!("mk-test-{}.db", masterkey_server::rand_b64(8)));
-    let cfg = Config {
+    Config {
         database_url: format!("sqlite://{}?mode=rwc", db.display()),
         master_key: [7u8; 32],
         dev_login: true,
         vendor_mock: true,
         public_url: "http://mk.test".into(),
         prices_verified: false,
-        public_apps,
         country_header: Some("cf-ipcountry".into()),
         ..extra()
-    };
+    }
+}
+
+async fn serve(cfg: Config) -> (String, Client, AppState) {
     let state = build_state(cfg).await.unwrap();
     let app = router(state.clone());
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1051,4 +1057,34 @@ async fn app_secret_survives_database_reset_and_rotation_wins() {
     bad[i] = if bad[i] == b'A' { b'B' } else { b'A' };
     assert_eq!(get(&String::from_utf8(bad).unwrap()).await.unwrap().status(), 401);
     assert_eq!(get("mk_app_not-a-real-token").await.unwrap().status(), 401);
+}
+
+#[tokio::test]
+async fn password_login_single_operator_account() {
+    use sha2::{Digest, Sha256};
+    // unconfigured: the endpoint does not exist
+    let (base, c, _) = server().await;
+    let r = c.post(format!("{base}/v1/auth/password")).json(&json!({"username": "qa", "password": "x"})).send().await.unwrap();
+    assert_eq!(r.status(), 404);
+
+    let pw = "correct-horse-battery-staple-9f3a";
+    let (base, c, _) = serve(Config { password_login: Some(("staging-qa".into(), Sha256::digest(pw).into())), dev_login: false, ..test_cfg() }).await;
+    let login = |u: &'static str, p: &'static str| c.post(format!("{base}/v1/auth/password")).json(&json!({"username": u, "password": p})).send();
+    for (u, p) in [("staging-qa", "wrong"), ("other", pw), ("staging-qa", "")] {
+        let r = login(u, p).await.unwrap();
+        assert_eq!(r.status(), 401);
+        assert_eq!(json_of(r).await["error"]["type"], "invalid_credentials");
+    }
+    let a = json_of(login("Staging-QA", pw).await.unwrap()).await;
+    let b = json_of(login("staging-qa", pw).await.unwrap()).await;
+    assert_eq!(a["user"]["email"], "staging-qa@password.invalid");
+    assert_eq!(a["user"]["id"], b["user"]["id"]);
+    let sess = a["session_token"].as_str().unwrap();
+    assert_eq!(c.get(format!("{base}/v1/me/keys")).bearer_auth(sess).send().await.unwrap().status(), 200);
+    // dev login stays off; 10 attempts per 10 min per address (5 used above)
+    assert_eq!(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "staging-qa@password.invalid"})).send().await.unwrap().status(), 404);
+    for _ in 0..5 {
+        login("staging-qa", "wrong").await.unwrap();
+    }
+    assert_eq!(login("staging-qa", pw).await.unwrap().status(), 429);
 }

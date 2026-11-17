@@ -54,6 +54,9 @@ pub struct Config {
     /// Header a trusted edge in front of the server sets to the client's country (MK_COUNTRY_HEADER,
     /// e.g. cf-ipcountry). Unset = no country in reports; clients could otherwise forge it.
     pub country_header: Option<String>,
+    /// One operator-provisioned password account (MK_PASSWORD_LOGIN=`username:sha256hex(password)`),
+    /// a fallback while Sign in with Apple is unavailable. Unset = `POST /v1/auth/password` is 404.
+    pub password_login: Option<(String, [u8; 32])>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -101,6 +104,19 @@ impl Config {
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
             country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
+            password_login: match env("MK_PASSWORD_LOGIN") {
+                None => None,
+                Some(v) => {
+                    let err = "MK_PASSWORD_LOGIN must be `username:<64 hex chars of sha256(password)>` (username 3-40 of a-z 0-9 . _ -)";
+                    let (u, h) = v.trim().split_once(':').ok_or(err)?;
+                    let hash: Vec<u8> = (0..h.len()).step_by(2).map(|i| h.get(i..i + 2).and_then(|b| u8::from_str_radix(b, 16).ok())).collect::<Option<_>>().ok_or(err)?;
+                    let hash: [u8; 32] = hash.try_into().map_err(|_| err)?;
+                    if !username_ok(u) {
+                        return Err(err.into());
+                    }
+                    Some((u.to_string(), hash))
+                }
+            },
             public_apps: match env("MK_PUBLIC_APPS") {
                 None => vec![],
                 Some(j) => {
@@ -215,6 +231,7 @@ pub fn router(state: AppState) -> Router {
         .route("/connect/{code}", get(connect_page))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
+        .route("/v1/auth/password", post(password_login))
         .route("/v1/me/keys", get(list_keys))
         .route("/v1/me/keys/{vendor}", put(put_key).delete(delete_key))
         .route("/v1/me/devices", post(add_device))
@@ -285,6 +302,13 @@ pub fn new_token(prefix: &str) -> String {
 }
 pub fn new_id(prefix: &str) -> String {
     format!("{prefix}_{}", rand_b64(12))
+}
+pub fn username_ok(u: &str) -> bool {
+    (3..=40).contains(&u.len()) && u.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
+}
+/// Equal-length byte compare whose time does not depend on where the inputs differ.
+pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 pub fn hash_token(t: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(t.as_bytes()))

@@ -166,6 +166,36 @@ pub async fn dev_login(State(s): State<AppState>, J(b): J<DevLogin>) -> R<Json<V
     new_session(&s, &uid, &email).await
 }
 
+#[derive(Deserialize)]
+pub struct PasswordLogin {
+    username: String,
+    password: String,
+}
+
+/// The operator's single password account (MK_PASSWORD_LOGIN). Its identity is
+/// `{username}@password.invalid`, never linked to an Apple or real email account.
+/// ponytail: unsalted SHA-256 verifier, fine only because the password is random and high-entropy;
+/// use argon2 if user-chosen passwords are ever allowed.
+pub async fn password_login(State(s): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, J(b): J<PasswordLogin>) -> R<Json<Value>> {
+    let Some((user, hash)) = &s.cfg.password_login else {
+        return Err(not_found("endpoint"));
+    };
+    rate_limit(&s, peer, &headers, "password", 10, 600, "sign-in attempts")?;
+    let name = b.username.trim().to_lowercase();
+    // compare both always, so timing reveals neither which part was wrong nor how much matched
+    let user_ok = ct_eq(Sha256::digest(name.as_bytes()).as_slice(), Sha256::digest(user.as_bytes()).as_slice());
+    let pass_ok = ct_eq(Sha256::digest(b.password.as_bytes()).as_slice(), hash);
+    if !(user_ok & pass_ok) {
+        tracing::warn!("password sign-in rejected");
+        return Err(api(401, "invalid_credentials", "wrong username or password"));
+    }
+    tracing::info!("password sign-in verified");
+    let email = format!("{user}@password.invalid");
+    sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)").bind(new_id("usr")).bind(&email).bind(now()).execute(&s.db).await?;
+    let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?").bind(&email).fetch_one(&s.db).await?;
+    new_session(&s, &uid, &email).await
+}
+
 async fn new_session(s: &AppState, uid: &str, email: &str) -> R<Json<Value>> {
     let tok = new_token("mk_sess_");
     sqlx::query("INSERT INTO sessions (token_hash,user_id,created_at) VALUES (?,?,?)").bind(hash_token(&tok)).bind(uid).bind(now()).execute(&s.db).await?;
@@ -179,7 +209,9 @@ pub struct AppleLogin {
 
 /// Identity is Apple's `sub`, never the email (emails can be relays, changed, or collide).
 pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Json<Value>> {
-    let c = crate::apple::verify(&s, &b.id_token).await?;
+    // one line per attempt (outcome only: no token, sub or IP) so hosted sign-in failures are diagnosable
+    let c = crate::apple::verify(&s, &b.id_token).await.inspect_err(|e| tracing::warn!("apple sign-in rejected: {} ({})", e.1, e.2))?;
+    tracing::info!("apple sign-in verified");
     let existing: Option<(String, String)> = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_optional(&s.db).await?;
     if let Some((uid, email)) = existing {
         return new_session(&s, &uid, &email).await;
