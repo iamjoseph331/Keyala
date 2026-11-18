@@ -23,15 +23,13 @@ struct MasterKeyApp: App {
                 .preferredColorScheme(preferredScheme)
                 .tint(MKStyle.teal)
                 .task { await store.start() }
-                .task {
+                .task(id: scenePhase) {
+                    guard scenePhase == .active else { return }
                     while !Task.isCancelled {
-                        try? await Task.sleep(for: .seconds(15))
-                        guard !Task.isCancelled else { return }
-                        if scenePhase == .active { await store.refresh() }
+                        await store.refresh()
+                        do { try await Task.sleep(for: .seconds(5)) }
+                        catch { return }
                     }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    Task { await store.refresh() }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .masterKeyAPNSToken)) { note in
                     if let token = note.object as? String { Task { await store.uploadDeviceToken(token) } }

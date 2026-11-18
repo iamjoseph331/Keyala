@@ -41,3 +41,12 @@ The signed, full-asset iPhone 17 Pro / iOS 26.2 build passed after the final pal
 The largest accessibility text size initially split the two action titles into narrow columns. The sheet now stacks its two action buttons at accessibility sizes, and Inbox stacks requester and cost information. A signed rebuild and native visual check confirmed readable Deny/Allow titles; `review-accessibility.png` records the result. Text size was restored to Large.
 
 Evidence: `inbox-redesign.png`, `review-sheet.png`, `openrouter-connected.png`, `swipe-warning.png`, `settings-dark.png`. All identities, keys and prompts are disposable local QA data. The final native contract suite passes. Live OpenRouter account consent/exchange, physical camera, hosted universal-link delivery, Apple login and APNs require their separate device/account checks.
+
+
+## Independent cross-check and foreground refresh regression
+
+Claude independently built `00c3254` in a clean checkout and verified the final welcome/icon, tabs, OpenRouter mock authorization, first ask-only pairing and review/Allow completion in an iPhone 16 Pro simulator. His check found foreground requests did not appear until relaunch and the connected provider still said Connect.
+
+The native foreground poll had captured the initial scene phase. It now restarts with the scene phase, refreshes immediately while active, repeats at a five-second cadence, and cancels on background. Cancelled refreshes do not mutate state or report a network error. Inbox also refreshes when shown and retains pull-to-refresh. This is foreground polling, not an SSE subscriber or proof of APNs delivery.
+
+Regression check with the rebuilt signed app: the Inbox stayed continuously open at **You’re all caught up**; a fake `Live refresh check` request was created through the actual Rust mock API; the native list changed to **1 waiting for you** without navigation, a deep link, pulling, or restarting. `inbox-live-refresh.png` records the result. A saved OpenRouter provider now displays **OpenRouter connection / Reconnect OpenRouter**. The original explicit replacement warning remains.

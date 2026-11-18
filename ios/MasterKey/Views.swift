@@ -109,6 +109,7 @@ struct InboxView: View {
         }.listStyle(.insetGrouped).scrollContentBackground(.hidden).background(MKStyle.navy)
             .navigationTitle("Inbox").navigationBarTitleDisplayMode(.large)
             .refreshable { await store.refresh() }
+            .onAppear { Task { await store.refresh() } }
             .sheet(item: $selected) { RequestDetailView(request: request(for: $0)) }
             .onChange(of: store.pendingRequestID) { _, _ in openNotificationRequest() }
             .onChange(of: store.requests.map(\.id)) { _, _ in openNotificationRequest() }
@@ -330,6 +331,7 @@ struct VaultView: View {
     @State private var showPaste = false
     @State private var selectedKey: KeyRecord?
     @State private var confirmRouterReplacement = false
+    private var hasOpenRouter: Bool { store.keys.contains(where: { $0.provider == .openRouter }) }
     var body: some View {
         List {
             Section { ModeBanner(); InfoBanner() }.listRowBackground(Color.clear).listRowSeparator(.hidden)
@@ -349,16 +351,16 @@ struct VaultView: View {
                     }
                 }.listRowBackground(MKStyle.panel)
             }
-            Section("Add a provider") {
+            Section(hasOpenRouter ? "OpenRouter connection" : "Add a provider") {
                 VStack(alignment: .leading, spacing: 14) {
                     Label("OpenRouter", systemImage: "link").font(.headline)
                     Text("Connect your OpenRouter account without copying a key. Requests use your OpenRouter balance.").font(.subheadline).foregroundStyle(MKStyle.muted)
                     Text("A $10 spending cap is suggested on the consent page. You can change it there.").font(.footnote).foregroundStyle(MKStyle.muted)
                     Button {
-                        if store.keys.contains(where: { $0.provider == .openRouter }) { confirmRouterReplacement = true }
+                        if hasOpenRouter { confirmRouterReplacement = true }
                         else { Task { await store.connectOpenRouter() } }
                     } label: {
-                        HStack { if store.isConnectingOpenRouter { ProgressView() }; Text(store.isConnectingOpenRouter ? "Connecting…" : "Connect OpenRouter").frame(maxWidth: .infinity) }
+                        HStack { if store.isConnectingOpenRouter { ProgressView() }; Text(store.isConnectingOpenRouter ? "Connecting…" : (hasOpenRouter ? "Reconnect OpenRouter" : "Connect OpenRouter")).frame(maxWidth: .infinity) }
                     }.buttonStyle(.borderedProminent).tint(MKStyle.teal).foregroundStyle(MKStyle.buttonText)
                         .disabled(store.demoMode || store.isConnectingOpenRouter)
                 }.padding(.vertical, 8)

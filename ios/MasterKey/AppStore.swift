@@ -138,14 +138,14 @@ import LocalAuthentication
             async let grantRows = api.grants()
             let newRequests = try await req
             let newKeys = try await keyRows; let newGrants = try await grantRows
-            guard generation == contextGeneration, !demoMode else { return }
+            guard generation == contextGeneration, !demoMode, !Task.isCancelled else { return }
             requestHistoryCursor.refresh(page: newRequests, existingIDs: Set(requests.map(\.id)), pageSize: requestPageSize)
             requests = RequestHistory.merging(existing: requests, incoming: newRequests)
             hasOlderRequests = requestHistoryCursor.hasMore
             keys = newKeys; grants = newGrants
             connected = true
         } catch {
-            guard generation == contextGeneration else { return }
+            guard generation == contextGeneration, !Task.isCancelled else { return }
             if case APIError.unauthorized = error { signOut() }
             report(error)
         }

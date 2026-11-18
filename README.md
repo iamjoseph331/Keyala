@@ -17,12 +17,13 @@ key and records the response for both sides to inspect.
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
 > tested against the Rust server with a mock provider. Hosted services currently
-> use ephemeral storage: keys, grants, and history reset on restart. Live provider
-> billing and APNs delivery still require end-to-end verification.
+> have different storage: staging keeps data on a persistent disk; production
+> still resets keys, grants and history on restart. Live OpenRouter consent,
+> provider billing and APNs delivery still require end-to-end verification.
 
 ## Start building
 
-[Developer console](https://iamjoseph331.github.io/MasterKey/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/MasterKey/tutorials/) walk through app registration, phone approval, both model providers, and a browser integration.
+[Developer console](https://iamjoseph331.github.io/MasterKey/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/MasterKey/tutorials/) walk through app registration, phone approval, provider requests, and a browser integration.
 
 ## Try the local demo
 
@@ -43,7 +44,7 @@ simulator. Open **Settings → Developer options**, enable developer options, le
 **Use sample data** off, enable **Allow HTTP for localhost**, and select the custom
 server `http://localhost:8080`. Sign in as `demo@masterkey.dev` through
 **Development sign-in**. Connect from the
-chat example, review its code on the phone, then inspect and approve its request.
+chat example, scan its connection QR on the phone, then inspect and approve its request.
 See [iOS setup](ios/README.md) for signing and simulator-runtime notes.
 
 Without Xcode, `bash sdk/demo.sh --simulate-phone` runs a script that plays the
@@ -55,13 +56,26 @@ application.
 
 [Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect their own OpenAI or Anthropic key through MasterKey and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/)
 
+## On the iPhone
+
+Fresh installs use the built-in production address. The app has Inbox, Apps, Keys
+and Settings tabs. Scan an app's connection QR, check the source, and review the
+prompt and estimated cost before allowing a call. Sample data and server overrides
+sit under Settings → Developer options.
+
+Keys offers one-tap OpenRouter authorization, using an OpenRouter account and its
+own credits. For OpenAI or Anthropic, open the MasterKey server's `/add-key` page
+on a computer, scan its setup QR, paste there and confirm on the phone. Direct
+paste on the phone remains available with provider-specific format hints. The
+phone's import review never downloads the full key.
+
 ## From the running iOS app
 
-The native inspector below is connected to the local Rust server. The provider
-is mocked, and the prompt is test data.
+The redesigned Inbox and review sheet below ran against the local Rust mock
+server. The identities, prompts and keys are fictional QA data.
 
-<img src="site/media/ios-request.jpg" width="320" alt="Native iOS app inspecting an exact mock request before approval">
-<img src="site/media/ios-completed.jpg" width="320" alt="Native iOS app showing the completed mock response and reported cost">
+<img src="docs/qa/ux-20261118/inbox-redesign.png" width="320" alt="Native Inbox with estimated costs and a Scan to connect action">
+<img src="docs/qa/ux-20261118/review-sheet.png" width="320" alt="Native review sheet with readable request content and explicit Deny and Allow controls">
 
 ```text
 Your AI app             MasterKey                  User's iPhone
@@ -99,8 +113,9 @@ responses they receive.
 
 The integration uses an app-scoped connection token in place of a vendor
 key and a MasterKey base URL. The developer never receives the user's vendor key.
-The backend supports bounded, non-streaming OpenAI and Anthropic text requests
-first. Unsupported request options must fail visibly rather than bypass approval.
+The backend supports bounded, non-streaming OpenAI, Anthropic and OpenRouter text
+requests. OpenRouter uses `/v1/openrouter` with its own exact model slugs and
+provider-specific grants. Unsupported request options fail visibly.
 
 ```python
 # Integration shape. Pair the user first to obtain a scoped grant token.
