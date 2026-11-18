@@ -12,6 +12,14 @@ server, and never gets a token bill.
 Live: <https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/> (published from `main`
 by the Pages workflow; it talks to `masterkey-prod`).
 
+The flow is connect-first: step 1 picks the provider and pairs with the MasterKey app (QR, code, or
+"Open MasterKey" on the phone), and the model list only offers connected providers. Before running,
+the page shows the per-job cost ceiling computed exactly as the server reserves it (request bytes +
+16 per message + 64, plus `max_tokens` of output), so it matches the estimate on the phone. The UI
+is in English, Traditional Chinese and Japanese (browser language, or the picker; remembered).
+The "Get MasterKey" QR (`masterkey-qr.svg`) points to the MasterKey site until there is an App
+Store listing; swap the file then.
+
 ## Run it locally (mock vendor, no real credits)
 
 ```sh
