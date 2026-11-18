@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MasterKey final screens F5-F8</title>
+<style>
+  :root { --ink:#1F1B16; --mut:#7A7268; --bg:#FAF7F2; --card:#fff; --acc:#3D7A57; --line:#ECE6DC; --soft:#EFEAE1; }
+  body { margin:0; padding:32px 16px; background:#E9E4DA; font:15px/1.35 Inter,-apple-system,system-ui,sans-serif; color:var(--ink); }
+  h1 { font-size:28px; margin:0 0 6px } .lead { color:var(--mut); max-width:900px; margin:0 0 28px }
+  .row { display:flex; flex-wrap:wrap; gap:32px }
+  figure { margin:0 } figcaption { font-weight:600; margin:10px 4px }
+  .phone { width:393px; height:852px; max-width:calc(100vw - 32px); border-radius:48px; background:var(--bg); border:1px solid #D9D3C7; overflow:hidden; position:relative; padding:62px 20px 0; box-sizing:border-box; display:flex; flex-direction:column; gap:16px }
+  .big { font-size:34px; font-weight:700 } .muted { color:var(--mut) } .cap { font-size:12px; font-weight:600; color:var(--mut); letter-spacing:.04em }
+  .group { background:var(--card); border-radius:16px } .item { display:flex; align-items:center; gap:12px; padding:13px 16px } .item + .item { border-top:1px solid var(--line) }
+  .item .grow { flex:1 } .t { font-weight:600 } .s { font-size:13px; color:var(--mut) } .chev { color:#C9C1B5; font-size:20px }
+  .ic { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; color:#fff; font-weight:700; flex:none }
+  .badge { font-size:11px; font-weight:600; color:var(--acc); background:#E7F1EA; border-radius:6px; padding:2px 6px; margin-left:6px }
+  .btn { background:var(--acc); color:#fff; font-weight:600; border-radius:14px; padding:12px; text-align:center }
+  .tog { width:51px; height:31px; border-radius:16px; background:#D6CEC1; position:relative; flex:none } .tog::after { content:""; position:absolute; top:3px; left:3px; width:25px; height:25px; border-radius:50%; background:#fff } .tog.on { background:var(--acc) } .tog.on::after { left:23px }
+  .note { font-size:13px; color:var(--mut); margin-top:-8px }
+  .dark { background:#111; color:#fff; align-items:center; text-align:center }
+  .vf { width:280px; height:280px; border-radius:28px; background:#1C1C1C; position:relative; display:grid; place-items:center }
+  .vf svg { position:absolute; inset:0 } .qr { width:150px; height:150px; background:#fff; border-radius:8px; display:grid; grid-template-columns:repeat(10,1fr); gap:1px; padding:5px; box-sizing:border-box } .qr i { background:#111 } .qr b { background:#fff }
+  .sheet { background:#1F1F1F; border-radius:22px; padding:16px; text-align:left; align-self:stretch }
+  .dim { background:#8C857B; justify-content:center; align-items:center; padding:0 }
+  .alert { width:290px; background:#F4F1EC; border-radius:20px; text-align:center; overflow:hidden }
+  .alert .body { padding:20px 18px 14px } .alert .a { border-top:1px solid #DDD6CB; padding:11px; font-size:17px }
+</style>
+<h1>Final direction: screens F5-F8</h1>
+<p class="lead">F1-F4 (welcome, inbox, review sheet, connect review) are in Figma: figma.com/design/y0Yg98WyghpmV8wiQRkQJG, section "Final". These four were built here after Figma's Starter plan MCP limit was reached. Same palette: paper #FAF7F2, ink #1F1B16, green #3D7A57.</p>
+<div class="row">
+  <figure><div class="phone dark">
+    <div style="font-size:22px;font-weight:600">Scan the code on the website</div>
+    <div style="color:#B8B8B8;max-width:320px">Look for "Connect with MasterKey". You review who is asking before anything is shared.</div>
+    <div class="vf"><svg viewBox="0 0 280 280" fill="none"><g stroke="#7FC29B" stroke-width="5" stroke-linecap="round"><path d="M8 52V22Q8 8 22 8H52"/><path d="M228 8H258Q272 8 272 22V52"/><path d="M272 228V258Q272 272 258 272H228"/><path d="M52 272H22Q8 272 8 258V228"/></g></svg><div class="qr" id="qr"></div></div>
+    <div class="sheet"><div class="t">Can't scan?</div><div style="color:#B8B8B8;font-size:14px">Paste the link, or type the code shown next to the QR (MK-7QF2).</div></div>
+  </div><figcaption>F5 Scan to connect</figcaption></figure>
+
+  <figure><div class="phone">
+    <div class="big">Keys</div>
+    <div class="muted">Apps use these through MasterKey. They never see them.</div>
+    <div class="group">
+      <div class="item"><div class="ic" style="background:#10A37F">O</div><div class="grow"><div class="t">OpenAI</div><div class="s">Key ending 7Q2c / used by 2 apps</div></div><span class="chev">›</span></div>
+      <div class="item"><div class="ic" style="background:#D97757">A</div><div class="grow"><div class="t">Anthropic</div><div class="s">Key ending K9aB / used by 1 app</div></div><span class="chev">›</span></div>
+    </div>
+    <div class="cap">ADD A PROVIDER</div>
+    <div class="group" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:12px;align-items:center"><div class="ic" style="background:#6366F1">R</div><div><div class="t">OpenRouter<span class="badge">ONE TAP</span></div><div class="s">Sign in, set a spending cap, done. No key to copy.</div></div></div>
+      <div class="btn">Connect OpenRouter</div>
+    </div>
+    <div class="group">
+      <div class="item"><div class="grow"><div class="t">Paste a key from your computer</div><div class="s">Open the add-key page on your computer and scan its QR.</div></div><span class="chev">›</span></div>
+      <div class="item"><div class="grow"><div class="t">Paste a key on this iPhone</div><div class="s">sk-proj-... or sk-ant-api03-... Checked with the provider for free.</div></div><span class="chev">›</span></div>
+    </div>
+  </div><figcaption>F6 Keys (OpenRouter one tap)</figcaption></figure>
+
+  <figure><div class="phone">
+    <div class="big">Settings</div>
+    <div class="cap">ACCOUNT</div>
+    <div class="group"><div class="item"><div class="grow">Signed in with Apple</div><span class="muted">J. ›</span></div></div>
+    <div class="cap">REQUESTS</div>
+    <div class="group">
+      <div class="item"><div class="grow">Notify me</div><span class="tog on"></span></div>
+      <div class="item"><div class="grow">Require Face ID to allow</div><span class="tog on"></span></div>
+      <div class="item"><div class="grow">Swipe to allow</div><span class="tog"></span></div>
+    </div>
+    <div class="note">Swipe to allow skips the review sheet. Off by default.</div>
+    <div class="cap">DEVELOPER</div>
+    <div class="group">
+      <div class="item"><div class="grow">Test mode</div><span class="tog"></span></div>
+      <div class="item"><div class="grow">Server</div><span class="muted">Tokyo (default) ›</span></div>
+    </div>
+    <div class="note">Test mode shows sample requests only. Nothing is sent to OpenAI, Anthropic or OpenRouter, and nothing is charged.</div>
+  </div><figcaption>F7 Settings</figcaption></figure>
+
+  <figure><div class="phone dim">
+    <div class="alert"><div class="body"><div class="t" style="font-size:17px;margin-bottom:8px">Allow requests with a swipe?</div><div style="font-size:13px">You will allow calls from the Inbox without seeing the prompt or the price. Anyone holding your unlocked phone could approve spending. Only "this call only" approvals up to $0.05 can be swiped; anything larger still opens the review sheet.</div></div>
+      <div class="a" style="color:#B3261E">Turn on</div><div class="a" style="color:var(--acc);font-weight:600">Keep off</div></div>
+  </div><figcaption>F8 Swipe warning</figcaption></figure>
+</div>
+<script>
+  const q = document.getElementById("qr");
+  for (let j = 0; j < 10; j++) for (let i = 0; i < 10; i++) {
+    const on = ((i * 7 + j * 13) % 5) < 2 || (i < 3 && j < 3) || (i > 6 && j < 3) || (i < 3 && j > 6);
+    q.appendChild(document.createElement(on ? "i" : "b"));
+  }
+</script>
+</html>
