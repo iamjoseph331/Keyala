@@ -134,6 +134,14 @@ final class APIClient {
         return try await send("/v1/me/requests/\(id)/\(approve ? "approve" : "deny")", method: "POST", body: body)
     }
     func keys() async throws -> [KeyRecord] { try await send("/v1/me/keys") }
+    func startOpenRouter(limitUSD: Double) async throws -> OpenRouterAuthorization {
+        struct Body: Encodable { let limitUSD: Double; enum CodingKeys: String, CodingKey { case limitUSD = "limit_usd" } }
+        return try await send("/v1/me/oauth/openrouter", method: "POST", body: Body(limitUSD: limitUSD))
+    }
+    func openRouterFlow(id: String, cancel: Bool = false) async throws -> OpenRouterFlow {
+        try await send("/v1/me/oauth/openrouter/flows/\(id)" + (cancel ? "/cancel" : ""), method: cancel ? "POST" : "GET")
+    }
+
     func addKey(provider: Provider, value: String, label: String) async throws -> KeyRecord {
         struct Body: Encodable { let apiKey: String; enum CodingKeys: String, CodingKey { case apiKey = "api_key" } }
         return try await send("/v1/me/keys/\(provider.rawValue)", method: "PUT", body: Body(apiKey: value))

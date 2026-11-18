@@ -20,6 +20,14 @@ Sources: [OpenAI key types](https://developers.openai.com/api/docs/guides/api-ke
 
 ## Immediate app flow
 
+### Approved addition: OpenRouter OAuth
+
+Joseph selected OpenRouter as a third provider during design review. Its official OAuth flow creates a user-controlled OpenRouter key after authorization, using mandatory S256 PKCE. A fresh verifier and returned state bind the attempt; the key must stay encrypted at the server and out of browser storage, URLs and logs. Limit and expiration parameters are suggestions the user can change; the authorization screen's choice remains authoritative.
+
+This uses an OpenRouter account and its credits. It does not link the user's existing OpenAI or Anthropic API account, and the UI must make that distinction clear. Claude owns the third-provider backend and exact contract; Codex owns the native authorization session and provider UI. Live account authorization is distinct from the no-spend mock tests.
+
+Source: [OpenRouter OAuth PKCE](https://openrouter.ai/docs/guides/overview/auth/oauth).
+
 1. Sign in to MasterKey. The official service is preconfigured; server settings belong under developer options.
 2. Pick OpenAI or Anthropic. Open the provider's official key page if needed.
 3. Copy the key once and use the explicit Paste control. A Mac and iPhone on the same Apple Account can use Universal Clipboard when enabled. Typed entry remains a fallback, with `sk-...` / `sk-ant-...` format hints. Prefix hints do not prove a valid key or available credit.

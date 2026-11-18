@@ -50,14 +50,15 @@ struct MasterKeyApp: App {
 }
 
 enum MKStyle {
-    static let navy = adaptive(dark: 0.035, 0.075, 0.12, light: 0.965, 0.973, 0.969)
-    static let panel = adaptive(dark: 0.075, 0.13, 0.18, light: 1, 1, 1)
-    // Dark-mode teal stays vivid; light-mode teal is darker so links and labels remain readable.
-    static let teal = adaptive(dark: 0.25, 0.82, 0.72, light: 0.02, 0.42, 0.37)
-    static let cream = adaptive(dark: 0.94, 0.92, 0.84, light: 0.10, 0.14, 0.16)
-    static let muted = adaptive(dark: 0.66, 0.74, 0.75, light: 0.31, 0.37, 0.39)
-    static let codeBackground = adaptive(dark: 0.015, 0.035, 0.05, light: 0.91, 0.93, 0.93)
-    static let warning = adaptive(dark: 1, 0.68, 0.30, light: 0.52, 0.28, 0.04)
+    static let navy = adaptive(dark: 0.09, 0.085, 0.075, light: 250 / 255, 247 / 255, 242 / 255)
+    static let panel = adaptive(dark: 0.14, 0.135, 0.12, light: 1, 1, 1)
+    static let teal = adaptive(dark: 0.55, 0.76, 0.62, light: 61 / 255, 122 / 255, 87 / 255)
+    static let cream = adaptive(dark: 250 / 255, 247 / 255, 242 / 255, light: 31 / 255, 27 / 255, 22 / 255)
+    static let muted = adaptive(dark: 0.70, 0.67, 0.62, light: 122 / 255, 114 / 255, 104 / 255)
+    static let line = adaptive(dark: 0.24, 0.225, 0.20, light: 236 / 255, 230 / 255, 220 / 255)
+    static let codeBackground = adaptive(dark: 0.07, 0.065, 0.055, light: 239 / 255, 234 / 255, 225 / 255)
+    static let warning = adaptive(dark: 1, 0.72, 0.40, light: 0.57, 0.30, 0.09)
+    static let buttonText = adaptive(dark: 0.08, 0.11, 0.09, light: 1, 1, 1)
 
     private static func adaptive(dark r: CGFloat, _ g: CGFloat, _ b: CGFloat, light lr: CGFloat, _ lg: CGFloat, _ lb: CGFloat) -> Color {
         Color(uiColor: UIColor { traits in
@@ -112,11 +113,13 @@ struct RootView: View {
             } else {
                 TabView(selection: $selection) {
                     NavigationStack { InboxView().toolbar { actions } }
-                        .tabItem { Label("Requests", systemImage: "checkmark.shield") }.tag(0)
+                        .tabItem { Label("Inbox", systemImage: "tray") }.tag(0)
                     NavigationStack { GrantsView().toolbar { actions } }
                         .tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(1)
                     NavigationStack { VaultView().toolbar { actions } }
                         .tabItem { Label("Keys", systemImage: "key.horizontal") }.tag(2)
+                    NavigationStack { SettingsView() }
+                        .tabItem { Label("Settings", systemImage: "gearshape") }.tag(3)
                 }
             }
         }
@@ -160,10 +163,12 @@ struct RootView: View {
 
     @ToolbarContentBuilder private var actions: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            if store.account != nil || store.demoMode {
+            if (store.account != nil || store.demoMode) && (selection == 1 || selection == 2) {
                 Button { activeSheet = .connect } label: { Image(systemName: "qrcode.viewfinder") }.accessibilityLabel("Connect an app")
             }
-            Button { activeSheet = .settings } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings")
+            if store.account == nil && !store.demoMode {
+                Button { activeSheet = .settings } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings")
+            }
         }
     }
 }

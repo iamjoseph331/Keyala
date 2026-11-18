@@ -3,11 +3,28 @@ import Foundation
 enum Provider: String, Codable, CaseIterable, Identifiable {
     case openAI = "openai"
     case anthropic
+    case openRouter = "openrouter"
     var id: String { rawValue }
-    var title: String { self == .openAI ? "OpenAI" : "Anthropic" }
-    var keyPlaceholder: String { self == .openAI ? "sk-..." : "sk-ant-..." }
+    var title: String {
+        switch self {
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .openRouter: "OpenRouter"
+        }
+    }
+    var keyPlaceholder: String {
+        switch self {
+        case .openAI: "sk-..."
+        case .anthropic: "sk-ant-..."
+        case .openRouter: "sk-or-v1-..."
+        }
+    }
     var keysURL: URL {
-        URL(string: self == .openAI ? "https://platform.openai.com/api-keys" : "https://platform.claude.com/settings/keys")!
+        switch self {
+        case .openAI: URL(string: "https://platform.openai.com/api-keys")!
+        case .anthropic: URL(string: "https://platform.claude.com/settings/keys")!
+        case .openRouter: URL(string: "https://openrouter.ai/settings/keys")!
+        }
     }
 }
 
@@ -26,6 +43,7 @@ struct RequestRecord: Codable, Identifiable {
     var error: String?
     var isDemo: Bool = false
     var estimatedCostMicrousd: Int64
+    var actualUSD: String { actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" }
     var estimatedUSD: String { String(format: "$%.6f", Double(estimatedCostMicrousd) / 1_000_000) }
 
     enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error; case grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
@@ -93,13 +111,17 @@ struct KeyRecord: Codable, Identifiable {
     var provider: Provider
     var label: String
     var lastFour: String
-    enum CodingKeys: String, CodingKey { case vendor, last4, label }
-    init(id: String, provider: Provider, label: String, lastFour: String) { self.id = id; self.provider = provider; self.label = label; self.lastFour = lastFour }
+    var createdAt: String?
+    var checked: Bool? = nil
+    enum CodingKeys: String, CodingKey { case vendor, last4, label, checked; case createdAt = "created_at" }
+    init(id: String, provider: Provider, label: String, lastFour: String, createdAt: String? = nil) { self.id = id; self.provider = provider; self.label = label; self.lastFour = lastFour; self.createdAt = createdAt }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self); provider = try c.decode(Provider.self, forKey: .vendor)
         id = provider.rawValue; label = try c.decodeIfPresent(String.self, forKey: .label) ?? provider.title; lastFour = try c.decode(String.self, forKey: .last4)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        checked = try c.decodeIfPresent(Bool.self, forKey: .checked)
     }
-    func encode(to encoder: Encoder) throws { var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(provider, forKey: .vendor); try c.encode(lastFour, forKey: .last4); try c.encode(label, forKey: .label) }
+    func encode(to encoder: Encoder) throws { var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(provider, forKey: .vendor); try c.encode(lastFour, forKey: .last4); try c.encode(label, forKey: .label); try c.encodeIfPresent(createdAt, forKey: .createdAt); try c.encodeIfPresent(checked, forKey: .checked) }
 }
 
 struct GrantRecord: Codable, Identifiable {
@@ -289,5 +311,101 @@ enum EnrollmentLink {
         } else { return nil }
         guard path.range(of: "^/en_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
         return String(path.dropFirst())
+    }
+}
+
+struct OpenRouterAuthorization: Decodable {
+    let flowID: String
+    let authURL: URL
+    let expiresAt: String
+    enum CodingKeys: String, CodingKey { case flowID = "flow_id", authURL = "auth_url", expiresAt = "expires_at" }
+
+    func validatedURL(callbackURL: URL, allowMock: Bool) throws -> URL {
+        guard flowID.range(of: "^of_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil,
+              let url = URLComponents(url: authURL, resolvingAgainstBaseURL: false),
+              url.user == nil, url.password == nil, url.fragment == nil,
+              let items = url.queryItems, items.allSatisfy({ $0.value != nil }),
+              Set(items.map(\.name)).count == items.count else { throw APIError.invalidResponse }
+        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
+        guard let state = query["state"], state.range(of: "^[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { throw APIError.invalidResponse }
+        if url.scheme == "https", url.host == "openrouter.ai", url.port == nil, url.path == "/auth" {
+            guard query["callback_url"] == callbackURL.absoluteString,
+                  query["code_challenge_method"] == "S256",
+                  query["code_challenge"]?.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil,
+                  Set(query.keys).isSubset(of: ["callback_url", "code_challenge", "code_challenge_method", "state", "key_label", "limit", "expiration"]) else { throw APIError.invalidResponse }
+            return authURL
+        }
+        guard allowMock, url.scheme == callbackURL.scheme, url.host == callbackURL.host, url.port == callbackURL.port,
+              url.path == callbackURL.deletingLastPathComponent().appendingPathComponent("mock").path,
+              Set(query.keys) == ["state"] else { throw APIError.invalidResponse }
+        return authURL
+    }
+
+}
+
+struct OpenRouterFlow: Decodable {
+    let flowID: String
+    let provider: Provider
+    let status: String
+    let reason: String?
+    let lastFour: String?
+    enum CodingKeys: String, CodingKey { case flowID = "flow_id", provider, status, reason; case lastFour = "last4" }
+
+    func confirmedKey(in keys: [KeyRecord], expectedFlowID: String) -> KeyRecord? {
+        guard flowID == expectedFlowID, provider == .openRouter, status == "saved", let lastFour else { return nil }
+        return keys.first(where: { $0.provider == .openRouter && $0.lastFour == lastFour })
+    }
+}
+
+enum OpenRouterCallback {
+    static func validate(_ url: URL, expectedFlowID: String) throws {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "masterkey", parts.host == "oauth", parts.path == "/openrouter",
+              parts.percentEncodedPath == parts.path, parts.user == nil, parts.password == nil,
+              parts.port == nil, parts.fragment == nil, let items = parts.queryItems,
+              items.allSatisfy({ $0.value != nil }), Set(items.map(\.name)).count == items.count else { throw APIError.invalidResponse }
+        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
+        guard Set(query.keys).isSubset(of: ["status", "reason", "flow"]),
+              (query["status"] == "ok" || query["status"] == "error"),
+              query["flow"] == expectedFlowID || (query["flow"] == nil && query["status"] == "error") else { throw APIError.invalidResponse }
+    }
+}
+
+struct RequestMessage: Identifiable {
+    let id: Int
+    let role: String
+    let text: String
+}
+
+extension RequestRecord {
+    var canApproveWithSwipe: Bool {
+        status == "pending" && payload != nil && (0...50_000).contains(estimatedCostMicrousd)
+    }
+    var readableMessages: [RequestMessage] {
+        guard case .object(let body)? = payload else { return [] }
+        func content(_ value: JSONValue) -> String {
+            if case .string(let text) = value { return text }
+            if case .array(let parts) = value {
+                return parts.map { part in
+                    if case .object(let block) = part, case .string(let text)? = block["text"] { return text }
+                    return part.prettyPrinted
+                }.joined(separator: "\n\n")
+            }
+            return value.prettyPrinted
+        }
+        var messages: [RequestMessage] = []
+        if let system = body["system"] { messages.append(.init(id: messages.count, role: "System", text: content(system))) }
+        if case .array(let rows)? = body["messages"] {
+            for row in rows {
+                guard case .object(let message) = row else {
+                    messages.append(.init(id: messages.count, role: "Message", text: row.prettyPrinted)); continue
+                }
+                var role = "Message"
+                if case .string(let value)? = message["role"] { role = value.capitalized }
+                if case .string(let name)? = message["name"] { role += " / " + name }
+                messages.append(.init(id: messages.count, role: role, text: message["content"].map(content) ?? row.prettyPrinted))
+            }
+        }
+        return messages
     }
 }

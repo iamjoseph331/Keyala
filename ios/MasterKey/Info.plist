@@ -10,6 +10,7 @@
 	<key>CFBundleShortVersionString</key><string>1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
 	<key>NSCameraUsageDescription</key><string>Scan an app’s MasterKey QR code to review and approve its connection.</string>
+	<key>NSFaceIDUsageDescription</key><string>Confirm request approvals with Face ID before an app can use your provider account.</string>
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>UILaunchScreen</key><dict/>
 	<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
