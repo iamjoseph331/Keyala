@@ -105,7 +105,7 @@ async fn apple_revoke(s: &AppState, code: &str) -> bool {
     if !r.status().is_success() {
         return false;
     }
-    let Some(refresh) = r.json::<Value>().await.ok().and_then(|v| v["refresh_token"].as_str().map(String::from)) else { return false };
+    let Some(refresh) = r.text().await.ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|v| v["refresh_token"].as_str().map(String::from)) else { return false };
     let form = vec![("token", refresh.as_str()), ("token_type_hint", "refresh_token"), ("client_id", &c.apple_bundle_id), ("client_secret", &secret)];
     post("/auth/revoke", form).await.is_ok_and(|r| r.status().is_success())
 }
