@@ -192,6 +192,16 @@ SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidate
 `/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{MK_APPLE_TEAM_ID}.{MK_APPLE_BUNDLE_ID}`
 (default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `masterkey://connect/{code}` and `masterkey://enroll/{id}` remain.
 
+### Account controls and operations (launch readiness)
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/me/sessions/revoke-all` | session | `{keep_current?: true}` → `{revoked}`. Signs out every other device (and this one when `keep_current` is false) |
+| POST | `/v1/me/stop-all` | session | no body → `{grants_revoked, requests_denied, requests_in_flight, enrollments_cancelled, flows_cancelled}`. Lost-device switch: every grant token dies at once; pending and approved-but-unsent requests become `denied` (reservations refunded; an unsent approved request is never sent afterwards); requests already `sending` cannot be recalled and are counted in `requests_in_flight`. Keys stay stored; sessions stay valid. New connects work normally afterwards |
+| POST | `/v1/me/delete` | session + fresh identity | `{confirm: "DELETE", id_token?, authorization_code?, password?, email?}` → `{deleted: true, apple_revoked: true\|false\|null}`. 400 `confirmation_required` (confirm is not exactly `DELETE`), 401 `reauth_failed`, 409 `request_in_flight` (a call is being sent to a provider; retry in about a minute), 429 `rate_limited`. Deletes in one transaction: sessions, devices, stored provider keys, grants (tokens die), every request with its payload and response, enrollments (incl. uploaded candidates), OAuth flows, the user row. Report aggregates keep only counts. Irreversible |
+Fresh identity, by how the account signs in: Apple accounts send a **fresh Apple `id_token`** (its `sub` must equal the account's, `iat` within 5 minutes, same audience as sign-in); password accounts send `password`; dev-login accounts send their `email` (only exists when `MK_DEV_LOGIN=1`). A session token alone never deletes an account.
+Apple revocation: if the app also sends the `authorization_code` from that same Apple sign-in and the operator configured `MK_APPLE_SIGNIN_KEY_P8` (+ `MK_APPLE_SIGNIN_KEY_ID`, team `MK_APPLE_TEAM_ID`), the server exchanges the code at `appleid.apple.com/auth/token` and revokes the refresh token at `/auth/revoke` before deleting; `apple_revoked` is `true`. If not configured or Apple refuses, deletion still completes with `apple_revoked: false` (non-Apple accounts: `null`) and the app should tell the user they can also remove MasterKey under Settings > Apple Account > Sign in with Apple. The `.p8` is never in git or logs.
+**Operator switches (not user API):** `MK_PAUSE_UPSTREAM=1`, or the file `PAUSE_UPSTREAM` created next to the database, makes new proxy calls answer `503 upstream_paused` with no reservation, and holds approved-but-unsent requests (still `approved`, sent after unpausing). `GET /v1/status` (public, no secrets) → `{ok, paused, db, version}`; `/healthz` stays `ok`. Consistent backup, restore drill and runbook: `docs/ops/`.
+
 Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
 `mk_sess_` (so a leaked token is identifiable).
 
