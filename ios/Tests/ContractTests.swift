@@ -3,7 +3,45 @@ import Foundation
 @main
 enum ContractTests {
     static func main() throws {
+        let preferenceSuite = "masterkey-tests-" + UUID().uuidString
+        let preferences = UserDefaults(suiteName: preferenceSuite)!
+        defer { preferences.removePersistentDomain(forName: preferenceSuite) }
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL)
+        precondition(!AppPreferences.load(preferences).sampleData && !AppPreferences.load(preferences).developerOptions)
+        preferences.set(true, forKey: "demoMode")
+        preferences.set("https://localhost:8443", forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL && !AppPreferences.load(preferences).sampleData)
+        preferences.set("https://user:secret@example.invalid", forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL)
+        preferences.set(AppPreferences.stagingURL, forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.stagingURL && AppPreferences.load(preferences).developerOptions)
+        preferences.set(true, forKey: "developerSampleData")
+        precondition(AppPreferences.load(preferences).sampleData)
+        precondition(PairingLink.code(from: "masterkey://connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.code(from: " mk-4f7q ") == "MK-4F7Q")
+        precondition(PairingLink.code(from: AppPreferences.productionURL + "/connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.code(from: AppPreferences.stagingURL + "/connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.serverURL(from: AppPreferences.stagingURL + "/connect/MK-4F7Q") == AppPreferences.stagingURL)
+        for invalid in ["https://example.com/MK-4F7Q", "masterkey://connect/MK-4F7Q?server=evil", "masterkey://connect/MK-4F7Q#secret", "masterkey://user@connect/MK-4F7Q", "masterkey://connect:80/MK-4F7Q", "masterkey://connect/%4DK-4F7Q", "masterkey://connect/MK-4F7Q/", "masterkey://requests/MK-4F7Q", "MK-123", "1234", "MK-12345", "sk-secret", AppPreferences.productionURL + "/connect/MK-4F7Q?token=secret", AppPreferences.productionURL + ".evil/connect/MK-4F7Q", AppPreferences.productionURL + "/connect/%4DK-4F7Q", AppPreferences.productionURL + "/enroll/MK-4F7Q"] {
+            precondition(PairingLink.code(from: invalid) == nil, "Unsafe pairing input must be rejected")
+        }
+        precondition(Provider.openAI.keyPlaceholder == "sk-..." && Provider.anthropic.keyPlaceholder == "sk-ant-...")
+        let enrollID = "en_abcdefghijklmnopqrstuv"
+        precondition(EnrollmentLink.id(from: "masterkey://enroll/" + enrollID) == enrollID)
+        precondition(EnrollmentLink.id(from: AppPreferences.productionURL + "/enroll/" + enrollID) == enrollID)
+        precondition(EnrollmentLink.id(from: AppPreferences.stagingURL + "/enroll/" + enrollID) == enrollID)
+        for invalid in ["en_abcdefghijklmnopqrstuv", "masterkey://enroll/en_short", "masterkey://enroll/" + enrollID + "/", "masterkey://enroll/" + enrollID + "?key=secret", "masterkey://enroll/" + enrollID + "#secret", "masterkey://user@enroll/" + enrollID, "masterkey://enroll:80/" + enrollID, "masterkey://connect/" + enrollID, AppPreferences.productionURL + "/enroll/%65n_abcdefghijklmnopqrstuv", AppPreferences.productionURL + ".evil/enroll/" + enrollID, "http://masterkey-prod-vkgm.onrender.com/enroll/" + enrollID] {
+            precondition(EnrollmentLink.id(from: invalid) == nil, "Unsafe enrollment input must be rejected")
+        }
         let decoder = JSONDecoder()
+        let enrolled = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":"A123","current_last4":"B456","expires_at":"2099-01-01T00:00:00.000Z"}"#.utf8))
+        precondition(enrolled.canConfirm && !enrolled.canClaim && !enrolled.shouldPoll && enrolled.currentLast4 == "B456")
+        let awaiting = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"anthropic","status":"claimed","last4":null,"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(awaiting.shouldPoll && !awaiting.canConfirm && !awaiting.canClaim)
+        let expiredEnrollment = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":"A123","expires_at":"2000-01-01T00:00:00Z"}"#.utf8))
+        precondition(expiredEnrollment.isExpired && !expiredEnrollment.canConfirm)
+        let invalidEnrollment = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":null,"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(!invalidEnrollment.canConfirm)
         let login = try decoder.decode(AuthenticatedSession.self, from: Data(#"{"session_token":"mk_sess_test","user":{"id":"usr_test","email":"preview@example.invalid"}}"#.utf8))
         let restored = try decoder.decode(AuthenticatedSession.self, from: JSONEncoder().encode(login))
         precondition(restored.user.id == "usr_test" && restored.user.displayEmail == "preview@example.invalid")

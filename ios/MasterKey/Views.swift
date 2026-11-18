@@ -1,5 +1,7 @@
 import SwiftUI
 import AuthenticationServices
+import VisionKit
+import AVFoundation
 
 struct PageHeader: View {
     let eyebrow: String
@@ -47,7 +49,19 @@ struct InboxView: View {
                     Text("History").tag(true)
                 }
                 .pickerStyle(.segmented)
-                if visible.isEmpty {
+                if !showHistory && store.keys.isEmpty {
+                    Card { VStack(alignment: .leading, spacing: 12) {
+                        Text("Add your first provider").font(.headline)
+                        Text("Set up a provider key once, then connect the apps you want to use.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                        Button("Add a provider") { NotificationCenter.default.post(name: .masterKeyOpenKeys, object: nil) }.buttonStyle(.borderedProminent)
+                    } }
+                } else if !showHistory && store.grants.isEmpty {
+                    Card { VStack(alignment: .leading, spacing: 12) {
+                        Text("Connect your first app").font(.headline)
+                        Text("Scan the connection QR shown by an app’s website.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                        Button("Scan connection QR") { NotificationCenter.default.post(name: .masterKeyConnectApp, object: nil) }.buttonStyle(.borderedProminent)
+                    } }
+                } else if visible.isEmpty {
                     Card { VStack(alignment: .leading, spacing: 10) { Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(MKStyle.teal); Text(showHistory ? (store.requests.isEmpty ? "No request history yet" : "No decided requests in this part of history") : "All clear").font(.headline); Text(showHistory ? "Older requests will load below when available." : "New requests appear here for your review.").font(.subheadline).foregroundStyle(MKStyle.muted) } }
                 }
                 ForEach(visible) { request in Button { selected = request } label: { RequestCard(request: request) }.buttonStyle(.plain) }
@@ -68,7 +82,7 @@ struct InboxView: View {
                 }
                 Button { Task { await store.refresh() } } label: { Label("Refresh requests", systemImage: "arrow.clockwise").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.06), in: Capsule()) }
             }.padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 30)
-        }.background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+        }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selected) { RequestDetailView(request: request(for: $0)) }
             .onChange(of: store.pendingRequestID) { _, _ in openNotificationRequest() }
             .onChange(of: store.requests.map(\.id)) { _, _ in openNotificationRequest() }
@@ -87,15 +101,15 @@ struct InboxView: View {
 struct ModeBanner: View {
     @EnvironmentObject private var store: AppStore
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: store.demoMode ? "sparkles.rectangle.stack" : "lock.shield.fill").foregroundStyle(MKStyle.teal)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(store.demoMode ? "DEMO WORKSPACE" : (store.connected ? "CONNECTED" : "LIVE SERVER" )).font(.caption.weight(.heavy)).tracking(1)
-                Text(store.demoMode ? "Sample data only. No key or provider call is real." : (store.connected ? store.serverURL : "Sign in to load your data.")).font(.caption).foregroundStyle(MKStyle.muted).lineLimit(2)
-            }
-            Spacer(minLength: 0)
-            Circle().fill(store.demoMode ? Color.orange : (store.connected ? MKStyle.teal : Color.gray)).frame(width: 8, height: 8)
-        }.padding(14).background(MKStyle.panel, in: RoundedRectangle(cornerRadius: 16))
+        if store.demoMode {
+            Label("Sample data: offline, no provider calls or charges", systemImage: "testtube.2")
+                .font(.footnote).foregroundStyle(MKStyle.warning).padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(MKStyle.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        } else if store.serverURL != AppPreferences.productionURL {
+            Label("Development server", systemImage: "wrench.and.screwdriver")
+                .font(.caption).foregroundStyle(MKStyle.warning)
+        }
     }
 }
 
@@ -218,24 +232,55 @@ struct ApprovalPolicyView: View {
 }
 
 struct VaultView: View {
+    var returnConnectCode: String? = nil
     @EnvironmentObject private var store: AppStore
     @State private var provider: Provider = .openAI
     @State private var secret = ""
+    @State private var saving = false
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 18) {
-            PageHeader(eyebrow: "Private by design", title: "Key vault", subtitle: "MasterKey stores the key. Apps only receive permission to use it.")
+            PageHeader(eyebrow: "Providers", title: "Your keys", subtitle: "Connect a provider once. Choose which apps can use it.")
             ModeBanner(); InfoBanner()
             Card { VStack(alignment: .leading, spacing: 12) {
-                Text("ADD A PROVIDER KEY").font(.caption.bold()).tracking(1).foregroundStyle(MKStyle.teal)
-                Picker("Provider", selection: $provider) { ForEach(Provider.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
-                SecureField("Paste API key", text: $secret).textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button { let value = secret; secret = ""; Task { await store.addKey(provider: provider, value: value, label: provider.title) } } label: { Label(store.demoMode ? "Live server required" : "Save key securely", systemImage: "lock.fill").frame(maxWidth: .infinity).padding(13).background(MKStyle.teal, in: Capsule()).foregroundStyle(MKStyle.navy).fontWeight(.bold) }.disabled(store.demoMode || secret.isEmpty)
-                Text("The key is sent only to your configured HTTPS server and is never shown again. Demo mode does not store or transmit key values.").font(.caption).foregroundStyle(MKStyle.muted)
+                Text("Add from your computer").font(.headline)
+                Text("Create and paste the key on your computer. Scan its QR here, then confirm the key on this phone.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                Button { NotificationCenter.default.post(name: .masterKeyAddFromComputer, object: returnConnectCode) } label: { Label("Add from computer", systemImage: "desktopcomputer").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).disabled(store.demoMode)
             } }
-            Text("SAVED KEYS").font(.caption.bold()).tracking(1).foregroundStyle(MKStyle.muted)
-            ForEach(store.keys) { key in Card { HStack(spacing: 12) { Image(systemName: "key.fill").foregroundStyle(MKStyle.teal); VStack(alignment: .leading, spacing: 4) { Text(key.label).font(.headline); Text("\(key.provider.title)  •  ending \(key.lastFour)").font(.caption).foregroundStyle(MKStyle.muted) }; Spacer(); Button(role: .destructive) { Task { await store.removeKey(key) } } label: { Image(systemName: "trash") }.accessibilityLabel("Remove \(key.label) key") } } }
-            if store.keys.isEmpty { Card { Text("No keys added yet.").foregroundStyle(MKStyle.muted) } }
-        }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+            ForEach(store.keys) { key in Card { HStack(spacing: 12) {
+                Image(systemName: "key.fill").foregroundStyle(MKStyle.teal)
+                VStack(alignment: .leading, spacing: 4) { Text(key.provider.title).font(.headline); Text("Key ending \(key.lastFour)").font(.caption).foregroundStyle(MKStyle.muted) }
+                Spacer()
+                Button(role: .destructive) { Task { await store.removeKey(key) } } label: { Image(systemName: "trash") }.accessibilityLabel("Remove \(key.provider.title) key")
+            } } }
+            Card { VStack(alignment: .leading, spacing: 14) {
+                Text("Or paste a key on this phone").font(.headline)
+                Picker("Provider", selection: $provider) { ForEach(Provider.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented).disabled(saving)
+                Link(destination: provider.keysURL) { Label("Create a key at \(provider.title)", systemImage: "arrow.up.right.square") }
+                Text("Copy a key from the provider, then paste it below. On a Mac and iPhone using the same Apple Account, Universal Clipboard can save you typing.").font(.footnote).foregroundStyle(MKStyle.muted)
+                HStack {
+                    SecureField(provider.keyPlaceholder, text: $secret).textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().disabled(saving)
+                    PasteButton(payloadType: String.self) { values in
+                        if let value = values.first { secret = value.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    }.labelStyle(.iconOnly).disabled(saving || store.demoMode)
+                }
+                Button {
+                    let value = secret; let selectedProvider = provider; let generation = store.contextGeneration
+                    saving = true
+                    Task {
+                        defer { saving = false }
+                        if await store.addKey(provider: selectedProvider, value: value, label: selectedProvider.title),
+                           generation == store.contextGeneration, secret == value { secret = "" }
+                    }
+                } label: {
+                    HStack { if saving { ProgressView() }; Text(saving ? "Saving…" : "Save key").fontWeight(.semibold) }.frame(maxWidth: .infinity).padding(13)
+                }.buttonStyle(.borderedProminent).tint(MKStyle.teal).foregroundStyle(MKStyle.navy)
+                    .disabled(store.demoMode || saving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Text("Sent over HTTPS to your MasterKey server and encrypted there. Connected apps never receive the key. Saving does not make a billable model call.").font(.caption).foregroundStyle(MKStyle.muted)
+            } }
+        }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
+            .onChange(of: provider) { _, _ in secret = "" }
+            .onChange(of: store.contextGeneration) { _, _ in secret = "" }
+            .onDisappear { secret = "" }
     }
 }
 
@@ -244,14 +289,14 @@ struct GrantsView: View {
     @State private var selected: GrantRecord?
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 18) {
-            PageHeader(eyebrow: "Access under your control", title: "App grants", subtitle: "Review usage, limits, expiry, and revoke access.")
+            PageHeader(eyebrow: "Access under your control", title: "Connected apps", subtitle: "Choose which apps can use your providers.")
             ModeBanner(); InfoBanner()
-            if store.grants.isEmpty { Card { Text("No active app grants.").foregroundStyle(MKStyle.muted) } }
+            if store.grants.isEmpty { Card { Text("Connect an app using the QR code on its website. You’ll review the source before allowing access.").foregroundStyle(MKStyle.muted) } }
             ForEach(store.grants) { grant in
                 Button { selected = grant } label: { GrantCard(grant: grant) }.buttonStyle(.plain)
             }
             Text("Tap a grant to change its policy or revoke access.").font(.caption).foregroundStyle(MKStyle.muted)
-        }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+        }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selected) { item in GrantDetailView(grant: store.grants.first(where: { $0.id == item.id }) ?? item) }
     }
 }
@@ -266,7 +311,7 @@ struct GrantCard: View {
                 Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
                 metric("SPENT", value: grant.spentUSD)
                 Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
-                metric("POLICY", value: grant.trust ? "Trusted" : (grant.budgetMicrousd != nil ? "Budget" : "Count"))
+                metric("POLICY", value: grant.trust ? "Trusted" : (grant.budgetMicrousd != nil ? "Budget" : (grant.maxRequests != nil ? "Count" : "Ask each time")))
             }
             if let remaining = grant.budgetMicrousd { Text(String(format: "$%.2f remaining", Double(remaining) / 1_000_000)).font(.caption).foregroundStyle(MKStyle.teal) }
             Text(grant.expiresAt.isEmpty ? "No expiry" : "Expires \(grant.expiresAt.asDate)").font(.caption).foregroundStyle(MKStyle.muted)
@@ -298,12 +343,12 @@ struct AccountView: View {
     var body: some View {
         Form {
             Section {
-                PageHeader(eyebrow: "MasterKey", title: "Account", subtitle: "Manage your sign-in and app appearance.")
+                PageHeader(eyebrow: "MasterKey", title: "Account", subtitle: "Manage your sign-in.")
             }.listRowBackground(MKStyle.navy)
             Section("Profile") {
                 if store.demoMode {
-                    Label("Demo workspace", systemImage: "person.crop.circle")
-                    Text("Turn off Demo mode in Settings to sign in.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    Label("Sample data", systemImage: "person.crop.circle")
+                    Text("Turn off sample data in Developer options to sign in.").font(.footnote).foregroundStyle(MKStyle.muted)
                 } else if let account = store.account {
                     if let email = account.displayEmail {
                         LabeledContent("Email", value: email)
@@ -330,7 +375,7 @@ struct AccountView: View {
                     }.disabled(store.busy || stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stagingPassword.isEmpty)
                 }
             }
-            if !store.demoMode, store.account == nil, !store.supportsStagingPassword {
+            if store.developerOptions, !store.demoMode, store.account == nil, !store.supportsStagingPassword, store.serverURL != AppPreferences.productionURL {
                 Section("Development sign-in") {
                     TextField("Developer email", text: $store.email)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -340,8 +385,7 @@ struct AccountView: View {
                     Text("Available when the server enables development login.").font(.footnote).foregroundStyle(MKStyle.muted)
                 }
             }
-            Section("Appearance") { AppearancePicker() }
-        }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true)
+        }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -372,7 +416,7 @@ private struct SignUpView: View {
     }
 }
 
-private struct AppleAuthenticationButton: View {
+struct AppleAuthenticationButton: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.colorScheme) private var colorScheme
     let mode: SignInWithAppleButton.Label
@@ -403,99 +447,427 @@ private struct AppleAuthenticationButton: View {
     }
 }
 
+struct WelcomeView: View {
+    @EnvironmentObject private var store: AppStore
+    var body: some View {
+        ScrollView { VStack(alignment: .leading, spacing: 28) {
+            Image(systemName: "key.horizontal").font(.system(size: 48)).foregroundStyle(MKStyle.teal).padding(.top, 36)
+            PageHeader(eyebrow: "MasterKey", title: "Your keys.\nYour permission.", subtitle: "Use AI apps with your own provider account. Review what each app sends before it runs.")
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Add a provider key once", systemImage: "1.circle")
+                Label("Scan an app’s connection QR", systemImage: "2.circle")
+                Label("Review and approve requests", systemImage: "3.circle")
+            }.font(.subheadline)
+            AppleAuthenticationButton(mode: .continue)
+            Text("New here? Continuing creates your MasterKey account.").font(.footnote).foregroundStyle(MKStyle.muted)
+            if store.developerOptions { NavigationLink("Other sign-in options") { AccountView() } }
+            InfoBanner()
+        }.padding(24) }.background(MKStyle.navy.ignoresSafeArea())
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
-    @State private var code = ""
-    @State private var serverDraft = UserDefaults.standard.string(forKey: "serverURL") ?? "https://localhost:8443"
-    @State private var pairing: (code: String, preview: ConnectPreview)?
-    @State private var showPairPolicy = false
-    @State private var decidingPairing = false
-    private var enteredCode: String { code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
     var body: some View {
         Form {
-            Section { PageHeader(eyebrow: "Connection", title: "Settings", subtitle: "Choose demo mode or connect to your server.") }.listRowBackground(MKStyle.navy)
-            Section("Workspace") {
-                Toggle("Demo mode", isOn: Binding(get: { store.demoMode }, set: { value in Task { await store.setDemo(value) } }))
-                if store.demoMode { Text("Sample requests and grants are stored only in memory. Actions are local simulations.").font(.footnote).foregroundStyle(.orange) }
-                TextField("Server URL", text: $serverDraft).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled().disabled(store.demoMode)
-                Text("Live server URLs must use HTTPS. Enable the localhost development option below for a local HTTP server. The demo workspace stays offline.").font(.footnote).foregroundStyle(MKStyle.muted)
-                if !store.demoMode {
-                    Button("Use this server") { store.serverURL = serverDraft.trimmingCharacters(in: .whitespacesAndNewlines); store.serverChanged(); store.saveSettings() }.disabled(serverDraft == store.serverURL)
-                    Toggle("Allow HTTP for localhost", isOn: $store.allowLocalHTTP).onChange(of: store.allowLocalHTTP) { _, _ in store.saveSettings() }
-                    Text("Use only for a local development server. Remote HTTP URLs are always rejected.").font(.footnote).foregroundStyle(MKStyle.muted)
-                    if store.account == nil {
-                        Text("Sign in from the Account tab.").font(.footnote).foregroundStyle(MKStyle.muted)
-                    }
-                }
-            }
-            Section("Connect an app") {
-                HStack {
-                    TextField("Code, e.g. MK-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled()
-                    Button("Preview") { loadCode(enteredCode) }.disabled(enteredCode.isEmpty || decidingPairing)
-                }
-                if let pairing, pairing.code == enteredCode {
-                    let preview = pairing.preview
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(preview.app.name).font(.title3.bold())
-                        if let host = preview.sourceHost {
-                            Label("From \(host)", systemImage: "globe").font(.headline).textSelection(.enabled)
-                            Text("Check that this host matches the page you’re using before approving.").font(.footnote).foregroundStyle(MKStyle.muted)
-                        } else {
-                            Label("Unverified app: name chosen by the developer", systemImage: "exclamationmark.triangle")
-                                .font(.footnote.weight(.semibold)).foregroundStyle(MKStyle.warning)
-                        }
-                        Text("Requests access to your \(preview.vendor.title) key.").font(.subheadline).foregroundStyle(MKStyle.muted)
-                        if preview.requiresAsk != false {
-                            Text("Approve calls one at a time. You can widen access later in Grants.").font(.footnote).foregroundStyle(MKStyle.muted)
-                        }
-                        HStack {
-                            Button("Deny", role: .destructive) { decidePairing(code: pairing.code, approve: false) }
-                            Spacer()
-                            if preview.requiresAsk == false {
-                                Button("Choose access") { showPairPolicy = true }.fontWeight(.bold)
-                            } else {
-                                Button("Connect and ask each time") { decidePairing(code: pairing.code, approve: true) }.fontWeight(.bold)
-                            }
-                        }.buttonStyle(.borderless).disabled(decidingPairing)
-                    }
-                }
-            }
+            Section("Account") { NavigationLink { AccountView() } label: { Label(store.account == nil ? "Sign in" : "Account", systemImage: "person.crop.circle") } }
+            Section("Appearance") { AppearancePicker() }
             Section("Notifications") {
-                Button { Task { await store.requestNotifications() } } label: { Label("Enable push notifications", systemImage: "bell.badge") }
-                Text("Push needs valid Apple signing and server APNs credentials. Requests also refresh when you open the app.").font(.footnote).foregroundStyle(MKStyle.muted)
+                Button { Task { await store.requestNotifications() } } label: { Label("Enable notifications", systemImage: "bell.badge") }
+                Text("Get notified when a request needs your approval. Requests also refresh when you open the app.").font(.footnote).foregroundStyle(MKStyle.muted)
             }
-            Section { InfoBanner() }.listRowBackground(MKStyle.navy)
-        }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarHidden(true).tint(MKStyle.teal)
-            .onAppear { if let value = store.pendingConnectCode { loadCode(value) } }
-            .onChange(of: store.pendingConnectCode) { _, value in
-                guard let value else { return }; loadCode(value)
+            Section { NavigationLink("Developer options") { DeveloperOptionsView() } }
+            Section { InfoBanner() }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Settings")
+    }
+}
+
+struct DeveloperOptionsView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var serverDraft = ""
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Enable developer options", isOn: $store.developerOptions).disabled(store.demoMode || store.serverURL != AppPreferences.productionURL).onChange(of: store.developerOptions) { _, _ in store.saveSettings() }
+                Text(store.demoMode || store.serverURL != AppPreferences.productionURL ? "Turn off sample data and select production before hiding developer options." : "For building and testing integrations. Normal use connects to MasterKey automatically.").font(.footnote).foregroundStyle(MKStyle.muted)
             }
-            .onChange(of: store.contextGeneration) { _, _ in pairing = nil; showPairPolicy = false }
-            .sheet(isPresented: $showPairPolicy) {
-                ApprovalPolicyView { policy in
-                    showPairPolicy = false
-                    guard let pairing, pairing.code == enteredCode else { return }
-                    decidePairing(code: pairing.code, approve: true, policy: policy)
+            if store.developerOptions {
+                Section("Offline samples") {
+                    Toggle("Use sample data", isOn: Binding(get: { store.demoMode }, set: { value in Task { await store.setDemo(value) } }))
+                    Text("Fake requests and grants on this device only. No network requests, real keys, provider calls or charges. Switching this setting signs you out.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    Text("To test a real integration without provider charges, run a private backend with MK_VENDOR_MOCK=1 and fake keys. This switch cannot change a server’s mock setting.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+                Section("Server") {
+                    Button("Use production") { store.useServer(AppPreferences.productionURL); serverDraft = store.serverURL }
+                    Button("Use staging") { store.useServer(AppPreferences.stagingURL); serverDraft = store.serverURL }
+                    TextField("Custom HTTPS URL", text: $serverDraft).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button("Use custom server") { store.useServer(serverDraft) }.disabled(serverDraft == store.serverURL || store.demoMode)
+                    Toggle("Allow HTTP for localhost", isOn: $store.allowLocalHTTP).onChange(of: store.allowLocalHTTP) { _, _ in store.saveSettings() }
+                    Text("Changing servers signs you out. Remote servers require HTTPS; local HTTP is for a private development backend only.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    LabeledContent("Current", value: store.serverURL).font(.caption)
+                }.disabled(store.demoMode)
+                if !store.demoMode { Section { NavigationLink("Development sign-in") { AccountView() } } }
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Developer options")
+            .onAppear { serverDraft = store.serverURL }
+    }
+}
+
+struct ConnectAppView: View {
+    var addingKey = false
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var code = ""
+    @State private var pairing: (code: String, generation: Int, preview: ConnectPreview)?
+    @State private var showScanner = false
+    @State private var scannerGeneration: Int?
+    @State private var scannerLinkGeneration: Int?
+    @State private var scannedValue: String?
+    @State private var setupLink = ""
+    @State private var scannerError: String?
+    @State private var showPairPolicy = false
+    @State private var deciding = false
+    @State private var loading = false
+    private var enteredCode: String? { PairingLink.code(from: code) }
+    private var previewTaskID: String { "\(store.contextGeneration):\(store.account?.id ?? ""):\(code)" }
+
+    var body: some View {
+        Group {
+            if store.account == nil && !store.demoMode {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Sign in to review this connection").font(.headline)
+                    Text("Your pairing link will stay here while you sign in.").foregroundStyle(MKStyle.muted)
+                    AccountView()
+                }.padding(.top)
+            } else {
+                Form {
+                    Section {
+                        Button { Task { await openScanner() } } label: { Label("Scan QR code", systemImage: "qrcode.viewfinder").font(.headline).frame(maxWidth: .infinity).padding(8) }.disabled(deciding)
+                        Text(addingKey ? "Scan the key setup QR on your computer. You’ll approve this computer before it can send a key." : "On the app’s website, choose Connect with MasterKey. Scan its QR code here, or tap its link on this phone.").font(.footnote).foregroundStyle(MKStyle.muted)
+                        if let scannerError { Text(scannerError).font(.footnote).foregroundStyle(MKStyle.warning) }
+                    }
+                    if addingKey {
+                        Section("Can’t scan? Paste the setup link") {
+                            HStack {
+                                TextField("https://…/enroll/en_…", text: $setupLink).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                                PasteButton(payloadType: String.self) { values in if let value = values.first { setupLink = value.trimmingCharacters(in: .whitespacesAndNewlines) } }.labelStyle(.iconOnly)
+                            }
+                            Button("Review setup link") { _ = store.acceptEnrollment(setupLink) }.disabled(EnrollmentLink.id(from: setupLink) == nil)
+                        }
+                    } else { Section("Can’t scan? Enter the code") {
+                        TextField("MK-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled().disabled(deciding)
+                        if loading { ProgressView("Loading connection…") }
+                        else if !code.isEmpty && enteredCode == nil { Text("Enter the MK- code shown by the app.").font(.footnote).foregroundStyle(MKStyle.muted) }
+                    } }
+                    if let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration {
+                        let preview = pairing.preview
+                        Section("Review connection") {
+                            Text(preview.app.name).font(.title2.bold())
+                            if let host = preview.sourceHost {
+                                Label("From \(host)", systemImage: "globe").font(.headline).textSelection(.enabled)
+                                Text("Check that this host matches the page you’re using.").font(.footnote).foregroundStyle(MKStyle.muted)
+                            } else {
+                                Label("Unverified app: name chosen by the developer", systemImage: "exclamationmark.triangle").foregroundStyle(MKStyle.warning)
+                            }
+                            Text("Requests access to your \(preview.vendor.title) key.")
+                            if !store.keys.contains(where: { $0.provider == preview.vendor }) {
+                                NavigationLink("Add your \(preview.vendor.title) key first") { VaultView(returnConnectCode: pairing.code) }
+                            }
+                            Text("Each call needs your approval at first. Change access later in Connected apps.").font(.footnote).foregroundStyle(MKStyle.muted)
+                            Button(preview.requiresAsk == false ? "Choose access" : "Connect and ask each time") {
+                                if preview.requiresAsk == false { showPairPolicy = true } else { decide(approve: true) }
+                            }.disabled(deciding || !store.keys.contains(where: { $0.provider == preview.vendor }))
+                            Button("Deny connection", role: .destructive) { decide(approve: false) }.disabled(deciding)
+                        }
+                    }
+                }.scrollContentBackground(.hidden)
+            }
+        }.background(MKStyle.navy).navigationTitle(addingKey ? "Scan key setup QR" : "Connect an app").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .onAppear { if let pending = store.pendingConnectCode { code = pending } }
+            .onChange(of: store.pendingConnectCode) { _, value in if let value { code = value; showScanner = false } }
+            .onChange(of: store.linkGeneration) { _, _ in scannedValue = nil; showScanner = false }
+            .onChange(of: store.contextGeneration) { _, _ in pairing = nil; showPairPolicy = false; showScanner = false; scannerGeneration = nil }
+            .task(id: previewTaskID) { await loadPreview() }
+            .sheet(isPresented: $showPairPolicy) { ApprovalPolicyView { policy in showPairPolicy = false; decide(approve: true, policy: policy) } }
+            .sheet(isPresented: $showScanner, onDismiss: processScannedValue) {
+                NavigationStack {
+                    QRScannerView { value in
+                        guard showScanner, scannerGeneration == store.contextGeneration, scannerLinkGeneration == store.linkGeneration else { return }
+                        scannedValue = value
+                        showScanner = false
+                    } onError: {
+                        guard showScanner, scannerGeneration == store.contextGeneration else { return }
+                        scannerError = addingKey ? "Camera scanning is unavailable. Paste the setup link below." : "Camera scanning is unavailable. Enter the connection code instead."; showScanner = false
+                    }
+                    .ignoresSafeArea(edges: .bottom).navigationTitle(addingKey ? "Scan key setup QR" : "Scan MasterKey QR")
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showScanner = false } } }
                 }
             }
     }
-    private func loadCode(_ value: String) {
-        code = value
+    private func loadPreview() async {
         pairing = nil
-        store.pendingConnectCode = nil
-        Task {
-            guard let preview = await store.connectPreview(code: value), enteredCode == value else { return }
-            pairing = (value, preview)
-        }
+        loading = false
+        guard let value = enteredCode, store.account != nil || store.demoMode else { return }
+        let generation = store.contextGeneration
+        loading = true
+        defer { if generation == store.contextGeneration { loading = false } }
+        guard let preview = await store.connectPreview(code: value), !Task.isCancelled,
+              generation == store.contextGeneration, enteredCode == value else { return }
+        pairing = (value, generation, preview)
     }
-    private func decidePairing(code: String, approve: Bool, policy: Policy = .once) {
-        decidingPairing = true
+    private func decide(approve: Bool, policy: Policy = .once) {
+        guard let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration else { return }
+        deciding = true
         Task {
-            defer { decidingPairing = false }
-            if await store.connectDecision(code: code, approve: approve, policy: policy), pairing?.code == code {
-                pairing = nil
+            defer { deciding = false }
+            if await store.connectDecision(code: pairing.code, approve: approve, policy: policy),
+               enteredCode == pairing.code, pairing.generation == store.contextGeneration {
+                if store.pendingConnectCode == pairing.code { store.pendingConnectCode = nil }
+                dismiss()
             }
         }
+    }
+    private func processScannedValue() {
+        guard let value = scannedValue, scannerGeneration == store.contextGeneration, scannerLinkGeneration == store.linkGeneration else { return }
+        scannedValue = nil
+        code = ""; pairing = nil
+        if EnrollmentLink.id(from: value) != nil { _ = store.acceptEnrollment(value) }
+        else if PairingLink.code(from: value) != nil {
+            if store.acceptPairing(value), let scanned = store.pendingConnectCode { code = scanned }
+        } else { scannerError = "This isn’t a MasterKey QR. Scan the connection or key setup QR shown by MasterKey." }
+    }
+
+    private func openScanner() async {
+        let generation = store.contextGeneration
+        guard DataScannerViewController.isSupported else { scannerError = addingKey ? "QR scanning isn’t available on this device. Paste the setup link below instead." : "QR scanning isn’t available on this device. Enter the code instead."; return }
+        guard await AVCaptureDevice.requestAccess(for: .video) else { scannerError = addingKey ? "Camera access is off. Enable it in iPhone Settings, or paste the setup link below." : "Camera access is off. Enable it in iPhone Settings, or enter the code instead."; return }
+        guard DataScannerViewController.isAvailable else { scannerError = addingKey ? "Camera scanning is unavailable. Paste the setup link below." : "Camera scanning is unavailable. Enter the code instead."; return }
+        guard generation == store.contextGeneration else { return }
+        scannerError = nil
+        scannerGeneration = generation
+        scannerLinkGeneration = store.linkGeneration
+        scannedValue = nil
+        showScanner = true
+    }
+}
+
+struct ComputerKeySetupView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        Form {
+            Section("On your computer") {
+                Text("Open this address in your computer’s browser:")
+                if let url = store.computerSetupURL {
+                    Text(url.absoluteString).font(.callout.monospaced()).textSelection(.enabled)
+                    ShareLink(item: url) { Label("Send setup link", systemImage: "square.and.arrow.up") }
+                }
+                Text("Choose a provider. The page will show a QR code; no MasterKey password is needed on the computer.").font(.footnote).foregroundStyle(MKStyle.muted)
+            }
+            Section("On this phone") {
+                NavigationLink { ConnectAppView(addingKey: true) } label: { Label("Scan setup QR", systemImage: "qrcode.viewfinder").font(.headline) }
+                Text("Check the server and provider, then approve the computer. Paste the key on the computer and confirm its last four characters here before saving.").font(.footnote).foregroundStyle(MKStyle.muted)
+            }
+            Section {
+                Text("Only a short-lived setup identifier is in the QR. Your key stays out of QR codes and phone enrollment screens.").font(.footnote).foregroundStyle(MKStyle.muted)
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Add from computer").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+    }
+}
+
+struct EnrollmentView: View {
+    let id: String
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var enrollment: KeyEnrollment?
+    @State private var loading = false
+    @State private var busy = false
+    @State private var saved = false
+    @State private var cancelled = false
+    @State private var errorMessage: String?
+    @State private var reload = 0
+    @State private var viewToken = UUID()
+    @State private var actionTask: Task<Void, Never>?
+    private var loadID: String { "\(id):\(store.contextGeneration):\(store.account?.id ?? ""):\(reload)" }
+
+    var body: some View {
+        Group {
+            if store.account == nil {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Sign in to add this key").font(.headline)
+                    Text("The setup link will stay here while you sign in.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    AccountView()
+                }.padding(.top)
+            } else {
+                Form {
+                    Section("Key setup server") {
+                        Label(store.serverHost, systemImage: "lock.shield").font(.headline).textSelection(.enabled)
+                        Text("Check that this matches the address open on your computer. Approve only a setup you started yourself.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    }
+                    if let errorMessage {
+                        Section {
+                            Text(errorMessage).foregroundStyle(MKStyle.warning)
+                            Button("Check setup status") { reload += 1 }.disabled(busy)
+                        }
+                    }
+                    if loading && enrollment == nil { Section { ProgressView("Loading key setup…") } }
+                    if saved || enrollment?.status == "saved" {
+                        Section {
+                            Label("Key saved", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(MKStyle.teal)
+                            Text("Your apps can use this provider with your permission. They never receive the key.").font(.footnote).foregroundStyle(MKStyle.muted)
+                            if store.canResumePairing {
+                                Button("Continue connecting app") { continuePairing() }.fontWeight(.semibold).disabled(busy)
+                            }
+                            Button("Done") { dismiss() }
+                        }
+                    } else if cancelled || enrollment?.status == "cancelled" {
+                        Section { Text("Key setup cancelled. Nothing from this setup will be saved.") }
+                    } else if let enrollment {
+                        Section(enrollment.vendor.title) {
+                            if enrollment.isExpired || enrollment.status == "expired" {
+                                Text("This setup has expired. Start a new setup on your computer.")
+                            } else if enrollment.canClaim {
+                                Text("Allow the computer showing this QR to submit one \(enrollment.vendor.title) key to your account.")
+                                Text("The key will only be saved after you review and confirm it here.").font(.footnote).foregroundStyle(MKStyle.muted)
+                                Button("Approve this computer") { claim(enrollment) }.fontWeight(.semibold).disabled(busy || errorMessage != nil)
+                            } else if enrollment.status == "claimed" {
+                                ProgressView("Waiting for your computer…")
+                                Text("Create or copy your key in the provider’s console, then paste it on the computer’s MasterKey page. Keep this screen open.").font(.footnote).foregroundStyle(MKStyle.muted)
+                                Button("Cancel key setup", role: .destructive) { cancel(enrollment) }.disabled(busy)
+                            } else if enrollment.canConfirm {
+                                Text("Review the submitted key").font(.headline)
+                                LabeledContent("Provider", value: enrollment.vendor.title)
+                                LabeledContent("New key ending", value: enrollment.last4 ?? "")
+                                if let current = enrollment.currentLast4 {
+                                    Label("This replaces your saved \(enrollment.vendor.title) key ending \(current).", systemImage: "exclamationmark.triangle").foregroundStyle(MKStyle.warning)
+                                }
+                                Text("Check that these last four characters match the key you pasted. The full key is never sent to this phone.").font(.footnote).foregroundStyle(MKStyle.muted)
+                                Button(enrollment.currentLast4 == nil ? "Save this key" : "Replace saved key") { confirm(enrollment) }.fontWeight(.semibold).disabled(busy || errorMessage != nil)
+                                Button("Cancel key setup", role: .destructive) { cancel(enrollment) }.disabled(busy)
+                            } else {
+                                Text("This setup is no longer available. Start again on your computer.")
+                            }
+                        }
+                        if busy { Section { ProgressView("Updating setup…") } }
+                    }
+                }.scrollContentBackground(.hidden)
+            }
+        }.background(MKStyle.navy).navigationTitle("Add provider key").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .task(id: loadID) { await loadAndPoll() }
+            .onChange(of: store.contextGeneration) { _, _ in
+                actionTask?.cancel(); viewToken = UUID(); enrollment = nil; saved = false; cancelled = false; busy = false; errorMessage = nil
+            }
+            .onDisappear { actionTask?.cancel(); viewToken = UUID() }
+    }
+
+    private func loadAndPoll() async {
+        let token = UUID(); viewToken = token
+        guard store.account != nil, !store.demoMode else { return }
+        loading = true; errorMessage = nil; enrollment = nil
+        defer { if viewToken == token { loading = false } }
+        do {
+            while !Task.isCancelled {
+                let result = try await store.enrollment(id: id)
+                guard viewToken == token, !Task.isCancelled, result.id == id else { return }
+                enrollment = result
+                guard result.shouldPoll else { return }
+                try await Task.sleep(for: .seconds(2))
+            }
+        } catch {
+            guard viewToken == token, !Task.isCancelled, !(error is CancellationError) else { return }
+            errorMessage = error.localizedDescription
+        }
+    }
+    private func continuePairing() {
+        guard !busy else { return }
+        let generation = store.contextGeneration
+        busy = true
+        actionTask = Task {
+            defer { if generation == store.contextGeneration { busy = false } }
+            await store.resumePairingAfterKeySetup()
+        }
+    }
+    private func claim(_ preview: KeyEnrollment) {
+        guard !busy, preview.id == id else { return }
+        guard preview.canClaim else { errorMessage = "This setup has expired. Start again on your computer."; reload += 1; return }
+        let generation = store.contextGeneration; let token = viewToken
+        busy = true; errorMessage = nil
+        actionTask = Task {
+            defer { if generation == store.contextGeneration { busy = false } }
+            do {
+                let result = try await store.claimEnrollment(id: id)
+                guard generation == store.contextGeneration, viewToken == token, !Task.isCancelled,
+                      result.id == id, result.vendor == preview.vendor else { return }
+                enrollment = result
+                reload += 1
+            } catch {
+                if generation == store.contextGeneration, viewToken == token, !Task.isCancelled { errorMessage = "Could not confirm computer approval. Check setup status before trying again. " + error.localizedDescription }
+            }
+        }
+    }
+    private func confirm(_ candidate: KeyEnrollment) {
+        guard !busy, candidate.id == id else { return }
+        guard candidate.canConfirm else { errorMessage = "This setup has expired. Start again on your computer."; reload += 1; return }
+        let generation = store.contextGeneration; let token = viewToken
+        busy = true; errorMessage = nil
+        actionTask = Task {
+            defer { if generation == store.contextGeneration { busy = false } }
+            do {
+                try await store.confirmEnrollment(candidate)
+                guard generation == store.contextGeneration, viewToken == token, !Task.isCancelled else { return }
+                saved = true
+                if store.pendingEnrollmentID == id { store.pendingEnrollmentID = nil }
+            } catch {
+                if generation == store.contextGeneration, viewToken == token, !Task.isCancelled { errorMessage = "Could not confirm that the key was saved. Check setup status before trying again. " + error.localizedDescription }
+            }
+        }
+    }
+    private func cancel(_ preview: KeyEnrollment) {
+        guard !busy, preview.id == id, ["claimed", "submitted"].contains(preview.status) else { return }
+        let generation = store.contextGeneration; let token = viewToken
+        busy = true; errorMessage = nil
+        actionTask = Task {
+            defer { if generation == store.contextGeneration { busy = false } }
+            do {
+                try await store.cancelEnrollment(id: id)
+                guard generation == store.contextGeneration, viewToken == token, !Task.isCancelled else { return }
+                cancelled = true
+            } catch {
+                if generation == store.contextGeneration, viewToken == token, !Task.isCancelled { errorMessage = error.localizedDescription }
+            }
+        }
+    }
+}
+
+private struct QRScannerView: UIViewControllerRepresentable {
+    let onScan: (String) -> Void
+    let onError: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan, onError: onError) }
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let controller = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], qualityLevel: .balanced, recognizesMultipleItems: false, isHighFrameRateTrackingEnabled: false, isHighlightingEnabled: true)
+        controller.delegate = context.coordinator
+        do { try controller.startScanning() } catch { DispatchQueue.main.async { onError() } }
+        return controller
+    }
+    func updateUIViewController(_ controller: DataScannerViewController, context: Context) { }
+    static func dismantleUIViewController(_ controller: DataScannerViewController, coordinator: Coordinator) { controller.stopScanning() }
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        let onScan: (String) -> Void
+        let onError: () -> Void
+        private var delivered = false
+        init(onScan: @escaping (String) -> Void, onError: @escaping () -> Void) { self.onScan = onScan; self.onError = onError }
+        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            guard !delivered else { return }
+            for item in addedItems {
+                if case .barcode(let barcode) = item, let value = barcode.payloadStringValue {
+                    delivered = true; dataScanner.stopScanning(); onScan(value); return
+                }
+            }
+        }
+        func dataScanner(_ dataScanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) { onError() }
     }
 }
 
