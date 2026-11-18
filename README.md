@@ -54,7 +54,7 @@ application.
 
 ## Example apps
 
-[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect their own OpenAI or Anthropic key through MasterKey and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/)
+[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through MasterKey and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/)
 
 ## On the iPhone
 

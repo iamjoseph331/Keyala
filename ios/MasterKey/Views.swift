@@ -213,7 +213,7 @@ struct RequestDetailView: View {
                         StatusPill(status: current.status)
                         Text(current.status == "completed" ? current.actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" : current.estimatedUSD)
                             .font(.system(size: priceSize, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
-                        Text(current.status == "completed" ? "Provider-reported cost" : "Estimated cost")
+                        Text(current.status == "completed" ? "Cost from reported usage" : "Estimated cost")
                             .font(.subheadline).foregroundStyle(MKStyle.muted)
                     }.frame(maxWidth: .infinity).padding(.top, 12)
                     if current.isDemo { ModeBanner() }

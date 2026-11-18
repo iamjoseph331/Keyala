@@ -50,3 +50,8 @@ Claude independently built `00c3254` in a clean checkout and verified the final 
 The native foreground poll had captured the initial scene phase. It now restarts with the scene phase, refreshes immediately while active, repeats at a five-second cadence, and cancels on background. Cancelled refreshes do not mutate state or report a network error. Inbox also refreshes when shown and retains pull-to-refresh. This is foreground polling, not an SSE subscriber or proof of APNs delivery.
 
 Regression check with the rebuilt signed app: the Inbox stayed continuously open at **You’re all caught up**; a fake `Live refresh check` request was created through the actual Rust mock API; the native list changed to **1 waiting for you** without navigation, a deep link, pulling, or restarting. `inbox-live-refresh.png` records the result. A saved OpenRouter provider now displays **OpenRouter connection / Reconnect OpenRouter**. The original explicit replacement warning remains.
+
+
+Claude also completed and browser-verified the Resume Tailor OpenRouter integration: exact allowlisted model slugs, OpenAI-shaped routing/response parsing, QR/ask pairing, phone request approval and rendered response, with exactly one stored request. This was a local mock check. Its fixed `?server=staging` selector becomes useful on the hosted example after the updated static files are published; no production or Pages publication was performed by Codex in this task.
+
+Final copy correction: completed-request cost is labelled **Cost from reported usage**, because the backend computes USD from reported tokens and its price table; it is not a directly reported provider invoice amount.
