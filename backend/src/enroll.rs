@@ -99,7 +99,7 @@ pub async fn upload(State(s): State<AppState>, h: HeaderMap, Path(id): Path<Stri
     if r.status != "claimed" {
         return Err(api(409, "not_claimed", format!("enrollment is {}; it takes one key after the phone scans the QR", r.status)));
     }
-    let key = check_key(&s, &r.vendor, &b.api_key).await?;
+    let (key, checked) = check_key(&s, &r.vendor, &b.api_key).await?;
     let (ct, nonce) = encrypt(&s.cfg.master_key, &format!("{AAD}|{id}"), &key);
     let u = sqlx::query("UPDATE enrollments SET status='submitted', ciphertext=?, nonce=?, last4=? WHERE id=? AND status='claimed' AND expires_at>?")
         .bind(ct).bind(nonce).bind(last4(&key)).bind(&id).bind(now())
@@ -108,7 +108,9 @@ pub async fn upload(State(s): State<AppState>, h: HeaderMap, Path(id): Path<Stri
         return Err(api(409, "not_claimed", "enrollment is no longer open"));
     }
     notify(&s, &id).await;
-    Ok(Json(row(&s, &id, "", None).await?.json(&id)))
+    let mut v = row(&s, &id, "", None).await?.json(&id);
+    v["checked"] = checked.into();
+    Ok(Json(v))
 }
 
 // ---------- phone side: session ----------

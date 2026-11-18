@@ -54,6 +54,7 @@
     <div class="step">Almost done</div>
     <h1>Confirm on your phone</h1>
     <p>Your phone shows the <span class="vname"></span> key ending in <b id="l4"></b>. Tap Save there.</p>
+    <p id="unchecked" class="muted" hidden>MasterKey could not check this key with the provider (it may not be allowed to list models, or the provider did not answer). It will be saved as it is.</p>
     <p class="muted">Wrong key? Tap Cancel on the phone and start again.</p>
   </section>
 
@@ -71,46 +72,62 @@ const V = {
   openrouter: { name: "OpenRouter", url: "https://openrouter.ai/settings/keys", host: "openrouter.ai/settings/keys", hint: "sk-or-v1-..." },
 };
 const $ = (id) => document.getElementById(id);
-let en = null, timer = null; // enrollment + its secret live only in this tab's memory
+// The enrollment and its secret live only in this tab's memory. `gen` changes whenever a flow starts
+// or ends, so a late answer from an older flow (start, poll or upload) can never touch the screen.
+let gen = 0, en = null, timer = null, busy = false;
 
 function show(id) { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; }
-function end(title, body) { clearInterval(timer); en = null; $("key").value = ""; $("end-title").textContent = title; $("end-body").textContent = body; show("s-end"); }
+function stop() { gen++; clearInterval(timer); timer = null; en = null; }
+function end(title, body) { stop(); $("key").value = ""; $("end-title").textContent = title; $("end-body").textContent = body; show("s-end"); }
+function lock(on) { busy = on; for (const b of document.querySelectorAll("[data-v], #send")) b.disabled = on; }
 
-async function call(path, body) {
-  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", ...(en ? { authorization: "Bearer " + en.enroll_secret } : {}) }, body: body ? JSON.stringify(body) : undefined });
+async function call(path, body, secret) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", ...(secret ? { authorization: "Bearer " + secret } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((j.error && j.error.message) || "Request failed (" + r.status + ")");
   return j;
 }
 
 async function start(vendor) {
-  const v = V[vendor];
+  if (busy) return;
+  stop();
+  const my = gen, v = V[vendor];
   for (const e of document.querySelectorAll(".vname")) e.textContent = v.name;
   $("console").href = v.url; $("console").textContent = v.host; $("key").placeholder = v.hint;
-  try { en = await call("/v1/enroll", { vendor }); } catch (e) { return end("Could not start", e.message); }
-  $("qr").src = en.qr_url;
+  lock(true);
+  let e;
+  try { e = await call("/v1/enroll", { vendor }); } catch (err) { lock(false); if (my === gen) end("Could not start", err.message); return; }
+  lock(false);
+  if (my !== gen) return;
+  en = e;
+  $("qr").src = e.qr_url;
   show("s-scan");
-  timer = setInterval(tick, 2000);
+  timer = setInterval(() => tick(my, e), 2000);
 }
 
-async function tick() {
-  if (!en) return;
-  let r; try { r = await call("/v1/enroll/" + en.enroll_id); } catch { return; }
+async function tick(my, e) {
+  let r; try { r = await call("/v1/enroll/" + e.enroll_id, null, e.enroll_secret); } catch { return; }
+  if (my !== gen) return;
   if (r.status === "claimed" && !$("s-scan").hidden) { show("s-paste"); $("key").focus(); }
   if (r.status === "saved") end("Key saved", "Your " + V[r.vendor].name + " key ending in " + r.last4 + " is in MasterKey. You can close this tab.");
   if (r.status === "cancelled") end("Cancelled on the phone", "Nothing was saved.");
   if (r.status === "expired") end("Expired", "Nothing was saved. Start again when you are ready.");
 }
 
-$("send").onclick = async () => {
-  $("err").textContent = ""; $("send").disabled = true;
+async function send() {
+  if (busy || !en) return;
+  const my = gen, e = en;
+  $("err").textContent = ""; lock(true);
   try {
-    const r = await call("/v1/enroll/" + en.enroll_id + "/key", { api_key: $("key").value });
-    $("key").value = ""; $("l4").textContent = r.last4; show("s-confirm");
-  } catch (e) { $("err").textContent = e.message; }
-  $("send").disabled = false;
-};
-$("key").onkeydown = (e) => { if (e.key === "Enter") $("send").click(); };
+    const r = await call("/v1/enroll/" + e.enroll_id + "/key", { api_key: $("key").value }, e.enroll_secret);
+    if (my !== gen) return;
+    $("key").value = ""; $("l4").textContent = r.last4; $("unchecked").hidden = r.checked !== false; show("s-confirm");
+  } catch (err) { if (my === gen) $("err").textContent = err.message; }
+  finally { lock(false); }
+}
+
+$("send").onclick = send;
+$("key").onkeydown = (e) => { if (e.key === "Enter") send(); };
 $("restart").onclick = () => show("s-pick");
 for (const b of document.querySelectorAll("[data-v]")) b.onclick = () => start(b.dataset.v);
 </script>

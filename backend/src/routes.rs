@@ -250,9 +250,11 @@ pub struct PutKey {
 
 pub async fn put_key(State(s): State<AppState>, h: HeaderMap, Path(vendor): Path<String>, J(b): J<PutKey>) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
-    let key = check_key(&s, &vendor, &b.api_key).await?;
+    let (key, checked) = check_key(&s, &vendor, &b.api_key).await?;
     let mut c = s.db.acquire().await?;
-    Ok(Json(store_key(&s, &mut c, &u, &vendor, &key).await?))
+    let mut k = store_key(&s, &mut c, &u, &vendor, &key).await?;
+    k["checked"] = checked.into();
+    Ok(Json(k))
 }
 
 pub fn last4(key: &str) -> String {
@@ -261,8 +263,9 @@ pub fn last4(key: &str) -> String {
 
 /// Shape check, then the vendor's free model list (no inference, no cost) to catch a wrong or
 /// revoked key before an app tries it. Admin keys are refused: they can manage the whole org.
-/// Only a 401/403 rejects: if the vendor is down or rate-limits us, the key is kept unchecked.
-pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
+/// Only a 401 rejects. A 403 can be a restricted key without the models-list permission, and the
+/// vendor may be down or rate-limit us: then the key is kept and `checked` is false.
+pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<(String, bool)> {
     vendor_ok(vendor)?;
     let key = raw.trim();
     if key.len() < 8 || key.len() > 512 || !key.bytes().all(|b| b.is_ascii_graphic()) {
@@ -282,7 +285,7 @@ pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
         return Err(api(400, "invalid_key", msg));
     }
     let status = if s.cfg.vendor_mock {
-        if key.contains("MK_MOCK_INVALID") { 401 } else { 200 }
+        if key.contains("MK_MOCK_INVALID") { 401 } else if key.contains("MK_MOCK_RESTRICTED") { 403 } else { 200 }
     } else {
         let req = if vendor == "openai" {
             s.http.get("https://api.openai.com/v1/models").bearer_auth(key)
@@ -296,10 +299,10 @@ pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
             Err(_) => 0,
         }
     };
-    if matches!(status, 401 | 403) {
+    if status == 401 {
         return Err(api(400, "invalid_key", "the provider rejected this key (wrong, revoked or disabled)"));
     }
-    Ok(key.to_string())
+    Ok((key.to_string(), status == 200))
 }
 
 pub async fn store_key(s: &AppState, c: &mut SqliteConnection, user: &str, vendor: &str, key: &str) -> R<Value> {
