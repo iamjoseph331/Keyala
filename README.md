@@ -16,9 +16,9 @@ key and records the response for both sides to inspect.
 [Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
-> tested against the Rust server with a mock provider. This is not a hosted key
-> vault. Live vendor billing, signed-device Apple login, and APNs delivery still
-> require operator configuration and verification.
+> tested against the Rust server with a mock provider. Hosted services currently
+> use ephemeral storage: keys, grants, and history reset on restart. Live provider
+> billing and APNs delivery still require end-to-end verification.
 
 ## Start building
 
@@ -39,8 +39,10 @@ responses. It prints the exact command for starting the example chat app in a
 second terminal. No real provider credits are used.
 
 Open [the iOS project](ios/MasterKey/MasterKey.xcodeproj) in Xcode and run it in a
-simulator. In Settings, turn off **Demo mode**, use `http://localhost:8080`, enable
-**Allow HTTP for localhost**, and sign in as `demo@masterkey.dev` in **Account**. Connect from the
+simulator. Open **Settings → Developer options**, enable developer options, leave
+**Use sample data** off, enable **Allow HTTP for localhost**, and select the custom
+server `http://localhost:8080`. Sign in as `demo@masterkey.dev` through
+**Development sign-in**. Connect from the
 chat example, review its code on the phone, then inspect and approve its request.
 See [iOS setup](ios/README.md) for signing and simulator-runtime notes.
 

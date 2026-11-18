@@ -425,9 +425,10 @@
 
 <dialog id="connect">
   <h2>Connect your <span id="c-vendor">Anthropic</span> key</h2>
-  <div class="hint">Open the MasterKey app and enter this code</div>
+  <div class="hint">Scan with your iPhone camera</div>
+  <img id="c-qr" width="200" height="200" alt="QR code to connect in MasterKey" style="display:block;margin:12px auto;background:#fff;border-radius:12px" hidden>
+  <div class="hint">On this phone? <a id="c-url" href="#">Open MasterKey</a>. Or enter the code in the app:</div>
   <div class="code" id="c-code">MK-----</div>
-  <div class="hint">or on this device, open <a id="c-url" href="#"></a></div>
   <div class="waitline"><span class="st waiting"></span><span id="c-status">Waiting for approval on your phone…</span></div>
   <div class="noapp">No MasterKey app yet? <a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">See how to get started</a></div>
   <button type="button" id="c-cancel">Cancel</button>
@@ -622,7 +623,9 @@ async function connect(vendor) {
   const c = res.json;
   $('c-vendor').textContent = VENDOR[vendor];
   $('c-code').textContent = c.connect_code;
-  $('c-url').textContent = $('c-url').href = c.connect_url;
+  $('c-url').href = c.connect_url;
+  $('c-qr').hidden = !c.connect_qr_url; // older servers have no QR
+  if (c.connect_qr_url) $('c-qr').src = c.connect_qr_url;
   $('c-status').textContent = 'Waiting for approval on your phone…';
   const dlg = $('connect');
   let cancelled = false;

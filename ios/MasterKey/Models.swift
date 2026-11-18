@@ -5,6 +5,10 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
     case anthropic
     var id: String { rawValue }
     var title: String { self == .openAI ? "OpenAI" : "Anthropic" }
+    var keyPlaceholder: String { self == .openAI ? "sk-..." : "sk-ant-..." }
+    var keysURL: URL {
+        URL(string: self == .openAI ? "https://platform.openai.com/api-keys" : "https://platform.claude.com/settings/keys")!
+    }
 }
 
 struct RequestRecord: Codable, Identifiable {
@@ -191,4 +195,99 @@ struct AuthenticatedSession: Codable {
     let user: AccountProfile
 
     enum CodingKeys: String, CodingKey { case user; case sessionToken = "session_token" }
+}
+
+
+struct AppPreferences {
+    static let productionURL = "https://masterkey-prod-vkgm.onrender.com"
+    static let stagingURL = "https://masterkey-staging-vkgm.onrender.com"
+    let serverURL: String
+    let sampleData: Bool
+    let developerOptions: Bool
+
+    static func load(_ defaults: UserDefaults) -> AppPreferences {
+        let saved = defaults.string(forKey: "serverURL")?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let usable = saved.flatMap { value -> String? in
+            guard value != "https://localhost:8443", let url = URLComponents(string: value),
+                  let host = url.host, !host.isEmpty, url.user == nil, url.password == nil,
+                  url.query == nil, url.fragment == nil,
+                  url.scheme?.lowercased() == "https" || (url.scheme?.lowercased() == "http" && ["localhost", "127.0.0.1", "::1"].contains(host.lowercased())) else { return nil }
+            return value
+        }
+        let server = usable ?? productionURL
+        // The old demoMode default was on; only the new explicit setting enables sample data.
+        let sample = defaults.bool(forKey: "developerSampleData")
+        return AppPreferences(serverURL: server, sampleData: sample,
+                              developerOptions: defaults.bool(forKey: "developerOptions") || server != productionURL || sample)
+    }
+}
+
+enum PairingLink {
+    static func code(from text: String) -> String? {
+        let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = input.uppercased()
+        if normalized.range(of: "^MK-[A-Z0-9]{4}$", options: .regularExpression) != nil { return normalized }
+        guard let components = URLComponents(string: input),
+              components.user == nil, components.password == nil, components.port == nil,
+              components.query == nil, components.fragment == nil,
+              components.percentEncodedPath == components.path else { return nil }
+        let path: String
+        if components.scheme?.lowercased() == "masterkey", components.host?.lowercased() == "connect" {
+            path = components.path
+        } else if serverURL(from: input) != nil, components.path.hasPrefix("/connect/") {
+            path = String(components.path.dropFirst("/connect".count))
+        } else { return nil }
+        guard path.uppercased().range(of: "^/MK-[A-Z0-9]{4}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst()).uppercased()
+    }
+
+    static func serverURL(from text: String) -> String? {
+        guard let url = URLComponents(string: text), url.scheme?.lowercased() == "https",
+              url.user == nil, url.password == nil, url.port == nil, let host = url.host?.lowercased() else { return nil }
+        let server = "https://" + host
+        return [AppPreferences.productionURL, AppPreferences.stagingURL].contains(server) ? server : nil
+    }
+}
+
+
+struct KeyEnrollment: Decodable {
+    let id: String
+    let vendor: Provider
+    let status: String
+    let last4: String?
+    let currentLast4: String?
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, vendor, status, last4
+        case currentLast4 = "current_last4", expiresAt = "expires_at"
+    }
+
+    var isExpired: Bool {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fractional = formatter.date(from: expiresAt)
+        formatter.formatOptions = [.withInternetDateTime]
+        guard let date = fractional ?? formatter.date(from: expiresAt) else { return true }
+        return date <= Date()
+    }
+    var canClaim: Bool { status == "pending" && !isExpired }
+    var canConfirm: Bool { status == "submitted" && last4?.count == 4 && !isExpired }
+    var shouldPoll: Bool { status == "claimed" && !isExpired }
+}
+
+enum EnrollmentLink {
+    static func id(from text: String) -> String? {
+        guard let url = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              url.user == nil, url.password == nil, url.port == nil, url.query == nil, url.fragment == nil,
+              url.percentEncodedPath == url.path else { return nil }
+        let path: String
+        if url.scheme?.lowercased() == "masterkey", url.host?.lowercased() == "enroll" {
+            path = url.path
+        } else if PairingLink.serverURL(from: text) != nil, url.path.hasPrefix("/enroll/") {
+            path = String(url.path.dropFirst("/enroll".count))
+        } else { return nil }
+        guard path.range(of: "^/en_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst())
+    }
 }

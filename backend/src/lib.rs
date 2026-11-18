@@ -1,6 +1,8 @@
 //! MasterKey server: lets users lend an API key to apps, approving calls from their phone.
 mod apns;
 mod apple;
+mod enroll;
+mod oauth;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -45,6 +47,8 @@ pub struct Config {
     /// operator asserts pricing.rs was checked against vendor pricing (MK_PRICES_VERIFIED=1)
     pub prices_verified: bool,
     pub apple_bundle_id: String,
+    /// Apple developer team, for the universal-link association file (MK_APPLE_TEAM_ID)
+    pub apple_team_id: String,
     /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
@@ -101,6 +105,7 @@ impl Config {
             vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
             prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.sorevan.masterkey".into()),
+            apple_team_id: env("MK_APPLE_TEAM_ID").unwrap_or_else(|| "83APHP8F76".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
             country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
@@ -219,16 +224,32 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
+        .route("/v1/openrouter/chat/completions", post(proxy::openrouter))
         .route("/v1/requests/{id}", get(proxy::poll_request))
         .route("/v1/apps", post(create_app))
         .route("/v1/app", get(get_app))
         .route("/v1/app/secret", post(rotate_secret))
         .route("/v1/app/report", get(app_report))
+        .route("/connect/{code}/qr.svg", get(enroll::connect_qr))
         .layer(middleware::from_fn(cors));
     Router::new()
         .merge(developer)
         .route("/healthz", get(|| async { "ok" }))
         .route("/connect/{code}", get(connect_page))
+        .route("/.well-known/apple-app-site-association", get(enroll::aasa))
+        .route("/add-key", get(enroll::add_key_page))
+        .route("/enroll/{id}", get(enroll::enroll_page))
+        .route("/enroll/{id}/qr.svg", get(enroll::enroll_qr))
+        .route("/v1/enroll", post(enroll::create))
+        .route("/v1/enroll/{id}", get(enroll::poll))
+        .route("/v1/enroll/{id}/key", post(enroll::upload))
+        .route("/v1/me/enroll/{id}", get(enroll::preview))
+        .route("/v1/me/enroll/{id}/claim", post(enroll::claim))
+        .route("/v1/me/enroll/{id}/confirm", post(enroll::confirm))
+        .route("/v1/me/enroll/{id}/cancel", post(enroll::cancel))
+        .route("/v1/me/oauth/openrouter", post(oauth::start))
+        .route("/oauth/openrouter/callback", get(oauth::callback))
+        .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/auth/password", post(password_login))

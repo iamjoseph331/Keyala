@@ -1,14 +1,18 @@
 # MasterKey iOS
 
-Native SwiftUI client, iOS 17 or newer. Demo mode starts with local sample data and never calls the server. For a live backend, turn demo mode off, enter the server URL, then sign in. HTTPS is required; HTTP is accepted only for loopback hosts when **Allow HTTP for localhost** is enabled.
+Native SwiftUI client, iOS 17 or newer. Fresh installs connect to the built-in production service and start with Sign in with Apple. Existing explicit staging/custom server choices are preserved. No server URL entry is needed for normal use. HTTPS is required; HTTP is accepted only for loopback hosts when the development option is enabled.
 
-Use **Account** to sign in, view your profile, or choose **System**, **Light**, or **Dark** under Appearance. In **Requests → History**, tap a past request to inspect its full request and any recorded provider response.
+The three tabs are **Requests**, **Apps**, and **Keys**. The toolbar scanner opens pairing; scan the app website’s connection QR or tap its link on this phone, review the source, then approve. The existing MK code remains a fallback. Camera denial and unsupported devices retain code entry. **Settings** in the toolbar contains account, appearance, notifications, and **Developer options**. In **Requests → History**, tap a past request to inspect its full payload and any recorded provider response.
+
+**Keys → Add from computer** shows the current server’s `/add-key` setup address with a system Share action. Open it on a computer, choose a provider, scan the setup QR with this phone, check the server/provider and explicitly approve the computer. Paste the key on the computer. The phone waits for submission, shows the candidate’s last four characters and any saved key it will replace, then requires a separate Save/Replace action. Closing a setup never confirms it; rescan the same unexpired QR to resume. Explicit cancellation discards an owned candidate. The phone never downloads the full key. If setup started while connecting an app, **Continue connecting app** returns to that pairing after saving; a newer pairing or server change supersedes the old one, and Continue rechecks that the pairing is still pending. Recovering a saved enrollment after a lost response reloads key metadata before offering Continue.
+
+Pasting a key directly on this phone remains a fallback: provider-specific format hints, official console links and a system Paste button. Universal Clipboard can transfer a copied key from a Mac. Saving failure keeps the entered key available to retry; leaving the page, switching providers, or changing accounts clears the field. Keys are never encoded in QR codes.
 
 ## Signing and device services
 
 The release bundle identifier is `app.sorevan.masterkey`. Register it on the paid team with **Sign in with Apple** and **Push Notifications** enabled, and set the same value for `MK_APPLE_BUNDLE_ID` and `MK_APNS_TOPIC` on the server. Xcode development builds use sandbox APNs. TestFlight and App Store builds use production APNs.
 
-The Personal Team preview starts with offline sample data. For a real approval round trip using mock vendor responses, turn off Demo mode and connect to a private debug backend over trusted HTTPS with `MK_DEV_LOGIN=1`, `MK_VENDOR_MOCK=1`, and fake keys. Restrict network access to the test devices because development login lets anyone claim any email address.
+For a Personal Team preview, select **Settings → Developer options → Enable developer options → Use sample data** explicitly. Samples are offline and cannot send keys or model calls. This is separate from server mock mode. For a real approval round trip without provider charges, turn samples off and connect to a private backend with `MK_DEV_LOGIN=1`, `MK_VENDOR_MOCK=1`, and fake keys. The phone cannot enable mock mode on a server. Restrict network access to test devices because development login lets anyone claim any email address. Staging and custom server controls are also under Developer options.
 
 ### Temporary physical-device build with a Personal Team
 
@@ -71,9 +75,9 @@ the icon compiler may require a matching runtime. For local UI testing without
 that download, append `EXCLUDED_SOURCE_FILE_NAMES=Assets.xcassets`; this skips
 the icon catalog only. Install a matching runtime to validate the full icon build.
 
-The `masterkey://connect/<code>` URL opens the pairing preview.
+The `masterkey://connect/<code>` URL and HTTPS `/connect/<code>` links on the exact production/staging hosts open the pairing preview. A link for another server is rejected with guidance to change it explicitly in Developer options; scanning never silently switches the server.
 `masterkey://requests/<request_id>` opens the authenticated request inspector;
-notification taps use the same route. App identity in the pairing preview is
+notification taps use the same route. Enrollment accepts `masterkey://enroll/en_<22 base64url characters>` and HTTPS `/enroll/<id>` on the exact production/staging hosts. Universal links arrive through `NSUserActivityTypeBrowsingWeb`; both QR scanning and link taps enforce the same parser and explicit server matching. Enrollment links remain pending through sign-in. Polling stops when the candidate is submitted, terminal, the view closes, or the session changes; the submitted candidate must be immutable on the backend before a final confirmation is accepted. App identity in the pairing preview is
 developer-provided and is not verified by MasterKey.
 
 Contract checks run without the simulator:

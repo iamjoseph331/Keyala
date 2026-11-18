@@ -7,7 +7,7 @@ use std::{net::SocketAddr, time::Duration};
 fn extra() -> Config {
     Config {
         database_url: String::new(), master_key: [0; 32], dev_login: false, vendor_mock: false, public_url: String::new(), prices_verified: false,
-        apple_bundle_id: "app.masterkey.ios".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None, password_login: None,
+        apple_bundle_id: "app.masterkey.ios".into(), apple_team_id: "TEAMID".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None, password_login: None,
     }
 }
 
@@ -1087,4 +1087,139 @@ async fn password_login_single_operator_account() {
         login("staging-qa", "wrong").await.unwrap();
     }
     assert_eq!(login("staging-qa", pw).await.unwrap().status(), 429);
+}
+
+#[tokio::test]
+async fn key_shape_and_vendor_check() {
+    let t = T::new().await;
+    for (v, k) in [("openai", "sk-ant-api03-wrongvendor"), ("openai", "sk-admin-orgwide1234"), ("anthropic", "sk-proj-wrongvendor1"), ("anthropic", "sk-ant-admin01-orgwide"), ("openai", "sk-proj-MK_MOCK_INVALID")] {
+        let r = t.user_put(&format!("/v1/me/keys/{v}"), json!({"api_key": k})).await;
+        assert_eq!(r.status(), 400, "{v} {k}");
+        assert_eq!(json_of(r).await["error"]["type"], "invalid_key");
+    }
+    let keys = t.user_get("/v1/me/keys").await;
+    assert_eq!(keys[0]["last4"], "1234", "rejected keys never replace the stored one");
+}
+
+#[tokio::test]
+async fn key_enrollment_from_a_computer() {
+    let t = T::new().await;
+    let other = json_of(t.c.post(format!("{}/v1/auth/dev", t.base)).json(&json!({"email": "x@y.co"})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+    let start = || async { json_of(t.c.post(format!("{}/v1/enroll", t.base)).json(&json!({"vendor": "anthropic"})).send().await.unwrap()).await };
+    let e = start().await;
+    let (id, sec) = (e["enroll_id"].as_str().unwrap().to_string(), e["enroll_secret"].as_str().unwrap().to_string());
+    assert!(sec.starts_with("mk_es_") && e["enroll_url"].as_str().unwrap().ends_with(&format!("/enroll/{id}")));
+    let b = |p: &str| format!("{}{p}", t.base);
+    let poll = || async { json_of(t.c.get(b(&format!("/v1/enroll/{id}"))).bearer_auth(&sec).send().await.unwrap()).await };
+    let upload = |k: &'static str| t.c.post(b(&format!("/v1/enroll/{id}/key"))).bearer_auth(&sec).json(&json!({"api_key": k})).send();
+    assert_eq!(poll().await["status"], "pending");
+    // the browser cannot upload before a phone claims it, and needs the secret
+    assert_eq!(upload("sk-ant-api03-early0000").await.unwrap().status(), 409);
+    assert_eq!(t.c.get(b(&format!("/v1/enroll/{id}"))).bearer_auth("mk_es_wrong").send().await.unwrap().status(), 404);
+    // phone: preview + claim; a second account can no longer see or claim it
+    assert_eq!(t.user_get(&format!("/v1/me/enroll/{id}")).await["vendor"], "anthropic");
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{id}/claim"), json!({})).await.status(), 200);
+    assert_eq!(t.c.post(b(&format!("/v1/me/enroll/{id}/claim"))).bearer_auth(&other).send().await.unwrap().status(), 409);
+    assert_eq!(t.c.get(b(&format!("/v1/me/enroll/{id}"))).bearer_auth(&other).send().await.unwrap().status(), 404);
+    // confirm before upload is refused; a wrong-vendor key is refused at upload
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{id}/confirm"), json!({})).await.status(), 409);
+    assert_eq!(upload("sk-proj-openai000000").await.unwrap().status(), 400);
+    let u = json_of(upload("sk-ant-api03-firstAAAA").await.unwrap()).await;
+    assert_eq!((u["status"].as_str(), u["last4"].as_str()), (Some("submitted"), Some("AAAA")));
+    // the candidate is immutable once submitted: what the phone reviews is what it saves
+    assert_eq!(upload("sk-ant-api03-secondBBBB").await.unwrap().status(), 409);
+    assert_eq!(t.user_get(&format!("/v1/me/enroll/{id}")).await["last4"], "AAAA");
+    assert_eq!(t.c.post(b(&format!("/v1/me/enroll/{id}/confirm"))).bearer_auth(&other).send().await.unwrap().status(), 404);
+    let k = json_of(t.user_post(&format!("/v1/me/enroll/{id}/confirm"), json!({})).await).await;
+    assert_eq!((k["vendor"].as_str(), k["last4"].as_str()), (Some("anthropic"), Some("AAAA")));
+    assert_eq!(poll().await["status"], "saved");
+    // single use: no second confirm, no further upload, ciphertext wiped
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{id}/confirm"), json!({})).await.status(), 409);
+    assert_eq!(upload("sk-ant-api03-thirdCCCC").await.unwrap().status(), 409);
+    let ct: Option<Vec<u8>> = sqlx::query_scalar("SELECT ciphertext FROM enrollments WHERE id=?").bind(&id).fetch_one(&t.state.db).await.unwrap();
+    assert!(ct.is_none());
+    // the saved key is the one the proxy uses
+    let keys = t.user_get("/v1/me/keys").await;
+    assert!(keys.as_array().unwrap().iter().any(|k| k["vendor"] == "anthropic" && k["last4"] == "AAAA"));
+
+    // cancel on the phone wipes an uploaded key
+    let e = start().await;
+    let (id2, sec2) = (e["enroll_id"].as_str().unwrap().to_string(), e["enroll_secret"].as_str().unwrap().to_string());
+    t.user_post(&format!("/v1/me/enroll/{id2}/claim"), json!({})).await;
+    t.c.post(b(&format!("/v1/enroll/{id2}/key"))).bearer_auth(&sec2).json(&json!({"api_key": "sk-ant-api03-cancelDDDD"})).send().await.unwrap();
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{id2}/cancel"), json!({})).await.status(), 204);
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{id2}/confirm"), json!({})).await.status(), 409);
+    assert_eq!(t.user_get("/v1/me/keys").await.as_array().unwrap().iter().find(|k| k["vendor"] == "anthropic").unwrap()["last4"], "AAAA");
+
+    // pages, QR, universal links; no CORS on enrollment
+    let page = t.c.get(b("/add-key")).send().await.unwrap();
+    assert!(page.headers()["content-security-policy"].to_str().unwrap().contains("frame-ancestors 'none'"));
+    assert!(page.headers().get("access-control-allow-origin").is_none());
+    let qr = t.c.get(b(&format!("/enroll/{id}/qr.svg"))).send().await.unwrap();
+    assert_eq!(qr.headers()["content-type"], "image/svg+xml");
+    assert_eq!(t.c.get(b("/connect/MK-0000/qr.svg")).send().await.unwrap().status(), 404);
+    let aasa = json_of(t.c.get(b("/.well-known/apple-app-site-association")).send().await.unwrap()).await;
+    assert_eq!(aasa["applinks"]["details"][0]["appIDs"][0], "TEAMID.app.masterkey.ios");
+    let pre = t.c.request(reqwest::Method::OPTIONS, b("/v1/enroll")).header("origin", "https://evil.example").send().await.unwrap();
+    assert!(pre.headers().get("access-control-allow-origin").is_none());
+}
+
+#[tokio::test]
+async fn openrouter_one_tap_and_proxy() {
+    let t = T::new().await;
+    // OAuth start needs a session; in mock mode the consent page is the server's own stand-in
+    assert_eq!(t.c.post(format!("{}/v1/me/oauth/openrouter", t.base)).send().await.unwrap().status(), 401);
+    assert_eq!(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": -1})).await.status(), 400);
+    let s = json_of(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": 5})).await).await;
+    let auth = s["auth_url"].as_str().unwrap().to_string();
+    // test public_url is http://mk.test: rebase onto the real listener and follow by hand
+    let local = auth.replace("http://mk.test", &t.base);
+    let nr = Client::builder().redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    let r = nr.get(&local).send().await.unwrap();
+    assert_eq!(r.status(), 303);
+    let cb = r.headers()["location"].to_str().unwrap().replace("http://mk.test", &t.base);
+    let page = nr.get(&cb).send().await.unwrap().text().await.unwrap();
+    assert!(page.contains("masterkey://oauth/openrouter?status=ok&last4="), "{page}");
+    let keys = t.user_get("/v1/me/keys").await;
+    assert!(keys.as_array().unwrap().iter().any(|k| k["vendor"] == "openrouter"));
+    // the state is single use; unknown or missing state fails closed
+    assert!(nr.get(&cb).send().await.unwrap().text().await.unwrap().contains("status=error&reason=expired"));
+    assert!(nr.get(format!("{}/oauth/openrouter/callback?code=x", t.base)).send().await.unwrap().text().await.unwrap().contains("reason=cancelled"));
+
+    // an OpenRouter grant calls the OpenAI-shaped endpoint with exact slugs only
+    let tok = t.grant("openrouter", json!({"mode": "trust"})).await;
+    let call = |body: Value| t.c.post(format!("{}/v1/openrouter/chat/completions", t.base)).bearer_auth(&tok).json(&body).send();
+    let ok = json_of(call(json!({"model": "anthropic/claude-haiku-5.5", "messages": [{"role": "user", "content": "hi"}]})).await.unwrap()).await;
+    assert_eq!(ok["object"], "chat.completion");
+    for (k, v) in [("provider", json!({"order": ["x"]})), ("models", json!(["openai/gpt-4o"])), ("plugins", json!([{"id": "web"}]))] {
+        let mut b = json!({"model": "openai/gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}]});
+        b[k] = v;
+        let r = call(b).await.unwrap();
+        assert_eq!(r.status(), 400, "{k}");
+        assert_eq!(json_of(r).await["error"]["type"], "unsupported_option");
+    }
+    let r = call(json!({"model": "meta-llama/llama-3-70b", "messages": [{"role": "user", "content": "hi"}]})).await.unwrap();
+    assert_eq!(json_of(r).await["error"]["type"], "model_not_allowed");
+    // OpenRouter keys are checked for their own shape
+    let r = t.user_put("/v1/me/keys/openrouter", json!({"api_key": "sk-proj-notopenrouter"})).await;
+    assert_eq!(json_of(r).await["error"]["type"], "invalid_key");
+    let r = t.user_put("/v1/me/keys/openai", json!({"api_key": "sk-or-v1-wrongvendor0"})).await;
+    assert_eq!(json_of(r).await["error"]["type"], "invalid_key");
+}
+
+#[tokio::test]
+async fn openrouter_live_auth_url_shape() {
+    let (base, c, _) = serve(Config { vendor_mock: false, ..test_cfg() }).await;
+    let sess = json_of(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "o@r.co"})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+    let s = json_of(c.post(format!("{base}/v1/me/oauth/openrouter")).bearer_auth(&sess).json(&json!({"limit_usd": 12.5})).send().await.unwrap()).await;
+    let u = reqwest::Url::parse(s["auth_url"].as_str().unwrap()).unwrap();
+    assert_eq!((u.scheme(), u.host_str(), u.path()), ("https", Some("openrouter.ai"), "/auth"));
+    let q: std::collections::HashMap<_, _> = u.query_pairs().into_owned().collect();
+    assert_eq!(q["callback_url"], "http://mk.test/oauth/openrouter/callback");
+    assert_eq!(q["code_challenge_method"], "S256");
+    assert_eq!(q["code_challenge"].len(), 43); // base64url(sha256)
+    assert_eq!(q["limit"], "12.50");
+    assert!(q["state"].len() >= 20);
+    // the mock consent page does not exist outside mock mode
+    assert_eq!(c.get(format!("{base}/oauth/openrouter/mock?state=x")).send().await.unwrap().status(), 404);
 }

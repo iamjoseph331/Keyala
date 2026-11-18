@@ -6,5 +6,10 @@
 	<string>$(APS_ENVIRONMENT)</string>
 	<key>com.apple.developer.applesignin</key>
 	<array><string>Default</string></array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:masterkey-prod-vkgm.onrender.com</string>
+		<string>applinks:masterkey-staging-vkgm.onrender.com</string>
+	</array>
 </dict>
 </plist>

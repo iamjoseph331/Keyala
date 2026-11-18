@@ -66,7 +66,7 @@ const routes = {
     const r = await mk('/v1/connect', { method: 'POST', body: JSON.stringify({ vendor: 'openai', suggested_policy: { mode: 'ask' } }) });
     const j = await r.json();
     if (!r.ok) return send(res, 502, { error: j.error?.message || 'MasterKey refused to start a connection' });
-    pending = { code: j.connect_code, url: j.connect_url, expires_at: j.expires_at };
+    pending = { code: j.connect_code, url: j.connect_url, qr: j.connect_qr_url, expires_at: j.expires_at };
     send(res, 200, pending);
   },
   'GET /api/connect/status': async (req, res) => {

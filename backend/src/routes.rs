@@ -11,10 +11,10 @@ use std::{net::SocketAddr, time::Instant};
 use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 
 const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
-fn vendor_ok(v: &str) -> R<()> {
-    if matches!(v, "openai" | "anthropic") { Ok(()) } else { Err(bad("vendor must be openai or anthropic")) }
+pub fn vendor_ok(v: &str) -> R<()> {
+    if matches!(v, "openai" | "anthropic" | "openrouter") { Ok(()) } else { Err(bad("vendor must be openai, anthropic or openrouter")) }
 }
-fn not_found(what: &str) -> ApiError {
+pub fn not_found(what: &str) -> ApiError {
     api(404, "not_found", format!("{what} not found"))
 }
 
@@ -22,7 +22,7 @@ fn not_found(what: &str) -> ApiError {
 
 /// ponytail: in-memory per-IP sliding window, resets on restart and is per-instance; move to SQLite/edge if abused.
 /// Behind a proxy (Render) the last X-Forwarded-For entry is the one the proxy added.
-fn rate_limit(s: &AppState, peer: SocketAddr, headers: &HeaderMap, bucket: &str, max: usize, window: u64, what: &str) -> R<()> {
+pub fn rate_limit(s: &AppState, peer: SocketAddr, headers: &HeaderMap, bucket: &str, max: usize, window: u64, what: &str) -> R<()> {
     let ip = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit(',').next()).map(|v| v.trim().to_string()).unwrap_or_else(|| peer.ip().to_string());
     let mut l = s.app_limits.lock().unwrap();
     let hits = l.entry(format!("{bucket}:{ip}")).or_default();
@@ -100,7 +100,8 @@ pub async fn create_connect(State(s): State<AppState>, ConnectInfo(peer): Connec
             .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires).bind(connect_secret.as_deref().map(hash_token)).bind(&origin)
             .execute(&s.db).await?;
         if r.rows_affected() == 1 {
-            let mut v = json!({"connect_code": code, "connect_url": format!("{}/connect/{code}", s.cfg.public_url), "expires_at": expires});
+            let url = format!("{}/connect/{code}", s.cfg.public_url);
+            let mut v = json!({"connect_code": code, "connect_url": url, "connect_qr_url": format!("{url}/qr.svg"), "expires_at": expires});
             if let Some(cs) = connect_secret {
                 v["connect_secret"] = cs.into();
             }
@@ -134,15 +135,20 @@ pub async fn poll_connect(State(s): State<AppState>, headers: HeaderMap, Path(co
     Ok(Json(json!({"status": status})))
 }
 
+pub fn connect_code_ok(code: &str) -> bool {
+    code.len() == 7 && code.starts_with("MK-") && code[3..].bytes().all(|c| CODE_ALPHABET.contains(&c))
+}
+
+/// What a phone without the app sees after scanning; on a computer, the QR to scan.
 pub async fn connect_page(Path(code): Path<String>) -> Result<Html<String>, ApiError> {
-    let ok = code.len() == 7 && code.starts_with("MK-") && code[3..].bytes().all(|c| CODE_ALPHABET.contains(&c));
-    if !ok {
+    if !connect_code_ok(&code) {
         return Err(not_found("connect code"));
     }
     Ok(Html(format!(
         "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>MasterKey</title>\
          <body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>Connect with MasterKey</h1>\
-         <p>Code <b>{code}</b></p><p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p>"
+         <p>Scan with your iPhone camera</p><img src='/connect/{code}/qr.svg' width=240 height=240 alt='QR code for {code}'>\
+         <p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p><p style='color:#666'>or enter <b>{code}</b> in the app</p>"
     )))
 }
 
@@ -244,17 +250,65 @@ pub struct PutKey {
 
 pub async fn put_key(State(s): State<AppState>, h: HeaderMap, Path(vendor): Path<String>, J(b): J<PutKey>) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
-    vendor_ok(&vendor)?;
-    let key = b.api_key.trim();
-    if key.len() < 8 || key.len() > 512 || key.chars().any(char::is_whitespace) {
+    let key = check_key(&s, &vendor, &b.api_key).await?;
+    let mut c = s.db.acquire().await?;
+    Ok(Json(store_key(&s, &mut c, &u, &vendor, &key).await?))
+}
+
+pub fn last4(key: &str) -> String {
+    key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect()
+}
+
+/// Shape check, then the vendor's free model list (no inference, no cost) to catch a wrong or
+/// revoked key before an app tries it. Admin keys are refused: they can manage the whole org.
+/// Only a 401/403 rejects: if the vendor is down or rate-limits us, the key is kept unchecked.
+pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
+    vendor_ok(vendor)?;
+    let key = raw.trim();
+    if key.len() < 8 || key.len() > 512 || !key.bytes().all(|b| b.is_ascii_graphic()) {
         return Err(bad("api_key looks invalid"));
     }
-    let last4: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
-    let (ct, nonce) = encrypt(&s.cfg.master_key, &key_aad(&u, &vendor), key);
+    let shape = match vendor {
+        "openai" => key.starts_with("sk-") && !key.starts_with("sk-ant-") && !key.starts_with("sk-or-") && !key.starts_with("sk-admin-"),
+        "openrouter" => key.starts_with("sk-or-"),
+        _ => key.starts_with("sk-ant-") && !key.starts_with("sk-ant-admin"),
+    };
+    if !shape {
+        let msg = match vendor {
+            "openai" => "This is not an OpenAI API key. It starts with sk-proj- or sk- (admin keys are not accepted).",
+            "openrouter" => "This is not an OpenRouter API key. It starts with sk-or-.",
+            _ => "This is not an Anthropic API key. It starts with sk-ant-api (admin keys are not accepted).",
+        };
+        return Err(api(400, "invalid_key", msg));
+    }
+    let status = if s.cfg.vendor_mock {
+        if key.contains("MK_MOCK_INVALID") { 401 } else { 200 }
+    } else {
+        let req = if vendor == "openai" {
+            s.http.get("https://api.openai.com/v1/models").bearer_auth(key)
+        } else if vendor == "openrouter" {
+            s.http.get("https://openrouter.ai/api/v1/key").bearer_auth(key)
+        } else {
+            s.http.get("https://api.anthropic.com/v1/models").header("x-api-key", key).header("anthropic-version", "2023-06-01")
+        };
+        match req.timeout(Duration::from_secs(10)).send().await {
+            Ok(r) => r.status().as_u16(),
+            Err(_) => 0,
+        }
+    };
+    if matches!(status, 401 | 403) {
+        return Err(api(400, "invalid_key", "the provider rejected this key (wrong, revoked or disabled)"));
+    }
+    Ok(key.to_string())
+}
+
+pub async fn store_key(s: &AppState, c: &mut SqliteConnection, user: &str, vendor: &str, key: &str) -> R<Value> {
+    let l4 = last4(key);
+    let (ct, nonce) = encrypt(&s.cfg.master_key, &key_aad(user, vendor), key);
     let created = now();
     sqlx::query("INSERT INTO api_keys (user_id,vendor,ciphertext,nonce,last4,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,vendor) DO UPDATE SET ciphertext=excluded.ciphertext, nonce=excluded.nonce, last4=excluded.last4, created_at=excluded.created_at")
-        .bind(&u).bind(&vendor).bind(ct).bind(nonce).bind(&last4).bind(&created).execute(&s.db).await?;
-    Ok(Json(json!({"vendor": vendor, "last4": last4, "created_at": created})))
+        .bind(user).bind(vendor).bind(ct).bind(nonce).bind(&l4).bind(&created).execute(c).await?;
+    Ok(json!({"vendor": vendor, "last4": l4, "created_at": created}))
 }
 
 pub async fn delete_key(State(s): State<AppState>, h: HeaderMap, Path(vendor): Path<String>) -> R<StatusCode> {

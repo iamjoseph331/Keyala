@@ -91,19 +91,34 @@ struct AppearancePicker: View {
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
     @State private var selection = 0
+    @State private var activeSheet: RootSheet?
+    private enum RootSheet: Identifiable {
+        case settings, connect, computer
+        case enroll(String)
+        var id: String {
+            switch self {
+            case .settings: "settings"
+            case .connect: "connect"
+            case .computer: "computer"
+            case .enroll(let id): "enroll:" + id
+            }
+        }
+    }
 
     var body: some View {
-        TabView(selection: $selection) {
-            NavigationStack { InboxView() }
-                .tabItem { Label("Requests", systemImage: "checkmark.shield") }.tag(0)
-            NavigationStack { VaultView() }
-                .tabItem { Label("Keys", systemImage: "key.horizontal") }.tag(1)
-            NavigationStack { GrantsView() }
-                .tabItem { Label("Grants", systemImage: "hand.raised") }.tag(2)
-            NavigationStack { SettingsView() }
-                .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }.tag(3)
-            NavigationStack { AccountView() }
-                .tabItem { Label("Account", systemImage: "person.crop.circle") }.tag(4)
+        Group {
+            if store.account == nil && !store.demoMode {
+                NavigationStack { WelcomeView().toolbar { actions } }
+            } else {
+                TabView(selection: $selection) {
+                    NavigationStack { InboxView().toolbar { actions } }
+                        .tabItem { Label("Requests", systemImage: "checkmark.shield") }.tag(0)
+                    NavigationStack { GrantsView().toolbar { actions } }
+                        .tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(1)
+                    NavigationStack { VaultView().toolbar { actions } }
+                        .tabItem { Label("Keys", systemImage: "key.horizontal") }.tag(2)
+                }
+            }
         }
         .background(MKStyle.navy)
         .toolbarBackground(MKStyle.navy, for: .tabBar)
@@ -111,7 +126,44 @@ struct RootView: View {
         .alert("MasterKey", isPresented: $store.showError) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.errorMessage) }
-        .onOpenURL { store.handleOpenURL($0); if store.pendingConnectCode != nil { selection = 3 } }
+        .sheet(item: $activeSheet) { sheet in
+            NavigationStack {
+                switch sheet {
+                case .settings:
+                    SettingsView().toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { activeSheet = nil } } }
+                case .connect: ConnectAppView()
+                case .computer: ComputerKeySetupView()
+                case .enroll(let id): EnrollmentView(id: id).id(id)
+                }
+            }
+        }
+        .onOpenURL { url in
+            if store.handleOpenURL(url) { presentPendingLink() }
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL, store.handleOpenURL(url) { presentPendingLink() }
+        }
+        .onChange(of: store.linkGeneration) { _, _ in presentPendingLink() }
+        .onReceive(NotificationCenter.default.publisher(for: .masterKeyAddFromComputer)) { note in
+            store.beginComputerKeySetup(returnTo: note.object as? String)
+            activeSheet = .computer
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .masterKeyOpenKeys)) { _ in selection = 2 }
+        .onReceive(NotificationCenter.default.publisher(for: .masterKeyConnectApp)) { _ in activeSheet = .connect }
         .onChange(of: store.pendingRequestID) { _, id in if id != nil { selection = 0 } }
+    }
+
+    private func presentPendingLink() {
+        if let id = store.pendingEnrollmentID { activeSheet = .enroll(id) }
+        else if store.pendingConnectCode != nil { activeSheet = .connect }
+    }
+
+    @ToolbarContentBuilder private var actions: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if store.account != nil || store.demoMode {
+                Button { activeSheet = .connect } label: { Image(systemName: "qrcode.viewfinder") }.accessibilityLabel("Connect an app")
+            }
+            Button { activeSheet = .settings } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings")
+        }
     }
 }

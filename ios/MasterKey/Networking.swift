@@ -150,6 +150,14 @@ final class APIClient {
         struct Body: Encodable { let policy: Policy? }
         let _: EmptyResponse = try await send("/v1/me/connect/\(code)/\(approve ? "approve" : "deny")", method: "POST", body: approve ? Body(policy: policy) : nil)
     }
+    func enrollment(id: String) async throws -> KeyEnrollment { try await send("/v1/me/enroll/\(id)") }
+    func claimEnrollment(id: String) async throws -> KeyEnrollment { try await send("/v1/me/enroll/\(id)/claim", method: "POST") }
+    func confirmEnrollment(id: String) async throws -> KeyRecord {
+        try await send("/v1/me/enroll/\(id)/confirm", method: "POST")
+    }
+    func cancelEnrollment(id: String) async throws {
+        let _: EmptyResponse = try await send("/v1/me/enroll/\(id)/cancel", method: "POST")
+    }
     func registerDevice(token: String) async throws {
         struct Body: Encodable { let apnsToken: String; enum CodingKeys: String, CodingKey { case apnsToken = "apns_token" } }
         let _: EmptyResponse = try await send("/v1/me/devices", method: "POST", body: Body(apnsToken: token))
