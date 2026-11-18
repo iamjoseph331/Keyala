@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Add a key to MasterKey</title>
+<style>
+  :root { --bg:#f6f6f3; --card:#fff; --ink:#1b1b1a; --muted:#6b6b66; --line:#e3e2dc; --accent:#1f5f4a; --bad:#a3302a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --card:#1e1e1c; --ink:#f1f0ea; --muted:#a3a29b; --line:#33322e; --accent:#7fc4a8; --bad:#ef8a82; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,sans-serif; }
+  main { max-width:520px; margin:6vh auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:28px; }
+  h1 { font-size:1.4rem; margin:0 0 4px } p { margin:8px 0 } .muted { color:var(--muted) }
+  .row { display:flex; gap:12px; margin-top:20px } .row button { flex:1 }
+  button { font:inherit; padding:12px 16px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer }
+  button.primary { background:var(--accent); color:var(--card); border-color:var(--accent) }
+  button:disabled { opacity:.5; cursor:default }
+  input { width:100%; font:15px ui-monospace,monospace; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); margin-top:12px }
+  .qr { display:block; margin:20px auto 8px; width:240px; height:240px; background:#fff; border-radius:12px; padding:6px }
+  ol { padding-left:20px; margin:16px 0 } li { margin:6px 0 }
+  a { color:var(--accent) } .err { color:var(--bad) } [hidden] { display:none !important }
+  .step { font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted) }
+</style>
+<main><div class="card">
+  <section id="s-pick">
+    <div class="step">Add a key from this computer</div>
+    <h1>Which provider?</h1>
+    <p class="muted">You paste the key here, on the computer where you are signed in to the provider. Your phone approves it. This page never sees your MasterKey account and can never read a key back.</p>
+    <div class="row"><button data-v="openai">OpenAI</button><button data-v="anthropic">Anthropic</button></div>
+  </section>
+
+  <section id="s-scan" hidden>
+    <div class="step">Step 1 of 2</div>
+    <h1>Scan with your iPhone</h1>
+    <p class="muted">Use the Camera app or the Scan button in MasterKey. Make sure you are signed in on the phone.</p>
+    <img id="qr" class="qr" alt="QR code to open this enrollment in MasterKey">
+    <p class="muted" style="text-align:center">Expires in 10 minutes.</p>
+  </section>
+
+  <section id="s-paste" hidden>
+    <div class="step">Step 2 of 2</div>
+    <h1>Paste your <span class="vname"></span> key</h1>
+    <ol>
+      <li>Open <a id="console" target="_blank" rel="noopener noreferrer"></a> and create a new secret key. Give it a name like "MasterKey".</li>
+      <li>Copy it and paste it below. It goes straight to the MasterKey server over HTTPS, encrypted at rest.</li>
+    </ol>
+    <input id="key" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="API key">
+    <p id="err" class="err" role="alert"></p>
+    <div class="row"><button id="send" class="primary">Send to my phone</button></div>
+  </section>
+
+  <section id="s-confirm" hidden>
+    <div class="step">Almost done</div>
+    <h1>Confirm on your phone</h1>
+    <p>Your phone shows the <span class="vname"></span> key ending in <b id="l4"></b>. Tap Save there.</p>
+    <p class="muted">Wrong key? Tap Cancel on the phone and start again.</p>
+  </section>
+
+  <section id="s-end" hidden>
+    <h1 id="end-title"></h1>
+    <p id="end-body" class="muted"></p>
+    <div class="row"><button id="restart">Add another key</button></div>
+  </section>
+</div></main>
+<script>
+"use strict";
+const V = {
+  openai: { name: "OpenAI", url: "https://platform.openai.com/api-keys", host: "platform.openai.com/api-keys", hint: "sk-proj-..." },
+  anthropic: { name: "Anthropic", url: "https://platform.claude.com/settings/keys", host: "platform.claude.com/settings/keys", hint: "sk-ant-api03-..." },
+};
+const $ = (id) => document.getElementById(id);
+let en = null, timer = null; // enrollment + its secret live only in this tab's memory
+
+function show(id) { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; }
+function end(title, body) { clearInterval(timer); en = null; $("key").value = ""; $("end-title").textContent = title; $("end-body").textContent = body; show("s-end"); }
+
+async function call(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", ...(en ? { authorization: "Bearer " + en.enroll_secret } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || "Request failed (" + r.status + ")");
+  return j;
+}
+
+async function start(vendor) {
+  const v = V[vendor];
+  for (const e of document.querySelectorAll(".vname")) e.textContent = v.name;
+  $("console").href = v.url; $("console").textContent = v.host; $("key").placeholder = v.hint;
+  try { en = await call("/v1/enroll", { vendor }); } catch (e) { return end("Could not start", e.message); }
+  $("qr").src = en.qr_url;
+  show("s-scan");
+  timer = setInterval(tick, 2000);
+}
+
+async function tick() {
+  if (!en) return;
+  let r; try { r = await call("/v1/enroll/" + en.enroll_id); } catch { return; }
+  if (r.status === "claimed" && !$("s-scan").hidden) { show("s-paste"); $("key").focus(); }
+  if (r.status === "saved") end("Key saved", "Your " + V[r.vendor].name + " key ending in " + r.last4 + " is in MasterKey. You can close this tab.");
+  if (r.status === "cancelled") end("Cancelled on the phone", "Nothing was saved.");
+  if (r.status === "expired") end("Expired", "Nothing was saved. Start again when you are ready.");
+}
+
+$("send").onclick = async () => {
+  $("err").textContent = ""; $("send").disabled = true;
+  try {
+    const r = await call("/v1/enroll/" + en.enroll_id + "/key", { api_key: $("key").value });
+    $("key").value = ""; $("l4").textContent = r.last4; show("s-confirm");
+  } catch (e) { $("err").textContent = e.message; }
+  $("send").disabled = false;
+};
+$("key").onkeydown = (e) => { if (e.key === "Enter") $("send").click(); };
+$("restart").onclick = () => show("s-pick");
+for (const b of document.querySelectorAll("[data-v]")) b.onclick = () => start(b.dataset.v);
+</script>
+</html>

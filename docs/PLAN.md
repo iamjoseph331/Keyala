@@ -95,7 +95,7 @@ Key      { "vendor", "last4", "created_at" }
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?, allowed_origins?}` → `{app_id, app_secret}` |
-| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, expires_at}` (10 min). Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
+| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, connect_qr_url, expires_at}` (10 min). `connect_url` = `{server}/connect/{code}` (universal link; a page with the QR on a computer), `connect_qr_url` = an SVG QR of it for the developer's page. Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
 | GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?}` |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
@@ -145,7 +145,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | POST | `/v1/auth/password` | only if `MK_PASSWORD_LOGIN` is set (one operator-provisioned account, a fallback while Apple sign-in is unavailable): `{username, password}` → `{session_token, user}`; 404 unconfigured, 401 `invalid_credentials`, 429 `rate_limited` (10 per 10 min per address). Identity `{username}@password.invalid`, never linked to Apple or email accounts |
 | POST | `/v1/auth/dev` | only if `MK_DEV_LOGIN=1`: `{email}` → `{session_token, user}` |
 | GET | `/v1/me/keys` | `[Key]` |
-| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned) |
+| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned). 400 `invalid_key` if the shape is wrong for the vendor (OpenAI `sk-…` not `sk-ant-`, Anthropic `sk-ant-…`; admin keys `sk-admin-`/`sk-ant-admin` refused) or the vendor's free `GET /v1/models` answers 401/403. Vendor unreachable = saved unchecked. Mock: a key containing `MK_MOCK_INVALID` is rejected |
 | DELETE | `/v1/me/keys/{vendor}` | |
 | POST | `/v1/me/devices` | `{apns_token}` |
 | GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin, requires_ask}` (`origin` null for server apps; `requires_ask` is true when this user has no prior grant for this app) |
@@ -159,6 +159,25 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | POST | `/v1/me/requests/{id}/approve` | `{policy?}` (omit = once) → `Request` |
 | POST | `/v1/me/requests/{id}/deny` | → `Request` |
 | GET | `/v1/me/events` | SSE: `request.created`, `request.updated`, `grant.updated` (data = object JSON) |
+
+### Add a key from a computer (enrollment)
+The user is usually signed in to the provider's console on a computer, so the key is pasted there,
+on the server's own page `{server}/add-key` (same origin as the API, no CORS; CSP, no-referrer, no-store).
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/enroll` | none (10/10 min per IP) | `{vendor}` → `{enroll_id, enroll_url, qr_url, enroll_secret, expires_at}` (10 min). `enroll_id` = `en_` + 22 random chars (unguessable; QR only, no typed code). `enroll_secret` (`mk_es_…`) stays in the page's memory |
+| GET | `/v1/enroll/{id}` | `enroll_secret` | `Enrollment` (the page polls) |
+| POST | `/v1/enroll/{id}/key` | `enroll_secret` | `{api_key}` → `Enrollment`; only while `claimed`, exactly once (409 `not_claimed` otherwise); same checks as PUT keys (400 `invalid_key`). The candidate is then immutable |
+| GET | `/v1/me/enroll/{id}` | session | `Enrollment` + `current_last4` (the key it would replace, or null). Any signed-in user while `pending`, afterwards only the claimer (else 404) |
+| POST | `/v1/me/enroll/{id}/claim` | session | empty body → `Enrollment`; `pending` → `claimed`, binds this user; 409 `not_pending` if already claimed/expired |
+| POST | `/v1/me/enroll/{id}/confirm` | session | empty body → `Key`; `submitted` → `saved` and the key stored, in one transaction; 409 `not_submitted`. Single use |
+| POST | `/v1/me/enroll/{id}/cancel` | session | → 204; `claimed`/`submitted` → `cancelled`, candidate wiped |
+`Enrollment { id, vendor, status: pending|claimed|submitted|saved|cancelled|expired, last4, expires_at }`.
+SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidates are AES-GCM encrypted
+(AAD `enroll|{id}`) and wiped on save, cancel or expiry. Wrong key after upload = cancel and start again.
+`/enroll/{id}` (universal link, page with an "Open in app" link) and `/enroll/{id}/qr.svg`, `/connect/{code}/qr.svg`.
+`/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{MK_APPLE_TEAM_ID}.{MK_APPLE_BUNDLE_ID}`
+(default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `masterkey://connect/{code}` and `masterkey://enroll/{id}` remain.
 
 Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
 `mk_sess_` (so a leaked token is identifiable).

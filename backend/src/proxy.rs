@@ -229,6 +229,8 @@ pub async fn deny_request(State(s): State<AppState>, h: HeaderMap, Path(id): Pat
 pub async fn sweeper(s: AppState) {
     loop {
         tokio::time::sleep(Duration::from_secs(30)).await;
+        // key enrollments never outlive their 10 minutes, and neither does an uploaded key
+        let _ = sqlx::query("UPDATE enrollments SET status='expired', ciphertext=NULL, nonce=NULL WHERE expires_at<=? AND status IN ('pending','claimed','submitted')").bind(now()).execute(&s.db).await;
         let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='pending' AND expires_at<=?").bind(now()).fetch_all(&s.db).await.unwrap_or_default();
         for id in ids {
             let r = sqlx::query("UPDATE requests SET status='expired', decided_at=? WHERE id=? AND status='pending'").bind(now()).bind(&id).execute(&s.db).await;
