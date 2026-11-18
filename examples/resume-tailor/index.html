@@ -440,7 +440,8 @@
 const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
 const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
-const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic' };
+const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic', openrouter: 'OpenRouter' };
+const openaiShape = (vendor) => vendor !== 'anthropic'; // OpenRouter speaks the OpenAI chat-completions shape
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -449,9 +450,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // A static page: no server, no API key. The visitor's own key stays in MasterKey; this page only
 // ever holds a grant token, and every call follows the policy the visitor approves on their phone.
 // Local testing (localhost only): ?mk=http://localhost:8080&app=app_resume_tailor
+// Staging (any host): ?server=staging. Only these two fixed servers can be picked by URL.
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const qs = new URLSearchParams(location.search);
-const MK_URL = ((LOCAL && qs.get('mk')) || 'https://masterkey-prod-vkgm.onrender.com').replace(/\/$/, '');
+const SERVERS = { prod: 'https://masterkey-prod-vkgm.onrender.com', staging: 'https://masterkey-staging-vkgm.onrender.com' };
+const MK_URL = ((LOCAL && qs.get('mk')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
 const APP_ID = (LOCAL && qs.get('app')) || 'app_resume_tailor';
 
 // Must match the MasterKey server's allowlist (backend/src/pricing.rs). USD per 1M tokens, display only.
@@ -463,6 +466,10 @@ const MODELS = [
   { id: 'gpt-4.1-mini', vendor: 'openai', label: 'GPT-4.1 mini', price: '$0.40 / $1.60' },
   { id: 'gpt-4o', vendor: 'openai', label: 'GPT-4o', price: '$2.50 / $10' },
   { id: 'gpt-4o-mini', vendor: 'openai', label: 'GPT-4o mini', price: '$0.15 / $0.60' },
+  { id: 'anthropic/claude-sonnet-5.5', vendor: 'openrouter', label: 'Claude Sonnet 5.5 (OpenRouter)', price: '$2 / $10' },
+  { id: 'anthropic/claude-haiku-5.5', vendor: 'openrouter', label: 'Claude Haiku 5.5 (OpenRouter)', price: '$0.10 / $0.50' },
+  { id: 'openai/gpt-4.1-mini', vendor: 'openrouter', label: 'GPT-4.1 mini (OpenRouter)', price: '$0.40 / $1.60' },
+  { id: 'openai/gpt-4o-mini', vendor: 'openrouter', label: 'GPT-4o mini (OpenRouter)', price: '$0.15 / $0.60' },
 ];
 const MAX_TOKENS = 4096; // the server's per-model output cap; a full resume fits
 
@@ -504,15 +511,15 @@ function prompt({ resume, jd, language, tone, extra }) {
   return { system, user };
 }
 
-const textOf = (vendor, r) => vendor === 'openai' ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
+const textOf = (vendor, r) => openaiShape(vendor) ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
 
 // One job: a plain OpenAI / Anthropic request, sent to MasterKey with the grant instead of an API key.
 // No retries: a slow approval returns 202 and we poll; the Idempotency-Key guards against double billing.
 async function tailor(model, input, idemKey) {
   const token = store.get(model.vendor);
   const { system, user } = prompt(input);
-  const [path, body] = model.vendor === 'openai'
-    ? ['/v1/openai/chat/completions', { model: model.id, max_tokens: MAX_TOKENS, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }]
+  const [path, body] = openaiShape(model.vendor)
+    ? [`/v1/${model.vendor}/chat/completions`, { model: model.id, max_tokens: MAX_TOKENS, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }]
     : ['/v1/anthropic/messages', { model: model.id, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content: user }] }];
   let r = await mk(path, { body, token, headers: { 'Idempotency-Key': idemKey, 'X-MasterKey-Wait': '25' } });
   while (r.status === 202) {
@@ -714,7 +721,7 @@ function renderResults() {
 }
 
 addJd();
-connected = { openai: !!store.get('openai'), anthropic: !!store.get('anthropic') };
+connected = Object.fromEntries(Object.keys(VENDOR).map((v) => [v, !!store.get(v)]));
 renderModels();
 </script>
 </body>

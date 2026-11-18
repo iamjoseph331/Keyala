@@ -4,7 +4,7 @@ A one-page AI app that tailors a resume to one or more job descriptions, with an
 translation, a chosen tone, and any extra experience the user wants to add.
 
 **It ships with no API key and no backend.** It is a single static `index.html`. Each visitor
-connects their own OpenAI or Anthropic key through MasterKey, picks any model they like (they pay
+connects their own OpenAI, Anthropic or OpenRouter key through MasterKey (OpenRouter is one tap in the app, no key to copy), picks any model they like (they pay
 for it, so it's their call), and approves every call on their phone after seeing the exact prompt
 and an estimated cost. The person who publishes the page never holds anyone's key, runs no
 server, and never gets a token bill.
@@ -25,7 +25,8 @@ open "http://localhost:3001/?mk=http://localhost:8080"
 ```
 
 `?mk=` (MasterKey URL) and `?app=` (app id) are honoured on localhost only; anywhere else the page
-uses `masterkey-prod` and `app_resume_tailor`. The mock vendor answers every call with a fixed
+uses `masterkey-prod` and `app_resume_tailor`. `?server=staging` (any host) switches to
+`masterkey-staging`, which has OpenRouter before prod does. The mock vendor answers every call with a fixed
 sentence, so the output pane shows that instead of a resume.
 
 ## How a static page uses MasterKey
@@ -39,7 +40,7 @@ sentence, so the output pane shows that instead of a resume.
 3. **Claim the grant:** poll `GET /v1/connect/{code}` with `Authorization: Bearer <connect_secret>`
    until the user approves; the response carries the `grant_token` once. Store it (this page uses
    `localStorage`).
-4. **Call the model:** a normal OpenAI or Anthropic request body, sent to MasterKey with the grant:
+4. **Call the model:** a normal OpenAI or Anthropic request body (OpenRouter: the OpenAI shape at `/v1/openrouter/chat/completions` with an exact slug such as `anthropic/claude-haiku-5.5`), sent to MasterKey with the grant:
 
 ```js
 fetch(MK_URL + '/v1/anthropic/messages', {
