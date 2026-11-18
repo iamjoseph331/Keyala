@@ -13,6 +13,7 @@ pub type JwksCache = tokio::sync::Mutex<Option<(Instant, JwkSet)>>;
 pub struct Claims {
     pub sub: String,
     pub email: Option<String>,
+    pub iat: Option<i64>,
 }
 
 fn invalid() -> ApiError {
