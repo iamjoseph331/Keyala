@@ -1099,6 +1099,11 @@ async fn key_shape_and_vendor_check() {
     }
     let keys = t.user_get("/v1/me/keys").await;
     assert_eq!(keys[0]["last4"], "1234", "rejected keys never replace the stored one");
+    // 403 may be a restricted key without the models-list permission: saved, but not claimed as checked
+    let k = json_of(t.user_put("/v1/me/keys/openai", json!({"api_key": "sk-proj-MK_MOCK_RESTRICTED9"})).await).await;
+    assert_eq!((k["last4"].as_str(), k["checked"].as_bool()), (Some("TED9"), Some(false)));
+    let k = json_of(t.user_put("/v1/me/keys/openai", json!({"api_key": "sk-proj-fine00001234"})).await).await;
+    assert_eq!(k["checked"], true);
 }
 
 #[tokio::test]
@@ -1171,6 +1176,13 @@ async fn openrouter_one_tap_and_proxy() {
     assert_eq!(t.c.post(format!("{}/v1/me/oauth/openrouter", t.base)).send().await.unwrap().status(), 401);
     assert_eq!(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": -1})).await.status(), 400);
     let s = json_of(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": 5})).await).await;
+    let flow = s["flow_id"].as_str().unwrap().to_string();
+    assert!(flow.starts_with("of_"));
+    assert_eq!(t.user_get(&format!("/v1/me/oauth/openrouter/flows/{flow}")).await["status"], "pending");
+    // another account cannot see or cancel the flow
+    let other = json_of(t.c.post(format!("{}/v1/auth/dev", t.base)).json(&json!({"email": "z@z.co"})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+    assert_eq!(t.c.get(format!("{}/v1/me/oauth/openrouter/flows/{flow}", t.base)).bearer_auth(&other).send().await.unwrap().status(), 404);
+    assert_eq!(t.c.post(format!("{}/v1/me/oauth/openrouter/flows/{flow}/cancel", t.base)).bearer_auth(&other).send().await.unwrap().status(), 404);
     let auth = s["auth_url"].as_str().unwrap().to_string();
     // test public_url is http://mk.test: rebase onto the real listener and follow by hand
     let local = auth.replace("http://mk.test", &t.base);
@@ -1179,12 +1191,24 @@ async fn openrouter_one_tap_and_proxy() {
     assert_eq!(r.status(), 303);
     let cb = r.headers()["location"].to_str().unwrap().replace("http://mk.test", &t.base);
     let page = nr.get(&cb).send().await.unwrap().text().await.unwrap();
-    assert!(page.contains("masterkey://oauth/openrouter?status=ok&last4="), "{page}");
+    assert!(page.contains(&format!("masterkey://oauth/openrouter?status=ok&flow={flow}")), "{page}");
+    assert!(!page.contains("sk-or-"), "the key never reaches the browser");
+    let f = t.user_get(&format!("/v1/me/oauth/openrouter/flows/{flow}")).await;
+    assert_eq!(f["status"], "saved");
     let keys = t.user_get("/v1/me/keys").await;
-    assert!(keys.as_array().unwrap().iter().any(|k| k["vendor"] == "openrouter"));
-    // the state is single use; unknown or missing state fails closed
+    assert!(keys.as_array().unwrap().iter().any(|k| k["vendor"] == "openrouter" && k["last4"] == f["last4"]));
+    // the state is single use (a replay neither exchanges again nor changes the flow); no state = declined
     assert!(nr.get(&cb).send().await.unwrap().text().await.unwrap().contains("status=error&reason=expired"));
+    assert_eq!(t.user_get(&format!("/v1/me/oauth/openrouter/flows/{flow}")).await["status"], "saved");
     assert!(nr.get(format!("{}/oauth/openrouter/callback?code=x", t.base)).send().await.unwrap().text().await.unwrap().contains("reason=cancelled"));
+    // cancel works only while pending, and a cancelled flow's callback does nothing
+    let s2 = json_of(t.user_post("/v1/me/oauth/openrouter", json!({})).await).await;
+    let flow2 = s2["flow_id"].as_str().unwrap().to_string();
+    assert_eq!(json_of(t.user_post(&format!("/v1/me/oauth/openrouter/flows/{flow2}/cancel"), json!({})).await).await["status"], "cancelled");
+    let r = nr.get(s2["auth_url"].as_str().unwrap().replace("http://mk.test", &t.base)).send().await.unwrap();
+    let cb2 = r.headers()["location"].to_str().unwrap().replace("http://mk.test", &t.base);
+    assert!(nr.get(&cb2).send().await.unwrap().text().await.unwrap().contains("reason=expired"));
+    assert_eq!(json_of(t.user_post(&format!("/v1/me/oauth/openrouter/flows/{flow}/cancel"), json!({})).await).await["status"], "saved");
 
     // an OpenRouter grant calls the OpenAI-shaped endpoint with exact slugs only
     let tok = t.grant("openrouter", json!({"mode": "trust"})).await;

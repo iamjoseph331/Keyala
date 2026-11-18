@@ -167,6 +167,8 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     sqlx::migrate!("./migrations").run(&db).await?;
     // a crash mid-send means we cannot know whether the vendor got it: never retry.
     sqlx::query("UPDATE requests SET status='uncertain' WHERE status='sending'").execute(&db).await?;
+    // a crash mid-exchange: OpenRouter codes are single use, so never retry; say so instead
+    sqlx::query("UPDATE oauth_flows SET status='failed', reason='interrupted', verifier=NULL WHERE status='exchanging'").execute(&db).await?;
     let state: AppState = Arc::new(Inner {
         db,
         cfg,
@@ -248,6 +250,8 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/me/enroll/{id}/confirm", post(enroll::confirm))
         .route("/v1/me/enroll/{id}/cancel", post(enroll::cancel))
         .route("/v1/me/oauth/openrouter", post(oauth::start))
+        .route("/v1/me/oauth/openrouter/flows/{id}", get(oauth::status))
+        .route("/v1/me/oauth/openrouter/flows/{id}/cancel", post(oauth::cancel))
         .route("/oauth/openrouter/callback", get(oauth::callback))
         .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
