@@ -9,6 +9,7 @@ use axum::{
 // Upstream URLs are constants: nothing in a request can choose the host.
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
+const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 const PENDING_TTL_SECS: i64 = 600;
 
 pub async fn openai(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
@@ -16,6 +17,9 @@ pub async fn openai(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<R
 }
 pub async fn anthropic(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
     proxy(s, h, "anthropic", body).await
+}
+pub async fn openrouter(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
+    proxy(s, h, "openrouter", body).await
 }
 
 enum Decision {
@@ -60,7 +64,11 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
     let mut payload: Value = serde_json::from_slice(&body).map_err(|_| bad("body must be valid JSON"))?;
     let chk = pricing::validate(vendor, &mut payload, s.cfg.vendor_mock || s.cfg.prices_verified)?;
     let wait = h.get("x-masterkey-wait").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(60).min(120);
-    let endpoint = if vendor == "openai" { "/v1/openai/chat/completions" } else { "/v1/anthropic/messages" };
+    let endpoint = match vendor {
+        "openai" => "/v1/openai/chat/completions",
+        "openrouter" => "/v1/openrouter/chat/completions",
+        _ => "/v1/anthropic/messages",
+    };
 
     let idem = match h.get("idempotency-key") {
         None => None,
@@ -231,6 +239,7 @@ pub async fn sweeper(s: AppState) {
         tokio::time::sleep(Duration::from_secs(30)).await;
         // key enrollments never outlive their 10 minutes, and neither does an uploaded key
         let _ = sqlx::query("UPDATE enrollments SET status='expired', ciphertext=NULL, nonce=NULL WHERE expires_at<=? AND status IN ('pending','claimed','submitted')").bind(now()).execute(&s.db).await;
+        let _ = sqlx::query("DELETE FROM oauth_states WHERE expires_at<=?").bind(now()).execute(&s.db).await;
         let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='pending' AND expires_at<=?").bind(now()).fetch_all(&s.db).await.unwrap_or_default();
         for id in ids {
             let r = sqlx::query("UPDATE requests SET status='expired', decided_at=? WHERE id=? AND status='pending'").bind(now()).bind(&id).execute(&s.db).await;
@@ -335,6 +344,8 @@ async fn call_upstream(s: &AppState, vendor: &str, key: &str, payload: &str) -> 
     }
     let req = if vendor == "openai" {
         s.http.post(OPENAI_URL).header("authorization", format!("Bearer {key}"))
+    } else if vendor == "openrouter" {
+        s.http.post(OPENROUTER_URL).header("authorization", format!("Bearer {key}")).header("x-title", "MasterKey")
     } else {
         s.http.post(ANTHROPIC_URL).header("x-api-key", key).header("anthropic-version", "2023-06-01")
     };
@@ -362,7 +373,7 @@ fn mock(vendor: &str, payload: &str, key: &str) -> Up {
     let (inp, out) = (payload.len() as i64, 12);
     let text = "Hello from the MasterKey mock vendor.";
     let last4: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
-    let mut v = if vendor == "openai" {
+    let mut v = if pricing::openai_shape(vendor) {
         json!({"id": "chatcmpl-mock", "object": "chat.completion", "created": 0, "model": model,
                "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
                "usage": {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": inp + out}})

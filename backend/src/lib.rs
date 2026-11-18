@@ -2,6 +2,7 @@
 mod apns;
 mod apple;
 mod enroll;
+mod oauth;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -223,6 +224,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
+        .route("/v1/openrouter/chat/completions", post(proxy::openrouter))
         .route("/v1/requests/{id}", get(proxy::poll_request))
         .route("/v1/apps", post(create_app))
         .route("/v1/app", get(get_app))
@@ -245,6 +247,9 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/me/enroll/{id}/claim", post(enroll::claim))
         .route("/v1/me/enroll/{id}/confirm", post(enroll::confirm))
         .route("/v1/me/enroll/{id}/cancel", post(enroll::cancel))
+        .route("/v1/me/oauth/openrouter", post(oauth::start))
+        .route("/oauth/openrouter/callback", get(oauth::callback))
+        .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/auth/password", post(password_login))

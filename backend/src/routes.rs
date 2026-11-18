@@ -12,7 +12,7 @@ use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 
 const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 pub fn vendor_ok(v: &str) -> R<()> {
-    if matches!(v, "openai" | "anthropic") { Ok(()) } else { Err(bad("vendor must be openai or anthropic")) }
+    if matches!(v, "openai" | "anthropic" | "openrouter") { Ok(()) } else { Err(bad("vendor must be openai, anthropic or openrouter")) }
 }
 pub fn not_found(what: &str) -> ApiError {
     api(404, "not_found", format!("{what} not found"))
@@ -269,11 +269,16 @@ pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
         return Err(bad("api_key looks invalid"));
     }
     let shape = match vendor {
-        "openai" => key.starts_with("sk-") && !key.starts_with("sk-ant-") && !key.starts_with("sk-admin-"),
+        "openai" => key.starts_with("sk-") && !key.starts_with("sk-ant-") && !key.starts_with("sk-or-") && !key.starts_with("sk-admin-"),
+        "openrouter" => key.starts_with("sk-or-"),
         _ => key.starts_with("sk-ant-") && !key.starts_with("sk-ant-admin"),
     };
     if !shape {
-        let msg = if vendor == "openai" { "This is not an OpenAI API key. It starts with sk-proj- or sk- (admin keys are not accepted)." } else { "This is not an Anthropic API key. It starts with sk-ant-api (admin keys are not accepted)." };
+        let msg = match vendor {
+            "openai" => "This is not an OpenAI API key. It starts with sk-proj- or sk- (admin keys are not accepted).",
+            "openrouter" => "This is not an OpenRouter API key. It starts with sk-or-.",
+            _ => "This is not an Anthropic API key. It starts with sk-ant-api (admin keys are not accepted).",
+        };
         return Err(api(400, "invalid_key", msg));
     }
     let status = if s.cfg.vendor_mock {
@@ -281,6 +286,8 @@ pub async fn check_key(s: &AppState, vendor: &str, raw: &str) -> R<String> {
     } else {
         let req = if vendor == "openai" {
             s.http.get("https://api.openai.com/v1/models").bearer_auth(key)
+        } else if vendor == "openrouter" {
+            s.http.get("https://openrouter.ai/api/v1/key").bearer_auth(key)
         } else {
             s.http.get("https://api.anthropic.com/v1/models").header("x-api-key", key).header("anthropic-version", "2023-06-01")
         };

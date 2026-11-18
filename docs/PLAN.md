@@ -81,7 +81,7 @@ Policy   { "mode": "ask" | "count" | "budget" | "trust",
            "alert_usd_per_day": 1.00,     // mode=trust (optional elsewhere)
            "expires_at": null }
 App      { "id", "name", "homepage", "icon_url" }
-Grant    { "id", "app": App, "vendor": "openai"|"anthropic", "policy": Policy,
+Grant    { "id", "app": App, "vendor": "openai"|"anthropic"|"openrouter", "policy": Policy,
            "created_at", "last_used_at", "spent_usd", "request_count" }
 Request  { "id", "grant_id", "app": App, "vendor", "model", "endpoint",
            "status": "pending"|"approved"|"sending"|"denied"|"expired"|"completed"|"failed"|"uncertain",
@@ -99,6 +99,7 @@ Key      { "vendor", "last4", "created_at" }
 | GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?}` |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
+| POST | `/v1/openrouter/chat/completions` | grant | OpenAI-shaped body for vendor `openrouter`; exact slugs from the allowlist only (`openai/gpt-4o-mini`, `anthropic/claude-haiku-5.5`, ...); OpenRouter's `models` fallback, `provider` routing and `plugins` are rejected (`unsupported_option`) because they change the price |
 | GET | `/v1/requests/{id}` | grant | `{status, response?}` |
 | GET | `/v1/app` | app secret | `{app_id, name, homepage, icon_url, allowed_origins, created_at}` |
 | POST | `/v1/app/secret` | app secret | rotate: `{app_secret}`; the old secret stops working at once |
@@ -159,6 +160,16 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | POST | `/v1/me/requests/{id}/approve` | `{policy?}` (omit = once) → `Request` |
 | POST | `/v1/me/requests/{id}/deny` | → `Request` |
 | GET | `/v1/me/events` | SSE: `request.created`, `request.updated`, `grant.updated` (data = object JSON) |
+
+### One-tap OpenRouter (OAuth PKCE, run by the server)
+OpenAI and Anthropic have no API that creates a personal key; OpenRouter does. The server keeps the PKCE verifier,
+so the new key goes from OpenRouter to the server and never through the phone.
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/me/oauth/openrouter` | session | `{limit_usd?}` → `{auth_url, expires_at}` (10 min). `limit_usd` prefills OpenRouter's spending cap (the user can change it). Open `auth_url` in `ASWebAuthenticationSession` with callback scheme `masterkey` |
+| GET | `/oauth/openrouter/callback` | single-use `state` | OpenRouter redirects here; the server exchanges the code, stores the key as vendor `openrouter`, emits SSE `key.updated` (`Key`), and answers a page that redirects to `masterkey://oauth/openrouter?status=ok&last4=XXXX` or `?status=error&reason=cancelled\|expired\|exchange_failed\|internal` |
+Mock mode: `auth_url` is the server's own `/oauth/openrouter/mock`, which approves at once (key `sk-or-v1-mock…`), so the
+whole loop runs locally. OpenRouter keys can also be pasted (`sk-or-…`, checked with the free `GET /api/v1/key`).
 
 ### Add a key from a computer (enrollment)
 The user is usually signed in to the provider's console on a computer, so the key is pasted there,

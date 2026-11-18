@@ -1163,3 +1163,63 @@ async fn key_enrollment_from_a_computer() {
     let pre = t.c.request(reqwest::Method::OPTIONS, b("/v1/enroll")).header("origin", "https://evil.example").send().await.unwrap();
     assert!(pre.headers().get("access-control-allow-origin").is_none());
 }
+
+#[tokio::test]
+async fn openrouter_one_tap_and_proxy() {
+    let t = T::new().await;
+    // OAuth start needs a session; in mock mode the consent page is the server's own stand-in
+    assert_eq!(t.c.post(format!("{}/v1/me/oauth/openrouter", t.base)).send().await.unwrap().status(), 401);
+    assert_eq!(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": -1})).await.status(), 400);
+    let s = json_of(t.user_post("/v1/me/oauth/openrouter", json!({"limit_usd": 5})).await).await;
+    let auth = s["auth_url"].as_str().unwrap().to_string();
+    // test public_url is http://mk.test: rebase onto the real listener and follow by hand
+    let local = auth.replace("http://mk.test", &t.base);
+    let nr = Client::builder().redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    let r = nr.get(&local).send().await.unwrap();
+    assert_eq!(r.status(), 303);
+    let cb = r.headers()["location"].to_str().unwrap().replace("http://mk.test", &t.base);
+    let page = nr.get(&cb).send().await.unwrap().text().await.unwrap();
+    assert!(page.contains("masterkey://oauth/openrouter?status=ok&last4="), "{page}");
+    let keys = t.user_get("/v1/me/keys").await;
+    assert!(keys.as_array().unwrap().iter().any(|k| k["vendor"] == "openrouter"));
+    // the state is single use; unknown or missing state fails closed
+    assert!(nr.get(&cb).send().await.unwrap().text().await.unwrap().contains("status=error&reason=expired"));
+    assert!(nr.get(format!("{}/oauth/openrouter/callback?code=x", t.base)).send().await.unwrap().text().await.unwrap().contains("reason=cancelled"));
+
+    // an OpenRouter grant calls the OpenAI-shaped endpoint with exact slugs only
+    let tok = t.grant("openrouter", json!({"mode": "trust"})).await;
+    let call = |body: Value| t.c.post(format!("{}/v1/openrouter/chat/completions", t.base)).bearer_auth(&tok).json(&body).send();
+    let ok = json_of(call(json!({"model": "anthropic/claude-haiku-5.5", "messages": [{"role": "user", "content": "hi"}]})).await.unwrap()).await;
+    assert_eq!(ok["object"], "chat.completion");
+    for (k, v) in [("provider", json!({"order": ["x"]})), ("models", json!(["openai/gpt-4o"])), ("plugins", json!([{"id": "web"}]))] {
+        let mut b = json!({"model": "openai/gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}]});
+        b[k] = v;
+        let r = call(b).await.unwrap();
+        assert_eq!(r.status(), 400, "{k}");
+        assert_eq!(json_of(r).await["error"]["type"], "unsupported_option");
+    }
+    let r = call(json!({"model": "meta-llama/llama-3-70b", "messages": [{"role": "user", "content": "hi"}]})).await.unwrap();
+    assert_eq!(json_of(r).await["error"]["type"], "model_not_allowed");
+    // OpenRouter keys are checked for their own shape
+    let r = t.user_put("/v1/me/keys/openrouter", json!({"api_key": "sk-proj-notopenrouter"})).await;
+    assert_eq!(json_of(r).await["error"]["type"], "invalid_key");
+    let r = t.user_put("/v1/me/keys/openai", json!({"api_key": "sk-or-v1-wrongvendor0"})).await;
+    assert_eq!(json_of(r).await["error"]["type"], "invalid_key");
+}
+
+#[tokio::test]
+async fn openrouter_live_auth_url_shape() {
+    let (base, c, _) = serve(Config { vendor_mock: false, ..test_cfg() }).await;
+    let sess = json_of(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "o@r.co"})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+    let s = json_of(c.post(format!("{base}/v1/me/oauth/openrouter")).bearer_auth(&sess).json(&json!({"limit_usd": 12.5})).send().await.unwrap()).await;
+    let u = reqwest::Url::parse(s["auth_url"].as_str().unwrap()).unwrap();
+    assert_eq!((u.scheme(), u.host_str(), u.path()), ("https", Some("openrouter.ai"), "/auth"));
+    let q: std::collections::HashMap<_, _> = u.query_pairs().into_owned().collect();
+    assert_eq!(q["callback_url"], "http://mk.test/oauth/openrouter/callback");
+    assert_eq!(q["code_challenge_method"], "S256");
+    assert_eq!(q["code_challenge"].len(), 43); // base64url(sha256)
+    assert_eq!(q["limit"], "12.50");
+    assert!(q["state"].len() >= 20);
+    // the mock consent page does not exist outside mock mode
+    assert_eq!(c.get(format!("{base}/oauth/openrouter/mock?state=x")).send().await.unwrap().status(), 404);
+}

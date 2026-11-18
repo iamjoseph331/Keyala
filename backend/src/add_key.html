@@ -27,7 +27,7 @@
     <div class="step">Add a key from this computer</div>
     <h1>Which provider?</h1>
     <p class="muted">You paste the key here, on the computer where you are signed in to the provider. Your phone approves it. This page never sees your MasterKey account and can never read a key back.</p>
-    <div class="row"><button data-v="openai">OpenAI</button><button data-v="anthropic">Anthropic</button></div>
+    <div class="row"><button data-v="openai">OpenAI</button><button data-v="anthropic">Anthropic</button><button data-v="openrouter">OpenRouter</button></div>
   </section>
 
   <section id="s-scan" hidden>
@@ -68,6 +68,7 @@
 const V = {
   openai: { name: "OpenAI", url: "https://platform.openai.com/api-keys", host: "platform.openai.com/api-keys", hint: "sk-proj-..." },
   anthropic: { name: "Anthropic", url: "https://platform.claude.com/settings/keys", host: "platform.claude.com/settings/keys", hint: "sk-ant-api03-..." },
+  openrouter: { name: "OpenRouter", url: "https://openrouter.ai/settings/keys", host: "openrouter.ai/settings/keys", hint: "sk-or-v1-..." },
 };
 const $ = (id) => document.getElementById(id);
 let en = null, timer = null; // enrollment + its secret live only in this tab's memory
