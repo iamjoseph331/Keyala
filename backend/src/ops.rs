@@ -42,6 +42,15 @@ pub async fn revoke_sessions(State(s): State<AppState>, h: HeaderMap, J(b): J<Re
     Ok(Json(json!({"revoked": r.rows_affected()})))
 }
 
+/// Ends only the session whose token is sent. A token that is already gone answers 401 like any
+/// dead session, so clients treat 401 on logout as "already signed out" and clear local state either way.
+pub async fn logout(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+    auth_session(&s, &h).await?;
+    let me = hash_token(bearer(&h, "mk_sess_").unwrap_or_default());
+    sqlx::query("DELETE FROM sessions WHERE token_hash=?").bind(&me).execute(&s.db).await?;
+    Ok(Json(json!({"signed_out": true})))
+}
+
 pub async fn stop_all(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
     let mut tx = s.db.begin().await?;
@@ -110,6 +119,16 @@ async fn apple_revoke(s: &AppState, code: &str) -> bool {
     post("/auth/revoke", form).await.is_ok_and(|r| r.status().is_success())
 }
 
+/// Appends `{word} {user_id} {time}` (opaque id, no email) to deleted-accounts.log and fsyncs it.
+/// A restore replays it (docs/ops/replay-deletions.sh). No data directory (in-memory DB): nothing to restore, nothing to write.
+fn tombstone(s: &AppState, word: &str, u: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let Some(d) = db_dir(&s.cfg) else { return Ok(()) };
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(d.join("deleted-accounts.log"))?;
+    f.write_all(format!("{word} {u} {}\n", now()).as_bytes())?;
+    f.sync_all()
+}
+
 async fn sending_count(db: impl sqlx::Executor<'_, Database = sqlx::Sqlite>, u: &str) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar("SELECT COUNT(*) FROM requests WHERE user_id=? AND status='sending'").bind(u).fetch_one(db).await
 }
@@ -141,11 +160,6 @@ pub async fn delete_account(State(s): State<AppState>, ConnectInfo(peer): Connec
     if sending_count(&s.db, &u).await? > 0 {
         return Err(in_flight());
     }
-    let apple_revoked = match (is_apple, b.authorization_code.as_deref()) {
-        (false, _) => Value::Null,
-        (true, Some(code)) => apple_revoke(&s, code).await.into(),
-        (true, None) => false.into(),
-    };
     let mut tx = s.db.begin().await?;
     sqlx::query("DELETE FROM sessions WHERE user_id=?").bind(&u).execute(&mut *tx).await?; // write first (lock)
     if sending_count(&mut *tx, &u).await? > 0 {
@@ -164,13 +178,23 @@ pub async fn delete_account(State(s): State<AppState>, ConnectInfo(peer): Connec
     ] {
         sqlx::query(q).bind(&u).execute(&mut *tx).await?;
     }
-    tx.commit().await?;
-    // opaque ids only (no emails): a restore from an older backup replays this list (docs/ops/replay-deletions.sh)
-    if let Some(d) = db_dir(&s.cfg) {
-        use std::io::Write;
-        let line = format!("deleted {u} {}\n", now());
-        let _ = std::fs::OpenOptions::new().create(true).append(true).open(d.join("deleted-accounts.log")).and_then(|mut f| f.write_all(line.as_bytes()));
+    // Tombstone BEFORE commit, flushed to disk: if it cannot be written the transaction rolls back and
+    // nothing is deleted (503), so a restore can never resurrect an account we told the user was gone.
+    // If the commit itself then fails, an `undeleted` line cancels the tombstone.
+    tombstone(&s, "deleted", &u).map_err(|e| {
+        tracing::error!("deletion tombstone failed, account kept: {e}");
+        api(503, "deletion_unavailable", "could not record the deletion safely; nothing was deleted, try again later")
+    })?;
+    if let Err(e) = tx.commit().await {
+        let _ = tombstone(&s, "undeleted", &u);
+        return Err(e.into());
     }
+    // after the commit, so a refused deletion (409, tombstone failure) never revokes Apple access
+    let apple_revoked = match (is_apple, b.authorization_code.as_deref()) {
+        (false, _) => Value::Null,
+        (true, Some(code)) => apple_revoke(&s, code).await.into(),
+        (true, None) => false.into(),
+    };
     tracing::info!("account deleted");
     Ok(Json(json!({"deleted": true, "apple_revoked": apple_revoked})))
 }

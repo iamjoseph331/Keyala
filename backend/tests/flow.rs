@@ -1526,3 +1526,69 @@ async fn in_process_backup_runs_prunes_and_is_a_database() {
         assert_eq!(std::fs::metadata(&files[1]).unwrap().permissions().mode() & 0o777, 0o600);
     }
 }
+
+#[tokio::test]
+async fn logout_ends_only_the_current_session() {
+    let t = T::new().await;
+    let second = dev_session(&t.c, &t.base, "a@b.co").await; // same user, another device
+    let other = dev_session(&t.c, &t.base, "other@b.co").await;
+    let keys = |tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/keys", t.base)); async move { c.get(u).bearer_auth(tok).send().await.unwrap().status().as_u16() } };
+    let out = |tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/logout", t.base)); async move { c.post(u).bearer_auth(tok).send().await.unwrap() } };
+    assert_eq!(out("mk_sess_bogus".into()).await.status(), 401, "unknown token");
+    assert_eq!(t.c.post(format!("{}/v1/me/logout", t.base)).send().await.unwrap().status(), 401, "no token");
+    let r = out(t.sess.clone()).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await), (200, json!({"signed_out": true})));
+    assert_eq!(keys(t.sess.clone()).await, 401, "current token is dead");
+    assert_eq!(keys(second.clone()).await, 200, "same user's other session unaffected");
+    assert_eq!(keys(other.clone()).await, 200, "other user unaffected");
+    assert_eq!(out(t.sess.clone()).await.status(), 401, "repeat = 401, clients treat it as already signed out");
+    assert_eq!(out(other.clone()).await.status(), 200);
+    assert_eq!(keys(second).await, 200);
+}
+
+#[tokio::test]
+async fn login_reports_auth_provider() {
+    use sha2::{Digest, Sha256};
+    let (base, c, _) = serve(Config { password_login: Some(("qa-user".into(), Sha256::digest("pw-long-random").into())), ..test_cfg() }).await;
+    let d =json_of(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "x@b.co"})).send().await.unwrap()).await;
+    assert_eq!(d["user"]["auth_provider"], "dev");
+    let p = json_of(c.post(format!("{base}/v1/auth/password")).json(&json!({"username": "qa-user", "password": "pw-long-random"})).send().await.unwrap()).await;
+    assert_eq!((p["user"]["auth_provider"].clone(), p["user"]["email"].clone()), (json!("password"), json!("qa-user@password.invalid")));
+    // a typed dev email can never reach the password or Apple placeholder identities
+    let r = c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "qa-user@password.invalid"})).send().await.unwrap();
+    assert_eq!(r.status(), 400);
+}
+
+#[tokio::test]
+async fn deletion_without_a_tombstone_deletes_nothing() {
+    let t = T::new().await;
+    let uid = user_id(&t, "a@b.co").await;
+    // the tombstone file cannot be opened (a directory is in its place): deletion must refuse, not proceed
+    let log = db_dir(&t).join("deleted-accounts.log");
+    std::fs::create_dir(&log).unwrap();
+    let r = t.user_post("/v1/me/delete", json!({"confirm": "DELETE", "email": "a@b.co"})).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (503, json!("deletion_unavailable")));
+    assert!(rows_for(&t, &uid).await >= 2, "user, session and key still there");
+    assert_eq!(t.c.get(format!("{}/v1/me/keys", t.base)).bearer_auth(&t.sess).send().await.unwrap().status(), 200);
+    // once the log is writable again the same request succeeds
+    std::fs::remove_dir(&log).unwrap();
+    assert_eq!(t.user_post("/v1/me/delete", json!({"confirm": "DELETE", "email": "a@b.co"})).await.status(), 200);
+    assert!(std::fs::read_to_string(&log).unwrap().starts_with(&format!("deleted {uid} ")));
+}
+
+#[tokio::test]
+async fn trust_pages_are_served_and_linked() {
+    let t = T::new().await;
+    for p in ["/about", "/privacy"] {
+        let r = t.c.get(format!("{}{p}", t.base)).send().await.unwrap();
+        assert_eq!(r.status(), 200);
+        let body = r.text().await.unwrap();
+        assert!(body.contains("personal experimental project") && body.contains("josephchen637@gmail.com") && body.contains("decrypts"), "{p}");
+        assert!(!body.contains('\u{b7}'));
+    }
+    for p in ["/add-key", "/enroll/en_abcdefghijklmnopqrstuv", "/connect/MK-ABCD"] {
+        let r = t.c.get(format!("{}{p}", t.base)).send().await.unwrap();
+        assert_eq!(r.status(), 200, "{p}");
+        assert!(r.text().await.unwrap().contains("/privacy"), "{p} links to the disclosure");
+    }
+}

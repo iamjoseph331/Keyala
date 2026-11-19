@@ -26,6 +26,9 @@ sent after unpausing (the sweeper retries every 30 s); `sending` ones finish. Us
 - Not recoverable: stored keys if `MK_MASTER_KEY` is lost (keep a copy in a password manager, separate from backups). Sessions and developer secrets: sessions are in the DB; app secrets carry their own sealed record and survive.
 - Free-plan services (prod today) have no disk: everything resets on deploy/restart. Backups only make sense on a service with a disk.
 
+## Deletion fails closed (`503 deletion_unavailable`)
+The `deleted <id>` line is written and fsynced BEFORE the database commit. If the log cannot be written (disk full, permissions, path is a directory) the user gets `503 deletion_unavailable`, nothing is deleted and their session stays valid; fix the disk/permissions and ask them to retry. If the commit fails after the line was written, the server appends `undeleted <id> <time>`; replay uses the last line per id, so such an id is NOT re-deleted. Never hand-edit the log except to append lines.
+
 ## Backups and account deletion
 Backups come from `MK_BACKUP_DIR` (in-process, daily, newest `MK_BACKUP_KEEP`=7 kept, mode 600) or `docs/ops/backup.sh`. A deleted account can
 reappear from an older backup, so each deletion appends `deleted <user_id> <rfc3339>` (opaque id, no email) to `deleted-accounts.log` beside the

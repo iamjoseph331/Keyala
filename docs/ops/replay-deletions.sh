@@ -9,8 +9,9 @@ LOG=${2:-$(dirname "$DB")/deleted-accounts.log}
 [[ -f $DB ]] || { echo "no such database: $DB" >&2; exit 1; }
 [[ -f $LOG ]] || { echo "no deletion log at $LOG: nothing to replay"; exit 0; }
 n=0
-while read -r word id _; do
-  [[ $word == deleted && $id =~ ^usr_[A-Za-z0-9_-]+$ ]] || continue
+# last line per id wins: an `undeleted` line cancels an earlier `deleted` (the commit failed after the tombstone)
+while read -r id; do
+  [[ $id =~ ^usr_[A-Za-z0-9_-]+$ ]] || continue
   sqlite3 "$DB" "PRAGMA foreign_keys=ON; BEGIN;
     DELETE FROM connect_codes WHERE grant_id IN (SELECT id FROM grants WHERE user_id='$id');
     DELETE FROM requests WHERE user_id='$id'; DELETE FROM grants WHERE user_id='$id';
@@ -18,5 +19,5 @@ while read -r word id _; do
     DELETE FROM sessions WHERE user_id='$id'; DELETE FROM enrollments WHERE user_id='$id';
     DELETE FROM oauth_flows WHERE user_id='$id'; DELETE FROM users WHERE id='$id'; COMMIT;"
   n=$((n+1))
-done <"$LOG"
+done < <(awk '$1=="deleted"||$1=="undeleted"{s[$2]=$1} END{for(i in s) if(s[i]=="deleted") print i}' "$LOG")
 echo "replayed $n deletion(s) from $LOG"
