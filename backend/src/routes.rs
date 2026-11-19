@@ -148,7 +148,7 @@ pub async fn connect_page(Path(code): Path<String>) -> Result<Html<String>, ApiE
         "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>MasterKey</title>\
          <body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>Connect with MasterKey</h1>\
          <p>Scan with your iPhone camera</p><img src='/connect/{code}/qr.svg' width=240 height=240 alt='QR code for {code}'>\
-         <p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p><p style='color:#666'>or enter <b>{code}</b> in the app</p>"
+         <p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p><p style='color:#666'>or enter <b>{code}</b> in the app</p>{}", crate::enroll::TRUST_LINK
     )))
 }
 
@@ -164,12 +164,13 @@ pub async fn dev_login(State(s): State<AppState>, J(b): J<DevLogin>) -> R<Json<V
         return Err(not_found("endpoint"));
     }
     let email = b.email.trim().to_lowercase();
-    if !email.contains('@') || email.len() > 200 {
+    // `.invalid` is reserved for the operator password account and Apple placeholders: never reachable by typing an email
+    if !email.contains('@') || email.len() > 200 || email.ends_with(".invalid") {
         return Err(bad("a valid email is required"));
     }
     sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)").bind(new_id("usr")).bind(&email).bind(now()).execute(&s.db).await?;
     let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?").bind(&email).fetch_one(&s.db).await?;
-    new_session(&s, &uid, &email).await
+    new_session(&s, &uid, &email, "dev").await
 }
 
 #[derive(Deserialize)]
@@ -199,13 +200,15 @@ pub async fn password_login(State(s): State<AppState>, ConnectInfo(peer): Connec
     let email = format!("{user}@password.invalid");
     sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)").bind(new_id("usr")).bind(&email).bind(now()).execute(&s.db).await?;
     let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?").bind(&email).fetch_one(&s.db).await?;
-    new_session(&s, &uid, &email).await
+    new_session(&s, &uid, &email, "password").await
 }
 
-async fn new_session(s: &AppState, uid: &str, email: &str) -> R<Json<Value>> {
+/// `auth_provider` (apple | password | dev) is set by the login route that verified the identity, so
+/// clients need not guess from the email. Authorization never reads it.
+async fn new_session(s: &AppState, uid: &str, email: &str, provider: &str) -> R<Json<Value>> {
     let tok = new_token("mk_sess_");
     sqlx::query("INSERT INTO sessions (token_hash,user_id,created_at) VALUES (?,?,?)").bind(hash_token(&tok)).bind(uid).bind(now()).execute(&s.db).await?;
-    Ok(Json(json!({"session_token": tok, "user": {"id": uid, "email": email}})))
+    Ok(Json(json!({"session_token": tok, "user": {"id": uid, "email": email, "auth_provider": provider}})))
 }
 
 #[derive(Deserialize)]
@@ -220,7 +223,7 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
     tracing::info!("apple sign-in verified");
     let existing: Option<(String, String)> = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_optional(&s.db).await?;
     if let Some((uid, email)) = existing {
-        return new_session(&s, &uid, &email).await;
+        return new_session(&s, &uid, &email, "apple").await;
     }
     // never attach to an existing account by email: if it is taken, use a placeholder.
     let mut email = c.email.map(|e| e.trim().to_lowercase()).filter(|e| e.contains('@') && e.len() <= 200);
@@ -234,7 +237,7 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
     sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at,apple_sub) VALUES (?,?,?,?)").bind(&uid).bind(&email).bind(now()).bind(&c.sub).execute(&s.db).await?;
     // a concurrent first login may have won the insert: always read back by sub
     let (uid, email): (String, String) = sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?").bind(&c.sub).fetch_one(&s.db).await?;
-    new_session(&s, &uid, &email).await
+    new_session(&s, &uid, &email, "apple").await
 }
 
 pub async fn list_keys(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
@@ -479,6 +482,16 @@ pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query
     let countries: Vec<(Option<String>, i64, i64, i64)> = sqlx::query_as(&format!(
         "SELECT g.country, COUNT(DISTINCT r.user_id), COUNT(*), {cost} {base} GROUP BY g.country ORDER BY 3 DESC, 4 DESC"))
         .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    // when calls happen: requests per UTC weekday (0 = Sunday, SQLite %w) x hour; the console shifts it to the viewer's zone
+    let cells: Vec<(i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT CAST(strftime('%w', r.created_at) AS INTEGER), CAST(substr(r.created_at,12,2) AS INTEGER), COUNT(*) {base} GROUP BY 1, 2"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let mut hours = [[0i64; 24]; 7];
+    for (w, h, n) in cells {
+        if let (Some(row), true) = (hours.get_mut(w as usize), (0..24).contains(&h)) {
+            row[h as usize] = n;
+        }
+    }
     Ok(Json(json!({
         "app_id": id, "days": days, "from": from.to_string(), "to": today.to_string(),
         "totals": {"requests": t.0, "completed": t.1, "denied": t.2, "expired": t.3, "failed": t.4, "uncertain": t.5, "pending": t.6,
@@ -486,6 +499,7 @@ pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query
                    "users": t.12, "new_users": new_users},
         "daily": daily,
         "models": models.into_iter().map(|(v, m, r, c, u, i, o)| json!({"vendor": v, "model": m, "requests": r, "completed": c, "cost_usd": usd(u), "input_tokens": i, "output_tokens": o})).collect::<Vec<_>>(),
+        "hours_utc": hours,
         "countries": countries.into_iter().map(|(c, u, r, m)| json!({"country": c, "users": u, "requests": r, "cost_usd": usd(m)})).collect::<Vec<_>>(),
     })))
 }

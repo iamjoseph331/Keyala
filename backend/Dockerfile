@@ -7,7 +7,7 @@ COPY src ./src
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 && rm -rf /var/lib/apt/lists/* \
     && useradd -r -u 10001 mk && mkdir -p /data /var/data && chown mk /data /var/data
 COPY --from=build /app/target/release/masterkey-server /usr/local/bin/masterkey-server
 ENV PORT=8080 MK_DATABASE_URL=sqlite:///data/masterkey.db?mode=rwc

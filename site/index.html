@@ -41,7 +41,8 @@
           <a class="button button-bright" href="#try">Try the approval flow <span aria-hidden="true">↓</span></a>
           <a class="text-link" href="./developers/">Get an app token <span aria-hidden="true">→</span></a>
         </div>
-        <p class="hero-note"><span aria-hidden="true">◎</span> Your users connect their own OpenAI or Anthropic key.</p>
+        <p class="hero-note project-note">An experimental personal project by Joseph Chen, actively developed and tested. <a href="#trust">Understand the trust model</a> before adding a real key.</p>
+        <p class="hero-note"><span aria-hidden="true">◎</span> Your users connect their own OpenAI, Anthropic or OpenRouter account.</p>
       </div>
       <div class="hero-art" aria-label="Illustration of a pending model request awaiting approval on a phone">
         <div class="orb orb-one" aria-hidden="true"></div><div class="orb orb-two" aria-hidden="true"></div>
@@ -185,8 +186,8 @@ with urlopen(request) as response:
     </section>
 
     <section class="trust-section section-pad" id="trust" aria-labelledby="trust-title">
-      <div class="trust-copy"><p class="eyebrow">Trust, stated plainly</p><h2 id="trust-title">The key stays with<br>the <em>user's account.</em></h2><p>MasterKey is designed so an app developer does not receive the user's provider key. The service stores it encrypted, then uses it to forward an approved request. The person or organization running that service is part of the trust boundary.</p><a class="text-link" href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">Read the source and decide for yourself <span aria-hidden="true">↗</span></a></div>
-      <div class="trust-ledger">
+      <div class="trust-copy"><p class="eyebrow">Trust, stated plainly</p><h2 id="trust-title">The key stays with<br>the <em>user's account.</em></h2><p>I’m Joseph Chen. MasterKey is my experimental personal project. I take its security and reliability seriously, and I’m building and testing it in public. It is still evolving; uninterrupted availability and immediate support are not guaranteed.</p><p>MasterKey is designed so an app developer does not receive the user's provider key. The service stores it encrypted, then uses it to forward an approved request. The person or organization running that service is part of the trust boundary.</p><a class="text-link" href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">Read the source and decide for yourself <span aria-hidden="true">↗</span></a></div>
+      <div class="trust-ledger"><p>Keys are encrypted on the selected server, then decrypted there for approved calls. Prompts and responses are stored for your history. The operator must be trusted. Provider usage is billed separately from this free beta.</p><p><a href="./privacy/">Privacy, retention & account deletion</a> / <a href="./support/">Help & contact Joseph</a></p>
         <div class="ledger-row"><span class="ledger-index">01</span><div><strong>Developer gets a grant token</strong><p>It authorizes requests under the user's policy. It is not their provider key.</p></div><span class="ledger-symbol">↗</span></div>
         <div class="ledger-row"><span class="ledger-index">02</span><div><strong>MasterKey server uses the key</strong><p>The server operator can decrypt stored keys to forward approved calls. Self-hosting lets you choose who operates it.</p></div><span class="ledger-symbol">⌑</span></div>
         <div class="ledger-row"><span class="ledger-index">03</span><div><strong>User can inspect and revoke</strong><p>Requests and grants are designed to be visible in the user's app.</p></div><span class="ledger-symbol">◎</span></div>
@@ -199,6 +200,6 @@ with urlopen(request) as response:
       <p class="eyebrow">MasterKey / open source</p><h2 id="closing-title">Make room for<br><em>user choice.</em></h2><div class="closing-actions"><a class="button button-bright" href="./developers/">Open developer console <span aria-hidden="true">→</span></a><a class="text-link" href="./tutorials/">Read the tutorials <span aria-hidden="true">→</span></a></div>
     </section>
   </main>
-  <footer class="site-footer"><a class="wordmark footer-mark" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M12.2 18.1a7.4 7.4 0 1 1 5.6-2.6L29 26.7l-2.3 2.3-3.4-3.4-2 2-3-3 2-2-3.1-3.1a7.4 7.4 0 0 1-5 1.6Zm0-3.5a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z"/></svg></span><span>masterkey</span></a><span>© 2026 MasterKey / Your key. Your call.</span><a href="https://github.com/iamjoseph331/MasterKey/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a><a href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></footer>
+  <footer class="site-footer"><a class="wordmark footer-mark" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M12.2 18.1a7.4 7.4 0 1 1 5.6-2.6L29 26.7l-2.3 2.3-3.4-3.4-2 2-3-3 2-2-3.1-3.1a7.4 7.4 0 0 1-5 1.6Zm0-3.5a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z"/></svg></span><span>masterkey</span></a><span>© 2026 MasterKey / Your key. Your call.</span><a href="https://github.com/iamjoseph331/MasterKey/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a><a href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a><nav aria-label="Support"><a href="./support/">Help & contact</a> <a href="./privacy/">Privacy</a></nav></footer>
 </body>
 </html>

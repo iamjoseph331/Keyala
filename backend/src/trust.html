@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>About, privacy and support: MasterKey</title>
+<style>
+  :root { --bg:#faf7f2; --ink:#1f1b16; --muted:#7a7268; --line:#ece6dc; --accent:#3d7a57; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --ink:#f1f0ea; --muted:#a3a29b; --line:#33322e; --accent:#7fc4a8; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,sans-serif }
+  main { max-width:680px; margin:0 auto; padding:24px 16px 64px }
+  h1 { font-size:1.6rem; margin:.4em 0 } h2 { font-size:1.1rem; margin:1.6em 0 .3em }
+  p, li { margin:.4em 0 } a { color:var(--accent) } .muted { color:var(--muted) }
+  select { font:inherit; float:right; padding:4px 8px } section[hidden] { display:none }
+  .note { border:1px solid var(--line); border-radius:12px; padding:4px 16px; margin:16px 0 }
+</style>
+<main>
+<select id="lang" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select>
+
+<section lang="en" data-l="en">
+<h1>About, privacy and support</h1>
+<p class="muted">MasterKey beta. Updated 19 November 2026.</p>
+<div class="note"><p><b>This is a personal experimental project.</b> It is run by Joseph Chen, actively developed and carefully tested, but it is not an enterprise service: no uptime guarantee, no service level agreement, and it can change or stop. Do not rely on it for anything critical.</p></div>
+<h2>What it does</h2>
+<p>You store your own AI provider key (OpenAI, Anthropic or OpenRouter) on this server. An app asks permission through MasterKey, you approve on your phone, and the server forwards that one request to the provider with your key. The app never receives the key.</p>
+<h2>Your keys and requests</h2>
+<ul>
+<li>Provider keys are encrypted at rest. The server decrypts a key in memory to forward a request you allowed, so the operator of this server can technically access it. You are trusting the operator.</li>
+<li>Requests and responses (the prompt, the reply, timestamps, model and computed cost) are stored so you can review them in the app. They are kept until you delete your account; there is no automatic expiry yet.</li>
+<li>Data goes to: the provider you chose (your key and the request), the app that made the request (the response), and the hosting service this server runs on. Your sign-in identity comes from Apple or the operator's own login.</li>
+<li>Developer reports are aggregates only (counts, cost, model, country code). They never include prompts, responses, keys or personal identifiers.</li>
+<li>The server never returns a stored original key in API responses (only the last four characters) and never puts a key into a generated link or QR code. The add-key page briefly holds the key you paste into it. Keys are not written to logs. Never send a key in a support email.</li>
+</ul>
+<h2>Deleting things</h2>
+<p>In the app you can remove a key, disconnect an app, stop all apps, sign out everywhere and delete your account (which removes your keys, permissions, requests and responses from the live database). Deleting does not recall requests already sent to a provider or copies an app or provider kept. Operator backups, if enabled, are replaced on a rolling schedule and are not erased instantly; a deleted account is removed again if a backup is ever restored.</p>
+<h2>Cost</h2>
+<p>The beta is free. Your provider bills you separately for every request you allow; MasterKey shows an estimate before you approve, and the final cost is derived from the usage the provider reports, not from an invoice.</p>
+<h2>Support</h2>
+<p>Questions, problems or deletion help: <a href="mailto:josephchen637@gmail.com">josephchen637@gmail.com</a>. Replies are best effort.</p>
+</section>
+
+<section lang="zh-Hant" data-l="zh-Hant" hidden>
+<h1>關於、隱私與支援</h1>
+<p class="muted">MasterKey beta。更新日期：2026 年 11 月 19 日。</p>
+<div class="note"><p><b>這是個人實驗性專案。</b>由 Joseph Chen 營運，持續開發並仔細測試，但不是企業級服務：不保證可用時間、沒有服務等級協議，功能也可能變動或停止。請勿用於關鍵用途。</p></div>
+<h2>運作方式</h2>
+<p>你把自己的 AI 供應商金鑰（OpenAI、Anthropic 或 OpenRouter）存放在此伺服器。App 透過 MasterKey 請求許可，你在手機上核准後，伺服器才用你的金鑰把那一次請求轉送給供應商。App 不會拿到金鑰。</p>
+<h2>你的金鑰與請求</h2>
+<ul>
+<li>供應商金鑰以加密方式儲存。伺服器為了轉送你允許的請求，會在記憶體中解密金鑰，因此本伺服器的營運者在技術上能存取金鑰。你必須信任營運者。</li>
+<li>請求與回應（提示內容、回覆、時間、模型與計算出的費用）會保存，方便你在 App 中查看。保存到你刪除帳號為止，目前沒有自動到期機制。</li>
+<li>資料會送到：你選擇的供應商（金鑰與請求）、發出請求的 App（回應），以及本伺服器所在的主機服務。登入身分來自 Apple 或營運者自己的登入方式。</li>
+<li>開發者報表只有彙總資料（次數、費用、模型、國家代碼），不含提示內容、回應、金鑰或個人識別資訊。</li>
+<li>伺服器不會在 API 回應中回傳已儲存的原始金鑰（只回傳末四碼），也不會把金鑰放進產生的連結或 QR code。新增金鑰頁面會暫時持有你貼上的金鑰。金鑰不會寫入日誌。請勿在支援信件中寄送金鑰。</li>
+</ul>
+<h2>刪除資料</h2>
+<p>你可以在 App 中移除金鑰、中斷 App 連結、停止所有 App、登出所有裝置，以及刪除帳號（會從運作中的資料庫移除金鑰、授權、請求與回應）。刪除無法收回已送給供應商的請求，也無法刪除 App 或供應商自行保存的副本。營運者的備份若有啟用，會依輪替排程更新，不會立即清除；若日後還原備份，已刪除的帳號會再次被移除。</p>
+<h2>費用</h2>
+<p>Beta 免費。供應商會就你允許的每個請求另外向你收費；MasterKey 會在核准前顯示估算值，最終費用依供應商回報的用量計算，並非帳單金額。</p>
+<h2>支援</h2>
+<p>問題或刪除協助：<a href="mailto:josephchen637@gmail.com">josephchen637@gmail.com</a>。盡力回覆。</p>
+</section>
+
+<section lang="ja" data-l="ja" hidden>
+<h1>概要、プライバシー、サポート</h1>
+<p class="muted">MasterKey ベータ版。更新日：2026 年 11 月 19 日。</p>
+<div class="note"><p><b>これは個人の実験的プロジェクトです。</b>Joseph Chen が運営し、継続的に開発し丁寧にテストしていますが、企業向けサービスではありません。稼働率の保証や SLA はなく、仕様の変更や終了もあり得ます。重要な用途には使わないでください。</p></div>
+<h2>しくみ</h2>
+<p>ご自身の AI プロバイダーのキー（OpenAI、Anthropic、OpenRouter）をこのサーバーに保存します。アプリは MasterKey を通じて許可を求め、あなたがスマートフォンで承認すると、サーバーがそのリクエスト 1 件をあなたのキーでプロバイダーに転送します。アプリがキーを受け取ることはありません。</p>
+<h2>キーとリクエストについて</h2>
+<ul>
+<li>プロバイダーのキーは暗号化して保存されます。許可したリクエストを転送するため、サーバーはメモリ上でキーを復号します。そのため、このサーバーの運営者は技術的にキーへアクセスできます。運営者を信頼していただく必要があります。</li>
+<li>リクエストとレスポンス（プロンプト、返答、日時、モデル、計算した費用）は、アプリで確認できるよう保存されます。アカウントを削除するまで保持され、自動的な期限はまだありません。</li>
+<li>データの送信先：選択したプロバイダー（キーとリクエスト）、リクエストしたアプリ（レスポンス）、このサーバーが動作するホスティングサービス。ログイン情報は Apple または運営者独自のログインに由来します。</li>
+<li>開発者レポートは集計のみ（件数、費用、モデル、国コード）で、プロンプト、レスポンス、キー、個人を特定できる情報は含みません。</li>
+<li>サーバーは、保存済みの元のキーを API のレスポンスで返すことはなく（末尾 4 文字のみ）、生成するリンクや QR コードにキーを含めることもありません。キーの追加ページは、貼り付けられたキーを一時的に保持します。キーはログに書き込まれません。サポートへのメールにキーを送らないでください。</li>
+</ul>
+<h2>削除について</h2>
+<p>アプリでは、キーの削除、アプリの接続解除、すべてのアプリの停止、全端末からのログアウト、アカウント削除ができます（稼働中のデータベースからキー、許可、リクエスト、レスポンスが削除されます）。送信済みのリクエストの取り消しや、アプリやプロバイダーが保持するコピーの削除はできません。運営者のバックアップは、有効な場合に順次入れ替わり、即時には消去されません。バックアップを復元した場合も、削除済みのアカウントは再度削除されます。</p>
+<h2>費用</h2>
+<p>ベータ版は無料です。許可した各リクエストについて、プロバイダーから別途請求されます。MasterKey は承認前に見積もりを表示し、最終的な費用はプロバイダーが報告した使用量から算出するもので、請求書の金額ではありません。</p>
+<h2>サポート</h2>
+<p>質問、問題、削除のご相談：<a href="mailto:josephchen637@gmail.com">josephchen637@gmail.com</a>。返信はできる範囲で行います。</p>
+</section>
+</main>
+<script>
+const sel = document.getElementById("lang"), secs = document.querySelectorAll("[data-l]");
+function pick(l) { sel.value = l; document.documentElement.lang = l; for (const s of secs) s.hidden = s.dataset.l !== l; }
+const nav = (navigator.language || "en").toLowerCase();
+pick(nav.startsWith("ja") ? "ja" : nav.startsWith("zh") ? "zh-Hant" : "en");
+sel.onchange = () => pick(sel.value);
+</script>
+</html>

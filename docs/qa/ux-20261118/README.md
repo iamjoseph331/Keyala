@@ -26,3 +26,32 @@ The final signed build also restored the QA session after reinstall/relaunch. A 
 ## Interrupted pairing continuation
 
 A disposable app requested OpenAI while the phone had only Anthropic configured. The native connection review showed the unverified-app warning and disabled connection until an OpenAI key existed. From that review, **Add your OpenAI key first → Add from computer** opened key setup. After importing a fictional OpenAI key ending `EFGH`, the phone offered **Continue connecting app**, returned to the original `MK-Z95A` review, and completed **Connect and ask each time** without retyping or rescanning the pairing code. The native **App connected** result and both provider suffixes were visible. No model request was created. `phone-pairing-resumed.png` records the resumed review.
+
+
+## Final redesign and OpenRouter integration
+
+The signed, full-asset iPhone 17 Pro / iOS 26.2 build passed after the final palette, four tabs, A-style request sheet and Claude's exact green MK icon were integrated. Figma's Starter MCP quota prevented fetching the final frames again; implementation follows Claude's final frame descriptions, exported exact icon source and `docs/ux/final-screens.html`, with native platform controls rather than a pixel-parity claim.
+
+- Real native **Connect OpenRouter** opened `ASWebAuthenticationSession` against the loopback Rust mock. The revised contract from `206ac68` was exercised: a system-window Cancel recorded one `cancelled` OAuth flow; a new explicit attempt returned its matching flow identifier, owner-authenticated GET reported `saved`, key metadata refreshed, and the native provider row appeared. SQLite independently confirmed one cancelled and one saved flow. No live provider was contacted. Reconnecting an existing provider first shows an explicit replacement warning.
+- The request sheet displayed full Traditional Chinese, Japanese and English messages, with exact normalized JSON accessible under **Full request**. Deny/Allow stay in a bottom inset while the request content scrolls. The estimate is explicitly not a final-charge guarantee.
+- **Swipe to allow** started off. Its alert visibly offers **Keep off** and **Turn on**; Keep off preserved off. After explicit opt-in in this isolated mock workspace, the loaded $0.000118 request offered **Allow once**, while a $0.083280 request and a low-cost summary without payload offered **Review**. The accessible swipe action completed the mock request once; the database showed a response, `request_count=1`, and the grant still in `ask` mode. The test switch was restored off. Exact $0.05 boundary and absent-payload cases are also checked by Swift contract assertions.
+- Enabling device verification caused the system passcode challenge before any approval. Backgrounding the test app cancelled the challenge; returning showed **Needs review**, and the database still had `pending` with no response or actual cost. No device passcode was entered. Successful biometric verification on physical hardware remains unverified.
+- Light and dark Settings were inspected. Text and controls remained readable; the dark palette uses a lighter green accent. Appearance was restored to System after inspection.
+
+The largest accessibility text size initially split the two action titles into narrow columns. The sheet now stacks its two action buttons at accessibility sizes, and Inbox stacks requester and cost information. A signed rebuild and native visual check confirmed readable Deny/Allow titles; `review-accessibility.png` records the result. Text size was restored to Large.
+
+Evidence: `inbox-redesign.png`, `review-sheet.png`, `openrouter-connected.png`, `swipe-warning.png`, `settings-dark.png`. All identities, keys and prompts are disposable local QA data. The final native contract suite passes. Live OpenRouter account consent/exchange, physical camera, hosted universal-link delivery, Apple login and APNs require their separate device/account checks.
+
+
+## Independent cross-check and foreground refresh regression
+
+Claude independently built `00c3254` in a clean checkout and verified the final welcome/icon, tabs, OpenRouter mock authorization, first ask-only pairing and review/Allow completion in an iPhone 16 Pro simulator. His check found foreground requests did not appear until relaunch and the connected provider still said Connect.
+
+The native foreground poll had captured the initial scene phase. It now restarts with the scene phase, refreshes immediately while active, repeats at a five-second cadence, and cancels on background. Cancelled refreshes do not mutate state or report a network error. Inbox also refreshes when shown and retains pull-to-refresh. This is foreground polling, not an SSE subscriber or proof of APNs delivery.
+
+Regression check with the rebuilt signed app: the Inbox stayed continuously open at **You’re all caught up**; a fake `Live refresh check` request was created through the actual Rust mock API; the native list changed to **1 waiting for you** without navigation, a deep link, pulling, or restarting. `inbox-live-refresh.png` records the result. A saved OpenRouter provider now displays **OpenRouter connection / Reconnect OpenRouter**. The original explicit replacement warning remains.
+
+
+Claude also completed and browser-verified the Resume Tailor OpenRouter integration: exact allowlisted model slugs, OpenAI-shaped routing/response parsing, QR/ask pairing, phone request approval and rendered response, with exactly one stored request. This was a local mock check. Its fixed `?server=staging` selector becomes useful on the hosted example after the updated static files are published; no production or Pages publication was performed by Codex in this task.
+
+Final copy correction: completed-request cost is labelled **Cost from reported usage**, because the backend computes USD from reported tokens and its price table; it is not a directly reported provider invoice amount.

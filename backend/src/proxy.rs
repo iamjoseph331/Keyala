@@ -57,6 +57,9 @@ async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<(Decision, i
 }
 
 async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> R<Response> {
+    if crate::ops::paused(&s) {
+        return Err(api(503, "upstream_paused", "the operator paused provider calls; try again later"));
+    }
     let g = auth_grant(&s, &h, vendor == "anthropic").await?;
     if g.vendor != vendor {
         return Err(api(403, "vendor_mismatch", format!("this grant is for {}, not {vendor}", g.vendor)));
@@ -242,6 +245,13 @@ pub async fn sweeper(s: AppState) {
         // flows stay readable for a day after their 10 minutes, then go
         let _ = sqlx::query("UPDATE oauth_flows SET verifier=NULL WHERE expires_at<=? AND verifier IS NOT NULL").bind(now()).execute(&s.db).await;
         let _ = sqlx::query("DELETE FROM oauth_flows WHERE expires_at<=?").bind(after(-86_400)).execute(&s.db).await;
+        if !crate::ops::paused(&s) {
+            // approved while paused (or lost at a restart): never claimed, so sending is safe
+            let held: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved' AND decided_at<=?").bind(after(-5)).fetch_all(&s.db).await.unwrap_or_default();
+            for id in held {
+                tokio::spawn(send_request(s.clone(), id));
+            }
+        }
         let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='pending' AND expires_at<=?").bind(now()).fetch_all(&s.db).await.unwrap_or_default();
         for id in ids {
             let r = sqlx::query("UPDATE requests SET status='expired', decided_at=? WHERE id=? AND status='pending'").bind(now()).bind(&id).execute(&s.db).await;
@@ -269,6 +279,9 @@ pub async fn send_request(s: AppState, id: String) {
 }
 
 async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
+    if crate::ops::paused(s) {
+        return Ok(()); // stays `approved`; the sweeper sends it once unpaused
+    }
     let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=? AND status='approved' AND EXISTS (SELECT 1 FROM grants WHERE id=requests.grant_id AND revoked_at IS NULL)").bind(id).execute(&s.db).await?.rows_affected() == 1;
     if !won {
         // still approved here means the claim lost to a revoked grant: deny and give the reservation back.
@@ -309,7 +322,7 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<(), sqlx::Error> {
+pub(crate) async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<(), sqlx::Error> {
     if r.reserved_micro > 0 {
         sqlx::query("UPDATE grants SET remaining_micro=remaining_micro+? WHERE id=? AND mode='budget' AND policy_gen=?").bind(r.reserved_micro).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
     }

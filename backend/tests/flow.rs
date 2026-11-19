@@ -8,6 +8,7 @@ fn extra() -> Config {
     Config {
         database_url: String::new(), master_key: [0; 32], dev_login: false, vendor_mock: false, public_url: String::new(), prices_verified: false,
         apple_bundle_id: "app.masterkey.ios".into(), apple_team_id: "TEAMID".into(), apple_jwks_url: "http://127.0.0.1:1/none".into(), apns: None, public_apps: vec![], country_header: None, password_login: None,
+        apple_signin_key: None, apple_auth_url: "http://127.0.0.1:1".into(), pause_upstream: false, backup_dir: None, backup_keep: 7, backup_interval: Duration::from_secs(86_400),
     }
 }
 
@@ -27,7 +28,10 @@ async fn server_with(public_apps: Vec<PublicApp>) -> (String, Client, AppState) 
 }
 
 fn test_cfg() -> Config {
-    let db = std::env::temp_dir().join(format!("mk-test-{}.db", masterkey_server::rand_b64(8)));
+    // one directory per test server: PAUSE_UPSTREAM and deleted-accounts.log live beside the database
+    let dir = std::env::temp_dir().join(format!("mk-test-{}", masterkey_server::rand_b64(8)));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("masterkey.db");
     Config {
         database_url: format!("sqlite://{}?mode=rwc", db.display()),
         master_key: [7u8; 32],
@@ -1015,6 +1019,14 @@ async fn developer_app_info_rotation_and_report() {
     assert_eq!(tot["unmetered"], 0);
     assert_eq!(rep["daily"].as_array().unwrap().len(), 30);
     assert_eq!(rep["daily"][29]["requests"], 3);
+    let hours = rep["hours_utc"].as_array().unwrap();
+    assert_eq!((hours.len(), hours[0].as_array().unwrap().len()), (7, 24));
+    let now = chrono::Utc::now();
+    use chrono::{Datelike, Timelike};
+    let cell = |t: chrono::DateTime<chrono::Utc>| hours[t.weekday().num_days_from_sunday() as usize][t.hour() as usize].as_i64().unwrap();
+    assert_eq!(hours.iter().flat_map(|r| r.as_array().unwrap()).map(|v| v.as_i64().unwrap()).sum::<i64>(), 3);
+    let earlier = now - chrono::Duration::minutes(5); // the test may straddle an hour boundary
+    assert_eq!(cell(now) + if earlier.hour() != now.hour() { cell(earlier) } else { 0 }, 3, "calls land in the current UTC hour");
     assert_eq!(rep["models"][0]["model"], "gpt-4o-mini");
     assert_eq!(rep["models"][0]["completed"], 2);
     assert_eq!(rep["countries"], json!([{"country": "JP", "users": 1, "requests": 3, "cost_usd": tot["cost_usd"]}]));
@@ -1246,4 +1258,345 @@ async fn openrouter_live_auth_url_shape() {
     assert!(q["state"].len() >= 20);
     // the mock consent page does not exist outside mock mode
     assert_eq!(c.get(format!("{base}/oauth/openrouter/mock?state=x")).send().await.unwrap().status(), 404);
+}
+
+// ---------- launch readiness: account controls & operations ----------
+
+fn db_dir(t: &T) -> std::path::PathBuf {
+    let u = t.state.cfg.database_url.strip_prefix("sqlite://").unwrap().split('?').next().unwrap();
+    std::path::Path::new(u).parent().unwrap().to_path_buf()
+}
+async fn dev_session(c: &Client, base: &str, email: &str) -> String {
+    json_of(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": email})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string()
+}
+async fn user_id(t: &T, email: &str) -> String {
+    sqlx::query_scalar("SELECT id FROM users WHERE email=?").bind(email).fetch_one(&t.state.db).await.unwrap()
+}
+
+#[tokio::test]
+async fn revoke_all_sessions_keeps_current_by_default() {
+    let t = T::new().await;
+    let other = dev_session(&t.c, &t.base, "a@b.co").await;
+    let keys = |tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/keys", t.base)); async move { c.get(u).bearer_auth(tok).send().await.unwrap().status().as_u16() } };
+    let r = json_of(t.user_post("/v1/me/sessions/revoke-all", json!({})).await).await;
+    assert_eq!(r["revoked"], 1);
+    assert_eq!((keys(t.sess.clone()).await, keys(other.clone()).await), (200, 401));
+    let r = json_of(t.user_post("/v1/me/sessions/revoke-all", json!({"keep_current": false})).await).await;
+    assert_eq!(r["revoked"], 1);
+    assert_eq!(keys(t.sess.clone()).await, 401);
+}
+
+#[tokio::test]
+async fn stop_all_kills_grants_and_denies_pending_but_keeps_keys() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "ask"})).await;
+    assert_eq!(t.chat(&tok, 0, msg()).await.status(), 202);
+    let id = t.pending().await;
+    // an open key enrollment and OpenRouter attempt are cancelled too
+    let en = json_of(t.c.post(format!("{}/v1/enroll", t.base)).json(&json!({"vendor": "anthropic"})).send().await.unwrap()).await;
+    let eid = en["enroll_id"].as_str().unwrap();
+    assert_eq!(t.user_post(&format!("/v1/me/enroll/{eid}/claim"), json!({})).await.status(), 200);
+    let fl = json_of(t.user_post("/v1/me/oauth/openrouter", json!({})).await).await;
+    let r = json_of(t.user_post("/v1/me/stop-all", json!({})).await).await;
+    assert_eq!(r, json!({"grants_revoked": 1, "requests_denied": 1, "requests_in_flight": 0, "enrollments_cancelled": 1, "flows_cancelled": 1}));
+    assert_eq!(t.user_get(&format!("/v1/me/requests/{id}")).await["status"], "denied");
+    assert_eq!(t.chat(&tok, 0, msg()).await.status(), 401, "grant token must die");
+    assert_eq!(t.user_get("/v1/me/keys").await.as_array().unwrap().len(), 1, "keys stay");
+    assert_eq!(t.user_get(&format!("/v1/me/enroll/{eid}")).await["status"], "cancelled");
+    let flow = t.user_get(&format!("/v1/me/oauth/openrouter/flows/{}", fl["flow_id"].as_str().unwrap())).await;
+    assert_eq!(flow["status"], "cancelled");
+    // idempotent, and a fresh connect works afterwards
+    let r = json_of(t.user_post("/v1/me/stop-all", json!({})).await).await;
+    assert_eq!(r["grants_revoked"], 0);
+    let tok2 = t.grant("openai", json!({"mode": "ask"})).await;
+    assert_eq!(t.chat(&tok2, 0, msg()).await.status(), 202);
+}
+
+#[tokio::test]
+async fn pause_blocks_proxy_and_holds_approved_requests_and_stop_all_refunds_them() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "ask"})).await;
+    assert_eq!(t.chat(&tok, 0, msg()).await.status(), 202);
+    let id = t.pending().await;
+    let st = json_of(t.c.get(format!("{}/v1/status", t.base)).send().await.unwrap()).await;
+    assert_eq!((st["ok"].clone(), st["paused"].clone(), st["db"].clone()), (json!(true), json!(false), json!(true)));
+    let flag = db_dir(&t).join("PAUSE_UPSTREAM");
+    std::fs::write(&flag, "").unwrap();
+    assert_eq!(json_of(t.c.get(format!("{}/v1/status", t.base)).send().await.unwrap()).await["paused"], true);
+    // new calls are refused before anything is stored
+    let r = t.chat(&tok, 0, msg()).await;
+    assert_eq!(r.status(), 503);
+    assert_eq!(json_of(r).await["error"]["type"], "upstream_paused");
+    assert_eq!(t.user_get("/v1/me/requests").await.as_array().unwrap().len(), 1);
+    // approving with a budget reserves money, but nothing is sent while paused
+    let a = t.user_post(&format!("/v1/me/requests/{id}/approve"), json!({"policy": {"mode": "budget", "remaining_usd": 1.0}})).await;
+    assert_eq!(a.status(), 200);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(t.user_get(&format!("/v1/me/requests/{id}")).await["status"], "approved");
+    let remaining = || async { sqlx::query_scalar::<_, i64>("SELECT remaining_micro FROM grants").fetch_one(&t.state.db).await.unwrap() };
+    assert!(remaining().await < 1_000_000);
+    // unpaused: the held request is sent (the sweeper does this every 30 s; call it directly here)
+    std::fs::remove_file(&flag).unwrap();
+    send_request(t.state.clone(), id.clone()).await;
+    assert_eq!(t.wait_status(&id, "completed").await["status"], "completed");
+    // a second request approved while paused, then stop-all: denied, reservation back
+    let gid = t.user_get("/v1/me/grants").await[0]["id"].as_str().unwrap().to_string();
+    let r = t.c.patch(format!("{}/v1/me/grants/{gid}", t.base)).bearer_auth(&t.sess).json(&json!({"policy": {"mode": "ask"}})).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(t.chat(&tok, 0, msg()).await.status(), 202);
+    let id2 = t.pending().await;
+    std::fs::write(&flag, "").unwrap();
+    t.user_post(&format!("/v1/me/requests/{id2}/approve"), json!({})).await;
+    let before = remaining().await;
+    let r = json_of(t.user_post("/v1/me/stop-all", json!({})).await).await;
+    assert_eq!(r["requests_denied"], 1);
+    assert_eq!(t.user_get(&format!("/v1/me/requests/{id2}")).await["status"], "denied");
+    assert!(remaining().await >= before);
+    std::fs::remove_file(&flag).unwrap();
+    send_request(t.state.clone(), id2.clone()).await;
+    assert_eq!(t.user_get(&format!("/v1/me/requests/{id2}")).await["status"], "denied", "never sent afterwards");
+}
+
+#[tokio::test]
+async fn pause_env_flag_blocks_proxy() {
+    let (base, c, _) = serve(Config { pause_upstream: true, ..test_cfg() }).await;
+    let r = c.post(format!("{base}/v1/openai/chat/completions")).bearer_auth("mk_grant_x").json(&msg()).send().await.unwrap();
+    assert_eq!(r.status(), 503);
+    assert_eq!(json_of(c.get(format!("{base}/v1/status")).send().await.unwrap()).await["paused"], true);
+}
+
+/// every table that has a user_id column, found from the schema so a future table is caught
+async fn user_tables(t: &T) -> Vec<String> {
+    sqlx::query_scalar("SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) p WHERE m.type='table' AND p.name='user_id'").fetch_all(&t.state.db).await.unwrap()
+}
+async fn rows_for(t: &T, uid: &str) -> i64 {
+    let mut n = 0;
+    for tab in user_tables(t).await {
+        n += sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {tab} WHERE user_id=?")).bind(uid).fetch_one(&t.state.db).await.unwrap();
+    }
+    n + sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE id=?").bind(uid).fetch_one(&t.state.db).await.unwrap()
+}
+
+#[tokio::test]
+async fn delete_account_needs_fresh_identity_and_removes_everything() {
+    let t = T::new().await;
+    // another user whose data must survive
+    let o = dev_session(&t.c, &t.base, "other@b.co").await;
+    let r = t.c.put(format!("{}/v1/me/keys/openai", t.base)).bearer_auth(&o).json(&json!({"api_key": "sk-test-OTHER0000"})).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    // data of every kind for the user
+    let trust = t.grant("openai", json!({"mode": "trust"})).await;
+    assert_eq!(t.chat(&trust, 5, msg()).await.status(), 200);
+    let ask = t.grant("openai", json!({"mode": "ask"})).await;
+    assert_eq!(t.chat(&ask, 0, msg()).await.status(), 202);
+    assert_eq!(t.user_post("/v1/me/devices", json!({"apns_token": "aabbcc"})).await.status(), 204);
+    let en = json_of(t.c.post(format!("{}/v1/enroll", t.base)).json(&json!({"vendor": "anthropic"})).send().await.unwrap()).await;
+    t.user_post(&format!("/v1/me/enroll/{}/claim", en["enroll_id"].as_str().unwrap()), json!({})).await;
+    t.user_post("/v1/me/oauth/openrouter", json!({})).await;
+    let uid = user_id(&t, "a@b.co").await;
+    let oid = user_id(&t, "other@b.co").await;
+    assert!(rows_for(&t, &uid).await >= 8);
+    assert!(user_tables(&t).await.len() >= 6, "{:?}", user_tables(&t).await);
+    let del = |body: Value, tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/delete", t.base)); async move { c.post(u).bearer_auth(tok).json(&body).send().await.unwrap() } };
+    // refusals: no confirmation, bare session, wrong email
+    let r = del(json!({"confirm": "delete", "email": "a@b.co"}), t.sess.clone()).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (400, json!("confirmation_required")));
+    for body in [json!({"confirm": "DELETE"}), json!({"confirm": "DELETE", "email": "other@b.co"}), json!({"confirm": "DELETE", "password": "x"})] {
+        let r = del(body, t.sess.clone()).await;
+        assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (401, json!("reauth_failed")));
+    }
+    assert!(rows_for(&t, &uid).await >= 8);
+    // a request being sent blocks deletion; an uncertain one does not
+    sqlx::query("UPDATE requests SET status='sending' WHERE user_id=? AND status='completed'").bind(&uid).execute(&t.state.db).await.unwrap();
+    let r = del(json!({"confirm": "DELETE", "email": "A@b.co"}), t.sess.clone()).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (409, json!("request_in_flight")));
+    assert_eq!(t.c.get(format!("{}/v1/me/keys", t.base)).bearer_auth(&t.sess).send().await.unwrap().status(), 200, "session survives a 409");
+    sqlx::query("UPDATE requests SET status='uncertain' WHERE status='sending'").execute(&t.state.db).await.unwrap();
+    let r = del(json!({"confirm": "DELETE", "email": "A@b.co"}), t.sess.clone()).await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(json_of(r).await, json!({"deleted": true, "apple_revoked": null}));
+    assert_eq!(rows_for(&t, &uid).await, 0);
+    assert!(rows_for(&t, &oid).await >= 2, "other user untouched");
+    assert_eq!(t.c.get(format!("{}/v1/me/keys", t.base)).bearer_auth(&t.sess).send().await.unwrap().status(), 401);
+    assert_eq!(t.chat(&trust, 0, msg()).await.status(), 401, "grant tokens died");
+    assert_eq!(t.c.get(format!("{}/v1/me/keys", t.base)).bearer_auth(&o).send().await.unwrap().status(), 200);
+    // opaque id (no email) in the deletion log
+    let log = std::fs::read_to_string(db_dir(&t).join("deleted-accounts.log")).unwrap();
+    assert!(log.starts_with(&format!("deleted {uid} ")) && !log.contains('@'), "{log}");
+}
+
+#[tokio::test]
+async fn delete_account_rate_limited_and_dev_email_needs_dev_login() {
+    let (base, c, _) = serve(Config { dev_login: true, ..test_cfg() }).await;
+    let sess = dev_session(&c, &base, "rl@b.co").await;
+    let mut last = 0;
+    for _ in 0..6 {
+        last = c.post(format!("{base}/v1/me/delete")).bearer_auth(&sess).json(&json!({"confirm": "DELETE", "email": "nope@b.co"})).send().await.unwrap().status().as_u16();
+    }
+    assert_eq!(last, 429);
+}
+
+#[tokio::test]
+async fn delete_password_account_needs_the_password() {
+    use sha2::{Digest, Sha256};
+    let pw = "a-random-staging-password";
+    let (base, c, _) = serve(Config { password_login: Some(("staging-qa".into(), Sha256::digest(pw).into())), dev_login: false, ..test_cfg() }).await;
+    let sess = json_of(c.post(format!("{base}/v1/auth/password")).json(&json!({"username": "staging-qa", "password": pw})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+    let del = |body: Value| { let (c, u, s) = (c.clone(), format!("{base}/v1/me/delete"), sess.clone()); async move { c.post(u).bearer_auth(s).json(&body).send().await.unwrap() } };
+    assert_eq!(del(json!({"confirm": "DELETE", "password": "wrong"})).await.status(), 401);
+    assert_eq!(del(json!({"confirm": "DELETE", "email": "staging-qa@password.invalid"})).await.status(), 401, "dev email path is off");
+    assert_eq!(del(json!({"confirm": "DELETE", "password": pw})).await.status(), 200);
+    assert_eq!(c.get(format!("{base}/v1/me/keys")).bearer_auth(&sess).send().await.unwrap().status(), 401);
+}
+
+/// Apple stand-in: JWKS plus token/revoke endpoints; records each call's path and form.
+type AppleLog = std::sync::Arc<std::sync::Mutex<Vec<(String, std::collections::HashMap<String, String>)>>>;
+async fn apple_ops_server(token_ok: bool, with_key: bool) -> (String, Client, AppleLog) {
+    use axum::{extract::Form, routing::{get, post}};
+    type F = Form<std::collections::HashMap<String, String>>;
+    let log: AppleLog = Default::default();
+    let (l1, l2) = (log.clone(), log.clone());
+    let jwks = json!({"keys": [{"kty": "RSA", "kid": "k1", "use": "sig", "alg": "RS256", "n": RSA_N, "e": "AQAB"}]});
+    let app = axum::Router::new()
+        .route("/auth/keys", get(move || { let j = jwks.clone(); async move { axum::Json(j) } }))
+        .route("/auth/token", post(move |Form(f): F| { l1.lock().unwrap().push(("token".into(), f)); async move {
+            if token_ok { (axum::http::StatusCode::OK, axum::Json(json!({"refresh_token": "r-123", "access_token": "a"}))) } else { (axum::http::StatusCode::BAD_REQUEST, axum::Json(json!({"error": "invalid_grant"}))) } } }))
+        .route("/auth/revoke", post(move |Form(f): F| { l2.lock().unwrap().push(("revoke".into(), f)); async move { axum::Json(json!({})) } }));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let host = format!("http://{}", l.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(l, app).await.unwrap() });
+    let cfg = Config {
+        apple_jwks_url: format!("{host}/auth/keys"), apple_auth_url: host, apple_bundle_id: "app.masterkey.ios".into(),
+        apple_signin_key: with_key.then(|| ("KEYID123".to_string(), include_str!("fixtures/test_ec_private.pem").to_string())),
+        ..test_cfg()
+    };
+    let (base, c, _) = serve(cfg).await;
+    (base, c, log)
+}
+fn apple_token_at(sub: &str, iat_age: Option<i64>) -> String {
+    let mut h = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+    h.kid = Some("k1".into());
+    let now = chrono_now();
+    let mut c = json!({"iss": "https://appleid.apple.com", "aud": "app.masterkey.ios", "sub": sub, "exp": now + 600});
+    if let Some(a) = iat_age { c["iat"] = (now - a).into(); }
+    jsonwebtoken::encode(&h, &c, &jsonwebtoken::EncodingKey::from_rsa_pem(RSA_PEM.as_bytes()).unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn delete_apple_account_reauth_and_revocation() {
+    for (token_ok, with_key, want) in [(true, true, json!(true)), (false, true, json!(false)), (true, false, json!(false))] {
+        let (base, c, log) = apple_ops_server(token_ok, with_key).await;
+        let sess = json_of(c.post(format!("{base}/v1/auth/apple")).json(&json!({"id_token": apple_token_at("001.del", Some(10))})).send().await.unwrap()).await["session_token"].as_str().unwrap().to_string();
+        let del = |body: Value| { let (c, u, s) = (c.clone(), format!("{base}/v1/me/delete"), sess.clone()); async move { c.post(u).bearer_auth(s).json(&body).send().await.unwrap() } };
+        // not fresh, no iat, wrong subject, missing token: all the same 401, and nothing is sent to Apple
+        for body in [
+            json!({"confirm": "DELETE", "id_token": apple_token_at("001.del", Some(900)), "authorization_code": "CODE"}),
+            json!({"confirm": "DELETE", "id_token": apple_token_at("001.del", None), "authorization_code": "CODE"}),
+            json!({"confirm": "DELETE", "id_token": apple_token_at("001.other", Some(5)), "authorization_code": "CODE"}),
+            json!({"confirm": "DELETE", "authorization_code": "CODE"}),
+        ] {
+            let r = del(body).await;
+            assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (401, json!("reauth_failed")));
+        }
+        assert!(log.lock().unwrap().is_empty());
+        let r = del(json!({"confirm": "DELETE", "id_token": apple_token_at("001.del", Some(5)), "authorization_code": "CODE"})).await;
+        assert_eq!(r.status(), 200);
+        assert_eq!(json_of(r).await, json!({"deleted": true, "apple_revoked": want}), "token_ok={token_ok} key={with_key}");
+        assert_eq!(c.get(format!("{base}/v1/me/keys")).bearer_auth(&sess).send().await.unwrap().status(), 401);
+        let calls = log.lock().unwrap().clone();
+        if with_key {
+            assert_eq!(calls[0].0, "token");
+            assert_eq!((calls[0].1["code"].as_str(), calls[0].1["grant_type"].as_str(), calls[0].1["client_id"].as_str()), ("CODE", "authorization_code", "app.masterkey.ios"));
+            let hdr = jsonwebtoken::decode_header(&calls[0].1["client_secret"]).unwrap();
+            assert_eq!((hdr.alg, hdr.kid.as_deref()), (jsonwebtoken::Algorithm::ES256, Some("KEYID123")));
+            assert_eq!(calls.len(), if token_ok { 2 } else { 1 });
+            if token_ok {
+                assert_eq!((calls[1].0.as_str(), calls[1].1["token"].as_str()), ("revoke", "r-123"));
+            }
+        } else {
+            assert!(calls.is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn in_process_backup_runs_prunes_and_is_a_database() {
+    let dir = std::env::temp_dir().join(format!("mk-bk-{}", masterkey_server::rand_b64(6)));
+    let (_, _, _) = serve(Config { backup_dir: Some(dir.clone()), backup_keep: 2, backup_interval: Duration::from_secs(1), ..test_cfg() }).await;
+    tokio::time::sleep(Duration::from_millis(4500)).await;
+    let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.path()).collect();
+    files.sort();
+    assert_eq!(files.len(), 2, "{files:?}");
+    assert!(std::fs::read(&files[1]).unwrap().starts_with(b"SQLite format 3"));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&files[1]).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+}
+
+#[tokio::test]
+async fn logout_ends_only_the_current_session() {
+    let t = T::new().await;
+    let second = dev_session(&t.c, &t.base, "a@b.co").await; // same user, another device
+    let other = dev_session(&t.c, &t.base, "other@b.co").await;
+    let keys = |tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/keys", t.base)); async move { c.get(u).bearer_auth(tok).send().await.unwrap().status().as_u16() } };
+    let out = |tok: String| { let (c, u) = (t.c.clone(), format!("{}/v1/me/logout", t.base)); async move { c.post(u).bearer_auth(tok).send().await.unwrap() } };
+    assert_eq!(out("mk_sess_bogus".into()).await.status(), 401, "unknown token");
+    assert_eq!(t.c.post(format!("{}/v1/me/logout", t.base)).send().await.unwrap().status(), 401, "no token");
+    let r = out(t.sess.clone()).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await), (200, json!({"signed_out": true})));
+    assert_eq!(keys(t.sess.clone()).await, 401, "current token is dead");
+    assert_eq!(keys(second.clone()).await, 200, "same user's other session unaffected");
+    assert_eq!(keys(other.clone()).await, 200, "other user unaffected");
+    assert_eq!(out(t.sess.clone()).await.status(), 401, "repeat = 401, clients treat it as already signed out");
+    assert_eq!(out(other.clone()).await.status(), 200);
+    assert_eq!(keys(second).await, 200);
+}
+
+#[tokio::test]
+async fn login_reports_auth_provider() {
+    use sha2::{Digest, Sha256};
+    let (base, c, _) = serve(Config { password_login: Some(("qa-user".into(), Sha256::digest("pw-long-random").into())), ..test_cfg() }).await;
+    let d =json_of(c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "x@b.co"})).send().await.unwrap()).await;
+    assert_eq!(d["user"]["auth_provider"], "dev");
+    let p = json_of(c.post(format!("{base}/v1/auth/password")).json(&json!({"username": "qa-user", "password": "pw-long-random"})).send().await.unwrap()).await;
+    assert_eq!((p["user"]["auth_provider"].clone(), p["user"]["email"].clone()), (json!("password"), json!("qa-user@password.invalid")));
+    // a typed dev email can never reach the password or Apple placeholder identities
+    let r = c.post(format!("{base}/v1/auth/dev")).json(&json!({"email": "qa-user@password.invalid"})).send().await.unwrap();
+    assert_eq!(r.status(), 400);
+}
+
+#[tokio::test]
+async fn deletion_without_a_tombstone_deletes_nothing() {
+    let t = T::new().await;
+    let uid = user_id(&t, "a@b.co").await;
+    // the tombstone file cannot be opened (a directory is in its place): deletion must refuse, not proceed
+    let log = db_dir(&t).join("deleted-accounts.log");
+    std::fs::create_dir(&log).unwrap();
+    let r = t.user_post("/v1/me/delete", json!({"confirm": "DELETE", "email": "a@b.co"})).await;
+    assert_eq!((r.status().as_u16(), json_of(r).await["error"]["type"].clone()), (503, json!("deletion_unavailable")));
+    assert!(rows_for(&t, &uid).await >= 2, "user, session and key still there");
+    assert_eq!(t.c.get(format!("{}/v1/me/keys", t.base)).bearer_auth(&t.sess).send().await.unwrap().status(), 200);
+    // once the log is writable again the same request succeeds
+    std::fs::remove_dir(&log).unwrap();
+    assert_eq!(t.user_post("/v1/me/delete", json!({"confirm": "DELETE", "email": "a@b.co"})).await.status(), 200);
+    assert!(std::fs::read_to_string(&log).unwrap().starts_with(&format!("deleted {uid} ")));
+}
+
+#[tokio::test]
+async fn trust_pages_are_served_and_linked() {
+    let t = T::new().await;
+    for p in ["/about", "/privacy"] {
+        let r = t.c.get(format!("{}{p}", t.base)).send().await.unwrap();
+        assert_eq!(r.status(), 200);
+        let body = r.text().await.unwrap();
+        assert!(body.contains("personal experimental project") && body.contains("josephchen637@gmail.com") && body.contains("decrypts"), "{p}");
+        assert!(!body.contains('\u{b7}'));
+    }
+    for p in ["/add-key", "/enroll/en_abcdefghijklmnopqrstuv", "/connect/MK-ABCD"] {
+        let r = t.c.get(format!("{}{p}", t.base)).send().await.unwrap();
+        assert_eq!(r.status(), 200, "{p}");
+        assert!(r.text().await.unwrap().contains("/privacy"), "{p} links to the disclosure");
+    }
 }

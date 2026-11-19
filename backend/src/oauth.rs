@@ -83,7 +83,7 @@ fn done(status: &str, detail: &str) -> Response {
     let msg = if status == "ok" { "OpenRouter is connected. Return to MasterKey." } else { "OpenRouter was not connected. Return to MasterKey and try again." };
     let page = format!(
         "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><meta http-equiv=refresh content='0;url={target}'>\
-         <title>MasterKey</title><body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>{msg}</h1><p><a href='{target}'>Open MasterKey</a></p>"
+         <title>MasterKey</title><body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>{msg}</h1><p><a href='{target}'>Open MasterKey</a></p>{}", crate::enroll::TRUST_LINK
     );
     ([(header::CACHE_CONTROL, "no-store"), (header::REFERRER_POLICY, "no-referrer")], Html(page)).into_response()
 }

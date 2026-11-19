@@ -3,6 +3,7 @@ import SwiftUI
 import UserNotifications
 import UIKit
 import AuthenticationServices
+import LocalAuthentication
 
 @MainActor final class AppStore: ObservableObject {
     @Published var requests: [RequestRecord] = []
@@ -18,6 +19,7 @@ import AuthenticationServices
     @Published var email = UserDefaults.standard.string(forKey: "email") ?? "joseph@example.com"
     @Published var connected = false
     @Published var busy = false
+    @Published private(set) var isConnectingOpenRouter = false
     @Published var showError = false
     @Published var errorMessage = ""
     @Published var infoMessage: String?
@@ -27,6 +29,8 @@ import AuthenticationServices
     @Published private(set) var linkGeneration = 0
     @Published var pendingRequestID: String?
     private let vault = SessionVault()
+    private var approvalAuthentication: LAContext?
+    private let providerBrowser = ProviderAuthenticationBrowser()
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
     var supportsStagingPassword: Bool {
@@ -96,6 +100,10 @@ import AuthenticationServices
         catch { if generation == contextGeneration { report(error) } }
     }
     func signOut() {
+        providerBrowser.cancel()
+        isConnectingOpenRouter = false
+        approvalAuthentication?.invalidate()
+        approvalAuthentication = nil
         contextGeneration += 1
         try? vault.write(nil, origin: origin)
         session = nil
@@ -103,6 +111,65 @@ import AuthenticationServices
         resetRequestPaging()
         keys = []
         grants = []
+    }
+    func signOutRemotely() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.logout()
+            guard generation == contextGeneration else { return }
+            signOut()
+            infoMessage = localized("Signed out on this iPhone. Other devices and app permissions are unchanged.")
+        } catch {
+            guard generation == contextGeneration else { return }
+            if case APIError.unauthorized = error { signOut() }
+            else { report(error) }
+        }
+    }
+    func revokeOtherSessions() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.revokeOtherSessions()
+            guard generation == contextGeneration else { return }
+            infoMessage = localized("Other devices have been signed out. App permissions are unchanged.")
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func stopAllPermissions() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            let result = try await api.stopAll()
+            guard generation == contextGeneration else { return }
+            await refresh()
+            guard generation == contextGeneration else { return }
+            infoMessage = localized(result.requestsInFlight > 0
+                ? "All app permissions stopped. A request already sent to a provider may still finish. Check Activity and provider usage."
+                : "All app permissions stopped. Your keys are still stored. Connect again before using an app.")
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func deleteAccount(_ body: AccountDeletionRequest) async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            let result = try await api.deleteAccount(body)
+            guard generation == contextGeneration else { return }
+            guard result.deleted else { throw APIError.invalidResponse }
+            signOut()
+            pendingConnectCode = nil; pendingEnrollmentID = nil; pendingRequestID = nil; keySetupReturnCode = nil
+            linkGeneration += 1
+            infoMessage = localized(result.appleRevoked == false
+                ? "Account deleted. You can also remove MasterKey in iPhone Settings > Apple Account > Sign in with Apple."
+                : "Account deleted. Your provider accounts and subscriptions are unchanged.")
+        } catch { if generation == contextGeneration { report(error) } }
     }
     func useServer(_ value: String) {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -130,14 +197,14 @@ import AuthenticationServices
             async let grantRows = api.grants()
             let newRequests = try await req
             let newKeys = try await keyRows; let newGrants = try await grantRows
-            guard generation == contextGeneration, !demoMode else { return }
+            guard generation == contextGeneration, !demoMode, !Task.isCancelled else { return }
             requestHistoryCursor.refresh(page: newRequests, existingIDs: Set(requests.map(\.id)), pageSize: requestPageSize)
             requests = RequestHistory.merging(existing: requests, incoming: newRequests)
             hasOlderRequests = requestHistoryCursor.hasMore
             keys = newKeys; grants = newGrants
             connected = true
         } catch {
-            guard generation == contextGeneration else { return }
+            guard generation == contextGeneration, !Task.isCancelled else { return }
             if case APIError.unauthorized = error { signOut() }
             report(error)
         }
@@ -172,12 +239,31 @@ import AuthenticationServices
         guard !approve || request.payload != nil else { report(APIError.http(0, "The full request payload has not loaded. Open the request details and refresh before deciding.")); return }
         let generation = contextGeneration; let api = client
         do {
+            if approve && UserDefaults.standard.bool(forKey: "requireDeviceAuthentication") {
+                guard approvalAuthentication == nil else { return }
+                let context = LAContext()
+                approvalAuthentication = context
+                defer { if approvalAuthentication === context { approvalAuthentication = nil } }
+                var authenticationError: NSError?
+                guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authenticationError) else {
+                    if let authenticationError { throw authenticationError }
+                    throw APIError.http(0, "Device authentication is unavailable. Check the approval setting in Settings.")
+                }
+                let allowed = try await context.evaluatePolicy(.deviceOwnerAuthentication,
+                    localizedReason: "Confirm this request from \(request.appName) to use your \(request.provider.title) account.")
+                guard allowed, generation == contextGeneration, !Task.isCancelled,
+                      requests.first(where: { $0.id == request.id })?.status == "pending" else { return }
+            }
             let detail = try await api.decide(id: request.id, approve: approve, policy: policy)
             guard generation == contextGeneration else { return }
             requests = RequestHistory.merging(existing: requests, incoming: [detail])
             infoMessage = approve ? "Request approved." : "Request denied."
             await refresh()
-        } catch { if generation == contextGeneration { report(error) } }
+        } catch {
+            guard generation == contextGeneration else { return }
+            if let error = error as? LAError, [.userCancel, .systemCancel, .appCancel].contains(error.code) { return }
+            report(error)
+        }
     }
     func loadRequestDetails(id: String) async {
         guard !demoMode else { return }
@@ -193,8 +279,58 @@ import AuthenticationServices
         guard !value.isEmpty else { report(APIError.http(0, "Enter an API key.")); return false }
         if demoMode { infoMessage = "Sample data is offline. Turn it off in Developer options to save a key."; return false }
         let generation = contextGeneration; let api = client
-        do { let result = try await api.addKey(provider: provider, value: value, label: label); guard generation == contextGeneration else { return false }; keys.removeAll { $0.provider == provider }; keys.append(result); infoMessage = "Key saved. Apps receive permission to use it, never the key itself."; return true }
+        do { let result = try await api.addKey(provider: provider, value: value, label: label); guard generation == contextGeneration else { return false }; keys.removeAll { $0.provider == provider }; keys.append(result); infoMessage = result.checked == false ? "Key saved. The provider could not verify it; check the key’s permissions if requests fail." : "Key saved. Apps receive permission to use it, never the key itself."; return true }
         catch { if generation == contextGeneration { report(error) }; return false }
+    }
+    func connectOpenRouter(limitUSD: Double = 10) async {
+        guard !demoMode, session != nil, !isConnectingOpenRouter else { return }
+        let generation = contextGeneration; let api = client
+        var flowID: String?
+        isConnectingOpenRouter = true
+        defer { if generation == contextGeneration { isConnectingOpenRouter = false } }
+        do {
+            let authorization = try await api.startOpenRouter(limitUSD: limitUSD)
+            flowID = authorization.flowID
+            guard generation == contextGeneration, !Task.isCancelled else {
+                _ = try? await api.openRouterFlow(id: authorization.flowID, cancel: true)
+                return
+            }
+            let callbackURL = try api.resolvedURL(for: "/oauth/openrouter/callback")
+            let url = try authorization.validatedURL(callbackURL: callbackURL, allowMock: developerOptions)
+            let returnedURL = try await providerBrowser.authenticate(url: url)
+            guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
+            try OpenRouterCallback.validate(returnedURL, expectedFlowID: authorization.flowID)
+            let flow = try await api.openRouterFlow(id: authorization.flowID)
+            guard flow.flowID == authorization.flowID, flow.provider == .openRouter else { throw APIError.invalidResponse }
+            guard flow.status == "saved" else {
+                _ = try? await api.openRouterFlow(id: authorization.flowID, cancel: true)
+                throw APIError.http(0, flow.status == "exchanging" ? "OpenRouter is still finishing. Refresh Keys before starting another connection." : "OpenRouter was not connected. You can start again when ready.")
+            }
+            let updated = try await api.keys()
+            guard generation == contextGeneration, !Task.isCancelled else { return }
+            keys = updated
+            guard flow.confirmedKey(in: updated, expectedFlowID: authorization.flowID) != nil else {
+                throw APIError.http(0, "OpenRouter finished, but its saved key has since changed. Check Keys before trying again.")
+            }
+            infoMessage = "OpenRouter connected. Requests use your OpenRouter balance."
+        } catch {
+            let cancelled = error is CancellationError || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+            let finalFlow: OpenRouterFlow?
+            if let flowID { finalFlow = try? await api.openRouterFlow(id: flowID, cancel: true) }
+            else { finalFlow = nil }
+            guard generation == contextGeneration else { return }
+            if cancelled {
+                if let updated = try? await api.keys(), generation == contextGeneration { keys = updated }
+                guard generation == contextGeneration else { return }
+                switch finalFlow?.status {
+                case "saved": infoMessage = "OpenRouter finished before the window closed. Check the connected provider in Keys."
+                case "cancelled", "expired", "failed": infoMessage = "OpenRouter connection closed. No retry was sent."
+                default: infoMessage = "Connection closed. Refresh Keys to check whether it finished before trying again."
+                }
+                return
+            }
+            report(error)
+        }
     }
     func removeKey(_ key: KeyRecord) async {
         if demoMode { keys.removeAll { $0.id == key.id }; infoMessage = "Demo key metadata removed from this device."; return }
@@ -202,17 +338,25 @@ import AuthenticationServices
         do { try await api.deleteKey(provider: key.provider); guard generation == contextGeneration else { return }; keys.removeAll { $0.id == key.id }; infoMessage = "Key removed." }
         catch { report(error) }
     }
-    func revoke(_ grant: GrantRecord) async {
-        if demoMode { grants.removeAll { $0.id == grant.id }; infoMessage = "Demo grant revoked on this device only."; return }
+    func revoke(_ grant: GrantRecord) async -> Bool {
+        if demoMode { grants.removeAll { $0.id == grant.id }; infoMessage = "Demo grant revoked on this device only."; return true }
         let generation = contextGeneration; let api = client
-        do { try await api.revoke(id: grant.id); guard generation == contextGeneration else { return }; grants.removeAll { $0.id == grant.id }; infoMessage = "Grant revoked." }
-        catch { report(error) }
+        do {
+            try await api.revoke(id: grant.id)
+            guard generation == contextGeneration else { return false }
+            grants.removeAll { $0.id == grant.id }; infoMessage = localized("App disconnected.")
+            return true
+        } catch { if generation == contextGeneration { report(error) }; return false }
     }
-    func update(_ grant: GrantRecord, policy: Policy) async {
-        if demoMode { infoMessage = "Demo policy changes are not sent to a server."; return }
+    func update(_ grant: GrantRecord, policy: Policy) async -> Bool {
+        if demoMode { infoMessage = "Demo policy changes are not sent to a server."; return false }
         let generation = contextGeneration; let api = client
-        do { _ = try await api.updatePolicy(id: grant.id, policy: policy); guard generation == contextGeneration else { return }; await refresh() }
-        catch { report(error) }
+        do {
+            let updated = try await api.updatePolicy(id: grant.id, policy: policy)
+            guard generation == contextGeneration else { return false }
+            grants = grants.map { $0.id == updated.id ? updated : $0 }
+            return true
+        } catch { if generation == contextGeneration { report(error) }; return false }
     }
     func connectPreview(code: String) async -> ConnectPreview? {
         if demoMode { return ConnectPreview(app: .init(name: "Sketchpad AI (DEMO)", homepage: nil), vendor: .openAI, suggestedPolicy: nil, origin: "https://example.invalid", requiresAsk: true) }
@@ -414,4 +558,44 @@ extension Notification.Name {
     static let masterKeyAPNSToken = Notification.Name("masterKeyAPNSToken")
     static let masterKeyAPNSError = Notification.Name("masterKeyAPNSError")
     static let masterKeyRequestTapped = Notification.Name("masterKeyRequestTapped")
+}
+
+@MainActor private final class ProviderAuthenticationBrowser: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var browserSession: ASWebAuthenticationSession?
+    private var completion: CheckedContinuation<URL, Error>?
+    private var attemptID: UUID?
+
+    func authenticate(url: URL) async throws -> URL {
+        guard completion == nil else { throw APIError.http(0, "Finish the current provider connection first.") }
+        return try await withCheckedThrowingContinuation { continuation in
+            let attempt = UUID()
+            attemptID = attempt
+            completion = continuation
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "masterkey") { [weak self] url, error in
+                Task { @MainActor in
+                    if let error { self?.finish(.failure(error), attempt: attempt) }
+                    else if let url { self?.finish(.success(url), attempt: attempt) }
+                    else { self?.finish(.failure(APIError.invalidResponse), attempt: attempt) }
+                }
+            }
+            session.presentationContextProvider = self
+            browserSession = session
+            if !session.start() { finish(.failure(APIError.http(0, "Open MasterKey in the foreground, then try connecting again.")), attempt: attempt) }
+        }
+    }
+    func cancel() {
+        guard let attempt = attemptID else { return }
+        browserSession?.cancel()
+        finish(.failure(CancellationError()), attempt: attempt)
+    }
+    private func finish(_ result: Result<URL, Error>, attempt: UUID) {
+        guard attemptID == attempt, let continuation = completion else { return }
+        completion = nil; browserSession = nil; attemptID = nil
+        continuation.resume(with: result)
+    }
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
+    }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 import AuthenticationServices
 import VisionKit
 import AVFoundation
+import LocalAuthentication
 
 struct PageHeader: View {
     let eyebrow: String
@@ -9,16 +10,16 @@ struct PageHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(eyebrow.uppercased()).font(.caption.weight(.bold)).tracking(1.6).foregroundStyle(MKStyle.teal)
-            Text(title).font(.system(size: 34, weight: .semibold, design: .rounded)).foregroundStyle(MKStyle.cream)
-            Text(subtitle).font(.subheadline).foregroundStyle(MKStyle.muted)
+            if !eyebrow.isEmpty { Text(LocalizedStringKey(eyebrow)).font(.subheadline.weight(.medium)).foregroundStyle(MKStyle.teal) }
+            Text(LocalizedStringKey(title)).font(.system(size: 34, weight: .bold)).foregroundStyle(MKStyle.cream)
+            Text(LocalizedStringKey(subtitle)).font(.subheadline).foregroundStyle(MKStyle.muted)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 10)
     }
 }
 
 struct Card<Content: View>: View {
     @ViewBuilder var content: Content
-    var body: some View { content.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(MKStyle.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.06), lineWidth: 1)) }
+    var body: some View { content.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(MKStyle.panel, in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16).stroke(MKStyle.line, lineWidth: 0.5)) }
 }
 
 struct InfoBanner: View {
@@ -34,60 +35,91 @@ struct InfoBanner: View {
 
 struct InboxView: View {
     @EnvironmentObject private var store: AppStore
+    @AppStorage("allowSwipeOnce") private var allowSwipeOnce = false
     @State private var showHistory = false
     @State private var selected: RequestRecord?
+    @State private var decidingIDs: Set<String> = []
     private var visible: [RequestRecord] { showHistory ? store.requests.filter { $0.status != "pending" } : store.requests.filter { $0.status == "pending" } }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                PageHeader(eyebrow: "Your keys. Your call.", title: "Requests", subtitle: "Review pending calls and revisit past requests and responses.")
+        List {
+            Section {
                 ModeBanner()
                 InfoBanner()
                 Picker("Request list", selection: $showHistory) {
-                    Text("Pending").tag(false)
-                    Text("History").tag(true)
+                    Text("Waiting").tag(false)
+                    Text("Activity").tag(true)
+                }.pickerStyle(.segmented)
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0)).listRowSeparator(.hidden)
+            if !showHistory {
+                Section {
+                    Button { NotificationCenter.default.post(name: .masterKeyConnectApp, object: nil) } label: {
+                        Label("Scan to connect", systemImage: "qrcode.viewfinder").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+                    }.foregroundStyle(MKStyle.buttonText).listRowBackground(MKStyle.teal)
                 }
-                .pickerStyle(.segmented)
-                if !showHistory && store.keys.isEmpty {
-                    Card { VStack(alignment: .leading, spacing: 12) {
+            }
+            if !showHistory && store.keys.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Add your first provider").font(.headline)
-                        Text("Set up a provider key once, then connect the apps you want to use.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                        Text("Set up a provider once, then choose which apps can use it.").font(.subheadline).foregroundStyle(MKStyle.muted)
                         Button("Add a provider") { NotificationCenter.default.post(name: .masterKeyOpenKeys, object: nil) }.buttonStyle(.borderedProminent)
-                    } }
-                } else if !showHistory && store.grants.isEmpty {
-                    Card { VStack(alignment: .leading, spacing: 12) {
+                    }.padding(.vertical, 8)
+                }.listRowBackground(MKStyle.panel)
+            } else if !showHistory && store.grants.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Connect your first app").font(.headline)
-                        Text("Scan the connection QR shown by an app’s website.").font(.subheadline).foregroundStyle(MKStyle.muted)
-                        Button("Scan connection QR") { NotificationCenter.default.post(name: .masterKeyConnectApp, object: nil) }.buttonStyle(.borderedProminent)
-                    } }
-                } else if visible.isEmpty {
-                    Card { VStack(alignment: .leading, spacing: 10) { Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(MKStyle.teal); Text(showHistory ? (store.requests.isEmpty ? "No request history yet" : "No decided requests in this part of history") : "All clear").font(.headline); Text(showHistory ? "Older requests will load below when available." : "New requests appear here for your review.").font(.subheadline).foregroundStyle(MKStyle.muted) } }
-                }
-                ForEach(visible) { request in Button { selected = request } label: { RequestCard(request: request) }.buttonStyle(.plain) }
-                if showHistory && !store.demoMode {
-                    if let error = store.olderRequestsError {
-                        Text(error).font(.footnote).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Scan the QR on an app’s website. You’ll review who is asking before allowing access.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                    }.padding(.vertical, 8)
+                }.listRowBackground(MKStyle.panel)
+            } else if visible.isEmpty {
+                Section {
+                    ContentUnavailableView(showHistory ? "No activity yet" : "You’re all caught up", systemImage: showHistory ? "clock" : "checkmark.circle", description: Text(showHistory ? "Past requests and responses will appear here." : "Requests that need your permission will appear here."))
+                }.listRowBackground(Color.clear)
+            }
+            if !visible.isEmpty {
+                Section(showHistory ? "Recent activity" : "\(visible.count) waiting for you") {
+                    ForEach(visible) { request in
+                        Button { selected = request } label: { RequestCard(request: request) }.buttonStyle(.plain)
+                            .listRowBackground(MKStyle.panel)
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                if allowSwipeOnce && request.status == "pending" {
+                                    if request.canApproveWithSwipe {
+                                        Button { allowOnce(request) } label: { Label("Allow once", systemImage: "checkmark") }.tint(MKStyle.teal).disabled(decidingIDs.contains(request.id))
+                                    } else {
+                                        Button { selected = request } label: { Label("Review", systemImage: "doc.text.magnifyingglass") }.tint(MKStyle.teal)
+                                    }
+                                }
+                            }
                     }
-                    if store.isLoadingOlderRequests {
-                        ProgressView("Loading older requests…").frame(maxWidth: .infinity).tint(MKStyle.teal)
-                    } else if store.hasOlderRequests {
-                        Button { Task { await store.loadOlderRequests() } } label: {
-                            Label(store.olderRequestsError == nil ? "Load older requests" : "Try again", systemImage: store.olderRequestsError == nil ? "arrow.down" : "arrow.clockwise")
-                                .frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.06), in: Capsule())
-                        }
-                    } else {
-                        Text("You’ve reached the beginning of your request history.").font(.footnote).foregroundStyle(MKStyle.muted).frame(maxWidth: .infinity)
-                    }
                 }
-                Button { Task { await store.refresh() } } label: { Label("Refresh requests", systemImage: "arrow.clockwise").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.06), in: Capsule()) }
-            }.padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 30)
-        }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
+            }
+            if showHistory && !store.demoMode {
+                Section {
+                    if let error = store.olderRequestsError { Text(error).font(.footnote).foregroundStyle(MKStyle.warning) }
+                    if store.isLoadingOlderRequests { ProgressView("Loading older requests…") }
+                    else if store.hasOlderRequests {
+                        Button(store.olderRequestsError == nil ? "Load older requests" : "Try again") { Task { await store.loadOlderRequests() } }
+                    } else if !store.requests.isEmpty {
+                        Text("You’ve reached the beginning of your activity.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    }
+                }.listRowBackground(Color.clear)
+            }
+        }.listStyle(.insetGrouped).scrollContentBackground(.hidden).background(MKStyle.navy)
+            .navigationTitle("Inbox").navigationBarTitleDisplayMode(.large)
+            .refreshable { await store.refresh() }
+            .onAppear { Task { await store.refresh() } }
             .sheet(item: $selected) { RequestDetailView(request: request(for: $0)) }
             .onChange(of: store.pendingRequestID) { _, _ in openNotificationRequest() }
             .onChange(of: store.requests.map(\.id)) { _, _ in openNotificationRequest() }
-            .onChange(of: store.contextGeneration) { _, _ in selected = nil }
+            .onChange(of: store.contextGeneration) { _, _ in selected = nil; decidingIDs = [] }
             .onAppear { openNotificationRequest() }
+    }
+    private func allowOnce(_ request: RequestRecord) {
+        guard allowSwipeOnce, request.canApproveWithSwipe, !decidingIDs.contains(request.id) else { selected = request; return }
+        decidingIDs.insert(request.id)
+        Task { await store.decide(request, approve: true, policy: .once); decidingIDs.remove(request.id) }
     }
     private func openNotificationRequest() {
         guard let id = store.pendingRequestID, let item = store.requests.first(where: { $0.id == id }) else { return }
@@ -114,88 +146,148 @@ struct ModeBanner: View {
 }
 
 struct RequestCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let request: RequestRecord
-    var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) { Text(request.appName).font(.headline).foregroundStyle(MKStyle.cream); Text("\(request.provider.title)  /  \(request.model)").font(.caption).foregroundStyle(MKStyle.muted) }
-                    Spacer(); StatusPill(status: request.status)
-                }
-                Text(preview).font(.subheadline).foregroundStyle(MKStyle.cream.opacity(0.86)).lineLimit(2).multilineTextAlignment(.leading)
-                HStack { Label(request.estimatedUSD, systemImage: "chart.line.uptrend.xyaxis"); Spacer(); Text(request.status == "pending" ? "Review request  ›" : request.createdAt.asDate).foregroundStyle(MKStyle.muted) }.font(.caption.weight(.medium)).foregroundStyle(MKStyle.teal)
-            }
-        }
+    private var rowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
     }
-    private var preview: String {
-        guard case .object(let object)? = request.payload else { return "Open to inspect the complete request payload." }
-        if case .array(let messages)? = object["messages"], let first = messages.last,
-           case .object(let message) = first, case .string(let content)? = message["content"] { return content }
-        return "Open to inspect the complete request payload."
+    var body: some View {
+        rowLayout {
+            Text(String(request.appName.prefix(1)).uppercased()).font(.headline).foregroundStyle(MKStyle.teal)
+                .frame(width: 38, height: 38).background(MKStyle.teal.opacity(0.10), in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(request.appName).font(.headline).foregroundStyle(MKStyle.cream).lineLimit(2)
+                Text(request.provider.title).font(.subheadline).foregroundStyle(MKStyle.muted)
+                Text(request.status == "pending" ? "Tap to review what it sends" : request.createdAt.asDate).font(.caption).foregroundStyle(MKStyle.muted)
+            }
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 6) }
+            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 5) {
+                Text(request.status == "completed" ? request.actualUSD : request.estimatedUSD).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(MKStyle.cream)
+                Text(request.status == "completed" ? "Actual" : "Estimated").font(.caption2).foregroundStyle(MKStyle.muted)
+                if request.status != "pending" { StatusPill(status: request.status) }
+            }
+        }.padding(.vertical, 8).contentShape(Rectangle())
     }
 }
 
 struct StatusPill: View {
     let status: String
-    var color: Color { status == "pending" ? .orange : (status == "completed" || status == "approved" ? MKStyle.teal : MKStyle.muted) }
-    var body: some View { Text(status.uppercased()).font(.system(size: 9, weight: .heavy, design: .rounded)).tracking(0.7).foregroundStyle(color).padding(.horizontal, 9).padding(.vertical, 6).background(color.opacity(0.12), in: Capsule()) }
+    var color: Color { status == "pending" ? MKStyle.warning : (["completed", "approved"].contains(status) ? MKStyle.teal : MKStyle.muted) }
+    var body: some View { Text(status == "pending" ? "Needs review" : status.capitalized).font(.caption2.weight(.semibold)).foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 4).background(color.opacity(0.10), in: Capsule()) }
 }
 
 struct RequestDetailView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("requireDeviceAuthentication") private var requireDeviceAuthentication = false
+    @ScaledMetric(relativeTo: .largeTitle) private var priceSize = 46
     @State private var showPolicy = false
     @State private var loadingDetail = false
+    @State private var deciding = false
+    @State private var responseExpanded = true
+    @State private var access = Policy.once
     let request: RequestRecord
     private var current: RequestRecord { store.requests.first(where: { $0.id == request.id }) ?? request }
+    private var decisionLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 12))
+    }
+    private var accessTitle: String {
+        switch access.mode {
+        case "count": "This and the next calls"
+        case "budget": "Within a budget"
+        case "trust": "Trust this app"
+        default: "This call only"
+        }
+    }
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack { VStack(alignment: .leading, spacing: 4) { Text(current.appName).font(.title2.bold()); Text("\(current.provider.title)  /  \(current.model)").foregroundStyle(MKStyle.muted) }; Spacer(); StatusPill(status: current.status) }
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(spacing: 10) {
+                        Text(String(current.appName.prefix(1)).uppercased())
+                            .font(.title.bold()).foregroundStyle(MKStyle.teal)
+                            .frame(width: 60, height: 60).background(MKStyle.teal.opacity(0.10), in: RoundedRectangle(cornerRadius: 17))
+                        Text(current.appName).font(.title2.bold()).multilineTextAlignment(.center)
+                        Text("\(current.provider.title) / \(current.model)").font(.subheadline).foregroundStyle(MKStyle.muted).multilineTextAlignment(.center)
+                        StatusPill(status: current.status)
+                        Text(current.status == "completed" ? current.actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" : current.estimatedUSD)
+                            .font(.system(size: priceSize, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+                        Text(current.status == "completed" ? "Cost from reported usage" : "Estimated cost")
+                            .font(.subheadline).foregroundStyle(MKStyle.muted)
+                    }.frame(maxWidth: .infinity).padding(.top, 12)
+                    if current.isDemo { ModeBanner() }
+                    if current.status == "uncertain" {
+                        Label("The provider may have processed and charged for this request. It will not be retried automatically.", systemImage: "exclamationmark.triangle")
+                            .font(.footnote).foregroundStyle(MKStyle.warning)
+                    }
+                    if current.status == "sending" { ProgressView("Waiting for the provider…") }
                     Card {
-                        VStack(spacing: 12) {
-                            HStack { Text("Estimated reservation").foregroundStyle(MKStyle.muted); Spacer(); Text(current.estimatedUSD).fontWeight(.bold).foregroundStyle(MKStyle.teal) }
-                            if current.status == "completed" || current.status == "uncertain" {
-                                HStack { Text("Provider-reported cost").foregroundStyle(MKStyle.muted); Spacer(); Text(current.actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Unavailable").fontWeight(.semibold) }
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("What it sends").font(.headline)
+                            if loadingDetail { ProgressView("Loading the complete request…") }
+                            if current.payload == nil {
+                                Text("The complete request must load before you can allow it.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                            } else {
+                                ForEach(current.readableMessages) { message in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(message.role).font(.caption.weight(.semibold)).foregroundStyle(MKStyle.muted)
+                                        Text(message.text).font(.body).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                                DisclosureGroup("Full request") { json(current.payload!) }
                             }
                         }
                     }
-                    if current.isDemo { Label("DEMO DATA  This payload was generated locally and was not sent to a provider.", systemImage: "sparkles").font(.footnote).foregroundStyle(.orange) }
-                    if current.status == "uncertain" { Label("The provider may have processed this request and may have charged for it. MasterKey will not retry it automatically.", systemImage: "exclamationmark.triangle.fill").font(.footnote.weight(.medium)).foregroundStyle(.orange).padding(12).background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12)) }
-                    if current.status == "sending" { Label("This request is being sent to the provider.", systemImage: "arrow.up.forward.circle").font(.footnote).foregroundStyle(MKStyle.teal) }
-                    if loadingDetail { ProgressView("Loading exact request details…").tint(MKStyle.teal) }
-                    Text("FULL REQUEST JSON").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
-                    if let payload = current.payload {
-                        ScrollView([.horizontal, .vertical]) { Text(payload.prettyPrinted).font(.system(size: 12, weight: .regular, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.frame(minHeight: 170, maxHeight: 360).background(MKStyle.codeBackground, in: RoundedRectangle(cornerRadius: 14))
-                    } else { Text("Full payload unavailable. Refresh before making a decision.").font(.footnote).foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12)) }
-                    Text("Cost is a conservative reservation estimate, not a guarantee of the provider’s final charge.").font(.caption).foregroundStyle(MKStyle.muted)
-                    if current.status != "pending" {
-                        Text("FULL RESPONSE JSON").font(.caption.bold()).tracking(1.1).foregroundStyle(MKStyle.muted)
-                    }
-                    if let response = current.response {
-                        ScrollView(.horizontal) { Text(response.prettyPrinted).font(.system(size: 12, design: .monospaced)).foregroundStyle(MKStyle.cream).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(14) }.background(MKStyle.codeBackground, in: RoundedRectangle(cornerRadius: 14))
-                    } else if ["approved", "sending"].contains(current.status) {
-                        Text("Waiting for the provider response.").font(.footnote).foregroundStyle(MKStyle.muted)
-                    } else if current.status != "pending", !loadingDetail {
-                        Text(current.error ?? "No provider response was recorded.").font(.footnote).foregroundStyle(MKStyle.muted)
-                    }
+                    Text("The estimate reserves an allowance; it is not a guarantee of the provider’s final charge.")
+                        .font(.footnote).foregroundStyle(MKStyle.muted)
                     if current.status == "pending" {
-                        HStack(spacing: 12) {
-                            Button { Task { await store.decide(current, approve: false); dismiss() } } label: { Text("Deny").fontWeight(.semibold).frame(maxWidth: .infinity).padding(15).background(.white.opacity(0.08), in: Capsule()) }.tint(MKStyle.cream)
-                            Button { showPolicy = true } label: { Text("Approve").fontWeight(.bold).frame(maxWidth: .infinity).padding(15).background(MKStyle.teal, in: Capsule()).foregroundStyle(MKStyle.navy) }.disabled(current.payload == nil || loadingDetail)
+                        Card {
+                            Button { showPolicy = true } label: {
+                                HStack { Text("Allow").foregroundStyle(MKStyle.muted); Spacer(); Text(accessTitle); Image(systemName: "chevron.down").font(.caption) }
+                            }.buttonStyle(.plain).disabled(deciding)
+                        }
+
+                    } else {
+                        if let response = current.response {
+                            Card { DisclosureGroup("Provider response", isExpanded: $responseExpanded) { json(response) } }
+                        } else if !loadingDetail {
+                            Text(current.error ?? "No provider response was recorded.").font(.subheadline).foregroundStyle(MKStyle.muted)
                         }
                     }
                 }.padding(20)
-            }.background(MKStyle.navy.ignoresSafeArea()).navigationTitle("Request detail").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            }.safeAreaInset(edge: .bottom) {
+                if current.status == "pending" {
+                    VStack(spacing: 8) {
+                        decisionLayout {
+                            Button(role: .destructive) { decide(approve: false) } label: { Text("Deny").lineLimit(1).frame(maxWidth: .infinity) }.buttonStyle(.bordered)
+                            Button { decide(approve: true) } label: {
+                                HStack { if deciding { ProgressView() }; Text("Allow").lineLimit(1); if requireDeviceAuthentication { Image(systemName: "lock.shield") } }.frame(maxWidth: .infinity)
+                            }.buttonStyle(.borderedProminent).tint(MKStyle.teal).foregroundStyle(MKStyle.buttonText)
+                                .disabled(loadingDetail || current.payload == nil)
+                        }.controlSize(.large).disabled(deciding)
+                        if requireDeviceAuthentication { Text("Confirm with Face ID, Touch ID or your device passcode.").font(.footnote).foregroundStyle(MKStyle.muted) }
+                    }.padding(.horizontal, 20).padding(.vertical, 12).background(MKStyle.navy)
+                }
+            }.background(MKStyle.navy).navigationTitle("Review request").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
                 .sheet(isPresented: $showPolicy) {
-                    ApprovalPolicyView { policy in
-                        showPolicy = false
-                        Task { await store.decide(current, approve: true, policy: policy) }
-                    }
+                    ApprovalPolicyView(actionTitle: "Use this access") { policy in access = policy; showPolicy = false }
                 }
                 .task(id: "\(request.id):\(current.status)") { loadingDetail = true; await store.loadRequestDetails(id: current.id); loadingDetail = false }
                 .refreshable { await store.loadRequestDetails(id: current.id) }
+        }.presentationDetents([.large])
+    }
+    private func json(_ value: JSONValue) -> some View {
+        ScrollView(.horizontal) { Text(value.prettyPrinted).font(.system(.footnote, design: .monospaced)).textSelection(.enabled).padding(.vertical, 10) }
+    }
+    private func decide(approve: Bool) {
+        guard !deciding else { return }
+        deciding = true
+        Task {
+            defer { deciding = false }
+            await store.decide(current, approve: approve, policy: approve ? access : .once)
+            if !approve && current.status == "denied" { dismiss() }
         }
     }
 }
@@ -206,6 +298,8 @@ struct ApprovalPolicyView: View {
     @State private var count = 5
     @State private var budget = 1.0
     @State private var alert = 0.5
+    var isApplying = false
+    var actionTitle = "Apply access"
     var onApprove: (Policy) -> Void
     var body: some View {
         NavigationStack {
@@ -216,16 +310,17 @@ struct ApprovalPolicyView: View {
                     if mode == "budget" { HStack { Text("Total budget"); Spacer(); TextField("USD", value: $budget, format: .number.precision(.fractionLength(2))).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100) } }
                     if mode == "trust" { HStack { Text("Daily alert"); Spacer(); TextField("USD", value: $alert, format: .number.precision(.fractionLength(2))).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100) } }
                 }
-                Section { Text("You can change or revoke app grants any time. Cost estimates are display estimates.").font(.footnote).foregroundStyle(MKStyle.muted) }
+                Section { Text("You can change or remove app access any time. Estimates are not guaranteed final charges.").font(.footnote).foregroundStyle(MKStyle.muted) }
                 Section {
-                    Button("Approve") { onApprove(Policy(mode: mode, remainingCount: mode == "count" ? count : nil, remainingUSD: mode == "budget" ? budget : nil, alertUSDPerDay: mode == "trust" ? alert : nil)) }
+                    Button(actionTitle) { onApprove(Policy(mode: mode, remainingCount: mode == "count" ? count : nil, remainingUSD: mode == "budget" ? budget : nil, alertUSDPerDay: mode == "trust" ? alert : nil)) }
+                        .disabled(isApplying)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .buttonStyle(.borderedProminent)
                         .tint(MKStyle.teal)
                         .foregroundStyle(MKStyle.navy)
                 }
-            }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Approve request").navigationBarTitleDisplayMode(.inline)
+            }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Access for this app").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }.presentationDetents([.medium, .large])
     }
@@ -233,54 +328,151 @@ struct ApprovalPolicyView: View {
 
 struct VaultView: View {
     var returnConnectCode: String? = nil
+    var suggestedProvider: Provider? = nil
     @EnvironmentObject private var store: AppStore
-    @State private var provider: Provider = .openAI
+    @State private var showPaste = false
+    @State private var selectedKey: KeyRecord?
+    @State private var confirmRouterReplacement = false
+    private var hasOpenRouter: Bool { store.keys.contains(where: { $0.provider == .openRouter }) }
+    var body: some View {
+        List {
+            Section { ModeBanner(); InfoBanner() }.listRowBackground(Color.clear).listRowSeparator(.hidden)
+            if !store.keys.isEmpty {
+                Section("Connected providers") {
+                    ForEach(store.keys) { key in
+                        Button { selectedKey = key } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "key.horizontal").font(.title3).foregroundStyle(MKStyle.teal)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(key.provider.title).font(.headline).foregroundStyle(MKStyle.cream)
+                                    Text("Key ending \(key.lastFour)").font(.subheadline).foregroundStyle(MKStyle.muted)
+                                }
+                                Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(MKStyle.muted)
+                            }.padding(.vertical, 5)
+                        }
+                    }
+                }.listRowBackground(MKStyle.panel)
+            }
+            Section(hasOpenRouter ? "OpenRouter connection" : "Add a provider") {
+                VStack(alignment: .leading, spacing: 14) {
+                    Label("OpenRouter", systemImage: "link").font(.headline)
+                    Text("Connect your OpenRouter account without copying a key. Requests use your OpenRouter balance.").font(.subheadline).foregroundStyle(MKStyle.muted)
+                    Text("A $10 spending cap is suggested on the consent page. You can change it there.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    Button {
+                        if hasOpenRouter { confirmRouterReplacement = true }
+                        else { Task { await store.connectOpenRouter() } }
+                    } label: {
+                        HStack { if store.isConnectingOpenRouter { ProgressView() }; Text(store.isConnectingOpenRouter ? "Connecting…" : (hasOpenRouter ? "Reconnect OpenRouter" : "Connect OpenRouter")).frame(maxWidth: .infinity) }
+                    }.buttonStyle(.borderedProminent).tint(MKStyle.teal).foregroundStyle(MKStyle.buttonText)
+                        .disabled(store.demoMode || store.isConnectingOpenRouter)
+                }.padding(.vertical, 8)
+            }.listRowBackground(MKStyle.panel)
+            Section("OpenAI, Anthropic or an existing key") {
+                Button { NotificationCenter.default.post(name: .masterKeyAddFromComputer, object: returnConnectCode) } label: {
+                    Label { VStack(alignment: .leading, spacing: 4) {
+                        Text("Paste from your computer").foregroundStyle(MKStyle.cream)
+                        Text("Scan the setup QR, then confirm on this phone.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    } } icon: { Image(systemName: "desktopcomputer") }
+                }.disabled(store.demoMode)
+                Button { showPaste = true } label: { Label("Paste a key on this iPhone", systemImage: "doc.on.clipboard").foregroundStyle(MKStyle.cream) }
+                    .disabled(store.demoMode)
+            }.listRowBackground(MKStyle.panel)
+            Section { Text("Apps receive permission to use a provider. They never receive your key.").font(.footnote).foregroundStyle(MKStyle.muted) }.listRowBackground(Color.clear)
+        }.listStyle(.insetGrouped).scrollContentBackground(.hidden).background(MKStyle.navy)
+            .navigationTitle("Keys").navigationBarTitleDisplayMode(.large)
+            .alert("Replace your OpenRouter key?", isPresented: $confirmRouterReplacement) {
+                Button("Continue") { Task { await store.connectOpenRouter() } }
+                Button("Keep current key", role: .cancel) { }
+            } message: { Text("Completing authorization replaces the saved OpenRouter key. Connected apps will use the new key under their existing permissions.") }
+            .sheet(isPresented: $showPaste) { PasteKeyView(provider: suggestedProvider ?? .openAI) }
+            .sheet(item: $selectedKey) { key in ProviderKeyView(key: key) }
+            .onChange(of: store.contextGeneration) { _, _ in selectedKey = nil; showPaste = false }
+    }
+}
+
+private struct PasteKeyView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var provider: Provider
     @State private var secret = ""
     @State private var saving = false
+    @State private var confirmReplacement = false
+    init(provider: Provider) { _provider = State(initialValue: provider) }
     var body: some View {
-        ScrollView { VStack(alignment: .leading, spacing: 18) {
-            PageHeader(eyebrow: "Providers", title: "Your keys", subtitle: "Connect a provider once. Choose which apps can use it.")
-            ModeBanner(); InfoBanner()
-            Card { VStack(alignment: .leading, spacing: 12) {
-                Text("Add from your computer").font(.headline)
-                Text("Create and paste the key on your computer. Scan its QR here, then confirm the key on this phone.").font(.subheadline).foregroundStyle(MKStyle.muted)
-                Button { NotificationCenter.default.post(name: .masterKeyAddFromComputer, object: returnConnectCode) } label: { Label("Add from computer", systemImage: "desktopcomputer").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).disabled(store.demoMode)
-            } }
-            ForEach(store.keys) { key in Card { HStack(spacing: 12) {
-                Image(systemName: "key.fill").foregroundStyle(MKStyle.teal)
-                VStack(alignment: .leading, spacing: 4) { Text(key.provider.title).font(.headline); Text("Key ending \(key.lastFour)").font(.caption).foregroundStyle(MKStyle.muted) }
-                Spacer()
-                Button(role: .destructive) { Task { await store.removeKey(key) } } label: { Image(systemName: "trash") }.accessibilityLabel("Remove \(key.provider.title) key")
-            } } }
-            Card { VStack(alignment: .leading, spacing: 14) {
-                Text("Or paste a key on this phone").font(.headline)
-                Picker("Provider", selection: $provider) { ForEach(Provider.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented).disabled(saving)
-                Link(destination: provider.keysURL) { Label("Create a key at \(provider.title)", systemImage: "arrow.up.right.square") }
-                Text("Copy a key from the provider, then paste it below. On a Mac and iPhone using the same Apple Account, Universal Clipboard can save you typing.").font(.footnote).foregroundStyle(MKStyle.muted)
-                HStack {
-                    SecureField(provider.keyPlaceholder, text: $secret).textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().disabled(saving)
-                    PasteButton(payloadType: String.self) { values in
-                        if let value = values.first { secret = value.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    }.labelStyle(.iconOnly).disabled(saving || store.demoMode)
-                }
-                Button {
-                    let value = secret; let selectedProvider = provider; let generation = store.contextGeneration
-                    saving = true
-                    Task {
-                        defer { saving = false }
-                        if await store.addKey(provider: selectedProvider, value: value, label: selectedProvider.title),
-                           generation == store.contextGeneration, secret == value { secret = "" }
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Provider", selection: $provider) { ForEach(Provider.allCases) { Text($0.title).tag($0) } }.disabled(saving)
+                    Link(destination: provider.keysURL) { Label("Create a key at \(provider.title)", systemImage: "arrow.up.right.square") }
+                    Text("Copy a key from the provider, then paste it here. Universal Clipboard can bring a key copied on your Mac to this iPhone.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    HStack {
+                        SecureField(provider.keyPlaceholder, text: $secret).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().disabled(saving)
+                        PasteButton(payloadType: String.self) { values in
+                            if let value = values.first { secret = value.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        }.labelStyle(.iconOnly).disabled(saving || store.demoMode)
                     }
-                } label: {
-                    HStack { if saving { ProgressView() }; Text(saving ? "Saving…" : "Save key").fontWeight(.semibold) }.frame(maxWidth: .infinity).padding(13)
-                }.buttonStyle(.borderedProminent).tint(MKStyle.teal).foregroundStyle(MKStyle.navy)
-                    .disabled(store.demoMode || saving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Text("Sent over HTTPS to your MasterKey server and encrypted there. Connected apps never receive the key. Saving does not make a billable model call.").font(.caption).foregroundStyle(MKStyle.muted)
-            } }
-        }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
-            .onChange(of: provider) { _, _ in secret = "" }
-            .onChange(of: store.contextGeneration) { _, _ in secret = "" }
-            .onDisappear { secret = "" }
+                }
+                Section {
+                    Button {
+                        if store.keys.contains(where: { $0.provider == provider }) { confirmReplacement = true }
+                        else { saveKey() }
+                    } label: { HStack { if saving { ProgressView() }; Text(saving ? "Saving…" : "Save key").frame(maxWidth: .infinity) } }
+                        .buttonStyle(.borderedProminent).foregroundStyle(MKStyle.buttonText)
+                        .disabled(store.demoMode || saving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Text("Sent to your MasterKey server over HTTPS and encrypted there. Saving does not make a billable model call.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Paste provider key").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+                .confirmationDialog("Replace the saved key?", isPresented: $confirmReplacement, titleVisibility: .visible) {
+                    Button("Replace key", role: .destructive) { saveKey() }
+                    Button("Keep current key", role: .cancel) { }
+                } message: { Text("Connected apps will use the new key under their existing permissions. The previous key is not revoked at the provider.") }
+                .onChange(of: provider) { _, _ in secret = "" }
+                .onChange(of: store.contextGeneration) { _, _ in secret = ""; dismiss() }
+                .onDisappear { secret = "" }
+        }
+    }
+    private func saveKey() {
+        guard !saving, !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let value = secret; let selected = provider; let generation = store.contextGeneration
+        saving = true
+        Task {
+            defer { saving = false }
+            if await store.addKey(provider: selected, value: value, label: selected.title), generation == store.contextGeneration {
+                secret = ""; dismiss()
+            }
+        }
+    }
+
+}
+
+private struct ProviderKeyView: View {
+    let key: KeyRecord
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmRemoval = false
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Provider", value: key.provider.title)
+                    LabeledContent("Key ending", value: key.lastFour)
+                    if let created = key.createdAt { LabeledContent("Added", value: created.asDate) }
+                    Text("The full key cannot be viewed or exported.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+                Section("Connected apps") {
+                    let apps = store.grants.filter { $0.provider == key.provider }
+                    if apps.isEmpty { Text("No apps use this provider yet.").foregroundStyle(MKStyle.muted) }
+                    ForEach(apps) { app in Text(app.appName) }
+                }
+                Section { Button("Remove key", role: .destructive) { confirmRemoval = true } }
+            }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle(key.provider.title)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+                .confirmationDialog("Remove this key? Apps using it will stop working until you add another.", isPresented: $confirmRemoval, titleVisibility: .visible) {
+                    Button("Remove key", role: .destructive) { Task { await store.removeKey(key); if !store.keys.contains(where: { $0.provider == key.provider }) { dismiss() } } }
+                    Button("Keep key", role: .cancel) { }
+                }
+        }
     }
 }
 
@@ -295,7 +487,7 @@ struct GrantsView: View {
             ForEach(store.grants) { grant in
                 Button { selected = grant } label: { GrantCard(grant: grant) }.buttonStyle(.plain)
             }
-            Text("Tap a grant to change its policy or revoke access.").font(.caption).foregroundStyle(MKStyle.muted)
+            Text("Tap an app to change its access or disconnect it.").font(.caption).foregroundStyle(MKStyle.muted)
         }.padding(20) }.background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selected) { item in GrantDetailView(grant: store.grants.first(where: { $0.id == item.id }) ?? item) }
     }
@@ -324,14 +516,36 @@ struct GrantDetailView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var showPolicy = false
+    @State private var confirmDisconnect = false
+    @State private var updating = false
     let grant: GrantRecord
+    private var current: GrantRecord { store.grants.first(where: { $0.id == grant.id }) ?? grant }
     var body: some View {
-        NavigationStack { VStack(alignment: .leading, spacing: 18) {
-            GrantCard(grant: grant)
-            Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }
-            Button(role: .destructive) { Task { await store.revoke(grant); dismiss() } } label: { Label("Revoke grant", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }
-            Spacer()
-        }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }.sheet(isPresented: $showPolicy) { ApprovalPolicyView { policy in Task { await store.update(grant, policy: policy); showPolicy = false } } } }
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                GrantCard(grant: current)
+                InfoBanner()
+                Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }.disabled(updating)
+                Button(role: .destructive) { confirmDisconnect = true } label: { Label("Disconnect app", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }.disabled(updating)
+                if updating { ProgressView() }
+                Spacer()
+            }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+                .confirmationDialog("Disconnect this app?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+                    Button("Disconnect app", role: .destructive) {
+                        updating = true
+                        Task { defer { updating = false }; if await store.revoke(grant) { dismiss() } }
+                    }
+                } message: { Text("This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish.") }
+                .sheet(isPresented: $showPolicy) {
+                    ApprovalPolicyView(isApplying: updating) { policy in
+                        guard !updating else { return }
+                        updating = true
+                        Task { defer { updating = false }; if await store.update(grant, policy: policy) { showPolicy = false } }
+                    }
+                }
+                .onChange(of: store.contextGeneration) { _, _ in dismiss() }
+        }
     }
 }
 
@@ -339,11 +553,15 @@ struct AccountView: View {
     @EnvironmentObject private var store: AppStore
     @State private var stagingUsername = ""
     @State private var stagingPassword = ""
+    @State private var confirmStop = false
+    @State private var confirmSessions = false
+    @State private var confirmSignOut = false
 
     var body: some View {
         Form {
             Section {
                 PageHeader(eyebrow: "MasterKey", title: "Account", subtitle: "Manage your sign-in.")
+                InfoBanner()
             }.listRowBackground(MKStyle.navy)
             Section("Profile") {
                 if store.demoMode {
@@ -355,10 +573,24 @@ struct AccountView: View {
                     }
                     LabeledContent("Account ID", value: account.id)
                     LabeledContent("Server", value: store.serverURL)
-                    Button("Sign out", role: .destructive) { store.signOut() }
+                    if account.authProvider == "apple" {
+                        Text("Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; MasterKey does not have a separate account password.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    }
+                    Button("Sign out on this iPhone") { confirmSignOut = true }.disabled(store.busy)
                 } else {
                     AppleAuthenticationButton(mode: .signIn)
-                    NavigationLink("Sign up") { SignUpView() }
+                    Text("New here? Continuing creates your MasterKey account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }
+            if !store.demoMode, store.account != nil {
+                Section("Security & access") {
+                    Button("Sign out other devices") { confirmSessions = true }.disabled(store.busy)
+                    Button("Stop all app permissions", role: .destructive) { confirmStop = true }.disabled(store.busy)
+                    Text("Signing out devices does not revoke app permissions. Stop permissions separately if an app or token may be compromised.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+                Section("Delete account") {
+                    NavigationLink("Delete MasterKey account") { DeleteAccountView() }.disabled(store.busy)
+                    Text("Permanently remove your MasterKey account, keys, permissions and history. Your provider accounts and subscriptions are separate.").font(.footnote).foregroundStyle(MKStyle.muted)
                 }
             }
             if !store.demoMode, store.account == nil, store.supportsStagingPassword {
@@ -386,33 +618,16 @@ struct AccountView: View {
                 }
             }
         }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
-    }
-}
+        .confirmationDialog("Sign out on this iPhone?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { Task { await store.signOutRemotely() } }
+        } message: { Text("This ends this device’s server session. Other devices and app permissions stay active.") }
+        .confirmationDialog("Sign out other devices?", isPresented: $confirmSessions, titleVisibility: .visible) {
+            Button("Sign out other devices", role: .destructive) { Task { await store.revokeOtherSessions() } }
+        } message: { Text("This iPhone stays signed in. App permissions stay active until you stop them separately.") }
+        .confirmationDialog("Stop all app permissions?", isPresented: $confirmStop, titleVisibility: .visible) {
+            Button("Stop permissions", role: .destructive) { Task { await store.stopAllPermissions() } }
+        } message: { Text("Every connected app will lose access. Unsent requests are denied. Already-sent requests may still finish; your keys stay stored.") }
 
-private struct SignUpView: View {
-    @EnvironmentObject private var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        Form {
-            Section {
-                AppleAuthenticationButton(mode: .signUp)
-            }
-            if store.supportsStagingPassword {
-                Section {
-                    Text("For password sign-in on staging, ask the server operator for a test account.")
-                        .font(.footnote).foregroundStyle(MKStyle.muted)
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(MKStyle.navy.ignoresSafeArea())
-        .navigationTitle("Sign up")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .onChange(of: store.account?.id) { _, accountID in
-            if accountID != nil { dismiss() }
-        }
     }
 }
 
@@ -451,7 +666,7 @@ struct WelcomeView: View {
     @EnvironmentObject private var store: AppStore
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 28) {
-            Image(systemName: "key.horizontal").font(.system(size: 48)).foregroundStyle(MKStyle.teal).padding(.top, 36)
+            Image("BrandMark").resizable().scaledToFit().frame(width: 88, height: 88).clipShape(RoundedRectangle(cornerRadius: 22)).accessibilityHidden(true).padding(.top, 28)
             PageHeader(eyebrow: "MasterKey", title: "Your keys.\nYour permission.", subtitle: "Use AI apps with your own provider account. Review what each app sends before it runs.")
             VStack(alignment: .leading, spacing: 18) {
                 Label("Add a provider key once", systemImage: "1.circle")
@@ -459,7 +674,9 @@ struct WelcomeView: View {
                 Label("Review and approve requests", systemImage: "3.circle")
             }.font(.subheadline)
             AppleAuthenticationButton(mode: .continue)
-            Text("New here? Continuing creates your MasterKey account.").font(.footnote).foregroundStyle(MKStyle.muted)
+            Text("New here? Continuing creates your MasterKey account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(MKStyle.muted)
+            Text("An experimental personal project by Joseph Chen, built with care. Provider usage is billed separately.").font(.footnote).foregroundStyle(MKStyle.muted)
+            HStack { NavigationLink("Privacy & data") { PrivacyView() }; NavigationLink("Help & contact") { SupportView() } }.font(.footnote)
             if store.developerOptions { NavigationLink("Other sign-in options") { AccountView() } }
             InfoBanner()
         }.padding(24) }.background(MKStyle.navy.ignoresSafeArea())
@@ -468,17 +685,38 @@ struct WelcomeView: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
+    @AppStorage("allowSwipeOnce") private var allowSwipeOnce = false
+    @AppStorage("requireDeviceAuthentication") private var requireDeviceAuthentication = false
+    @State private var showSwipeWarning = false
+    @State private var canAuthenticate = true
     var body: some View {
         Form {
             Section("Account") { NavigationLink { AccountView() } label: { Label(store.account == nil ? "Sign in" : "Account", systemImage: "person.crop.circle") } }
-            Section("Appearance") { AppearancePicker() }
-            Section("Notifications") {
-                Button { Task { await store.requestNotifications() } } label: { Label("Enable notifications", systemImage: "bell.badge") }
-                Text("Get notified when a request needs your approval. Requests also refresh when you open the app.").font(.footnote).foregroundStyle(MKStyle.muted)
+            Section("Requests") {
+                Button { Task { await store.requestNotifications() } } label: { Label("Notification permission", systemImage: "bell") }
+                Toggle("Verify approvals on this device", isOn: $requireDeviceAuthentication).disabled(!canAuthenticate && !requireDeviceAuthentication)
+                Text(canAuthenticate ? "Use Face ID, Touch ID or your device passcode before allowing a request." : "Set up a device passcode or biometrics in iPhone Settings to enable approval verification.").font(.footnote).foregroundStyle(MKStyle.muted)
+                Toggle("Swipe to allow", isOn: Binding(get: { allowSwipeOnce }, set: { value in
+                    if value { showSwipeWarning = true } else { allowSwipeOnce = false }
+                }))
+                Text("Off by default. Only one-call approvals with an estimate of $0.05 or less can use this shortcut. Larger estimates open the review sheet.").font(.footnote).foregroundStyle(MKStyle.muted)
             }
-            Section { NavigationLink("Developer options") { DeveloperOptionsView() } }
+            Section("Appearance") { AppearancePicker() }
+            Section("Help & privacy") {
+                NavigationLink("Getting started") { FirstUseGuideView() }
+                NavigationLink("Help & contact") { SupportView() }
+                NavigationLink("Privacy & data") { PrivacyView() }
+            }
+            Section("Developer") { NavigationLink("Developer options") { DeveloperOptionsView() } }
             Section { InfoBanner() }
         }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Settings")
+            .task { var error: NSError?; canAuthenticate = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) }
+            .alert("Allow requests with a swipe?", isPresented: $showSwipeWarning) {
+                Button("Turn on", role: .destructive) { allowSwipeOnce = true }
+                Button("Keep off", role: .cancel) { }
+            } message: {
+                Text("This can skip the review sheet. Someone holding your unlocked phone could approve spending when device verification is off. Only a loaded request with an estimate of $0.05 or less can be allowed, for this call only. Estimates are not guaranteed final charges.")
+            }
     }
 }
 
@@ -571,7 +809,7 @@ struct ConnectAppView: View {
                             }
                             Text("Requests access to your \(preview.vendor.title) key.")
                             if !store.keys.contains(where: { $0.provider == preview.vendor }) {
-                                NavigationLink("Add your \(preview.vendor.title) key first") { VaultView(returnConnectCode: pairing.code) }
+                                NavigationLink("Add your \(preview.vendor.title) key first") { VaultView(returnConnectCode: pairing.code, suggestedProvider: preview.vendor) }
                             }
                             Text("Each call needs your approval at first. Change access later in Connected apps.").font(.footnote).foregroundStyle(MKStyle.muted)
                             Button(preview.requiresAsk == false ? "Choose access" : "Connect and ask each time") {
@@ -877,5 +1115,157 @@ private extension String {
         guard let date = formatter.date(from: self) else { return self }
         let output = DateFormatter(); output.dateStyle = .medium; output.timeStyle = .short
         return output.string(from: date)
+    }
+}
+
+
+struct SupportView: View {
+    var body: some View {
+        Form {
+            Section("Contact") {
+                Link(destination: SupportContact.mailURL) { Label("Email support", systemImage: "envelope") }
+                Text(SupportContact.email).textSelection(.enabled)
+                Text("Include your app version and the steps that failed. Never send API keys, authorization headers, passwords or private prompts.").font(.footnote).foregroundStyle(MKStyle.muted)
+                LabeledContent("App version", value: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") + " (" + (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1") + ")")
+            }
+            Section("Provider credits") {
+                Text("MasterKey beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance.")
+                Text("If a provider reports insufficient credits, check the billing account or project that issued your key. Adding a key does not add credits.")
+            }
+            Section("Lost phone or leaked access") {
+                Text("On another iPhone, sign in to the same MasterKey account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from MasterKey does not revoke it there.")
+                ForEach(Provider.allCases) { provider in Link(provider.title, destination: provider.keysURL) }
+            }
+            Section("A request is uncertain") {
+                Text("The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. MasterKey does not automatically retry an uncertain model call.")
+            }
+            Section("Connecting and notifications") {
+                Text("Scan the connection QR on the app’s website and check its source before allowing access. If a code expires, start a new connection on that website.")
+                Text("If notifications are disabled, open Inbox to review waiting requests. Notification permission can be changed in iPhone Settings.")
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Help & contact").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct PrivacyView: View {
+    var body: some View {
+        Form {
+            Section("Who operates MasterKey") {
+                Text("MasterKey is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.")
+            }
+            Section("Your keys") {
+                Text("Provider keys are sent to your selected MasterKey server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted.")
+            }
+            Section("Requests and history") {
+                Text("MasterKey stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy.")
+                Text("Treat prompts and responses as account data. Avoid including information you do not want the selected provider or calling app to receive.")
+            }
+            Section("Control and support") {
+                Text("Remove a provider key in Keys or disconnect an app in Apps. Removing a key does not delete your provider account or cancel a provider subscription. Already-sent requests cannot be recalled.")
+                Text("Delete your MasterKey account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used.")
+                Text("The beta does not add advertising trackers or third-party analytics SDKs. Apple and hosting providers may process service and diagnostic data under their own policies.")
+                Link("Privacy questions", destination: SupportContact.mailURL)
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Privacy & data").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct FirstUseGuideView: View {
+    @Environment(\.dismiss) private var dismiss
+    var onFinish: (() -> Void)? = nil
+    @State private var step = 0
+    private let titles = ["Your keys, your decision", "Choose a provider account", "Connect, review, stay in control"]
+    private let symbols = ["hand.raised", "key.horizontal", "checkmark.shield"]
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Image("BrandMark").resizable().scaledToFit().frame(width: 64, height: 64).accessibilityHidden(true)
+                Text("Getting started").font(.subheadline).foregroundStyle(MKStyle.teal)
+                HStack { ForEach(0..<3) { index in Capsule().fill(index == step ? MKStyle.teal : MKStyle.line).frame(height: 4) } }.accessibilityHidden(true)
+                Image(systemName: symbols[step]).font(.system(size: 38)).foregroundStyle(MKStyle.teal).accessibilityHidden(true)
+                Text(LocalizedStringKey(titles[step])).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                if step == 0 {
+                    Text("An experimental personal project by Joseph Chen, built with care. The beta is free; provider usage is billed separately.")
+                    Text("Your selected MasterKey server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key.")
+                    NavigationLink("Read privacy & data") { PrivacyView() }
+                } else if step == 1 {
+                    Text("After signing in, open Keys. Connect OpenRouter with its authorization screen, or add an OpenAI or Anthropic API key from your phone or computer.")
+                    Text("OpenRouter has its own credits. ChatGPT and Claude subscriptions do not include OpenAI or Anthropic API credits. Adding a key does not add a balance.")
+                    Text("Start with a separate provider key and a small provider-side spending limit where available.")
+                } else {
+                    Text("Start connecting from a supported app’s website. Scan its QR, check the source, then review the actual request and estimated cost before allowing one call.")
+                    Text("Notifications are optional. Open Inbox to check waiting requests, Activity to inspect results, and Apps to revoke access. Settings > Account has account deletion and security controls.")
+                    Text("If a request is uncertain, check the original request and provider usage before starting another. It may already have run.")
+                }
+                HStack {
+                    if step > 0 { Button("Back") { step -= 1 }.buttonStyle(.bordered) }
+                    Spacer()
+                    Button {
+                        if step < 2 { step += 1 } else { if let onFinish { onFinish() } else { dismiss() } }
+                    } label: { Text(LocalizedStringKey(step == 2 ? "Get started" : "Next")) }.buttonStyle(.borderedProminent)
+                }.padding(.top, 12)
+            }.padding(24)
+        }.background(MKStyle.navy.ignoresSafeArea()).foregroundStyle(MKStyle.cream)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct DeleteAccountView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var confirmation = ""
+    @State private var password = ""
+    @State private var appleReauthGeneration: Int?
+    var body: some View {
+        Form {
+            Section("What will be deleted") {
+                Text("Your MasterKey account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server.")
+                Text("Provider accounts, subscriptions and data already received by providers or apps are separate. Backups can retain older copies until expiration; deletion records must be applied before a restore is served.")
+                Text("If a provider request is being sent, wait for it to finish and try deletion again. Deletion cannot recall a request already sent.")
+            }
+            Section("Confirm account deletion") {
+                TextField("Type DELETE to confirm", text: $confirmation).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                if store.account?.authProvider == "apple" {
+                    Text("Continue with Apple to verify the same account again. Completing verification deletes your MasterKey account.").font(.footnote)
+                    SignInWithAppleButton(.continue, onRequest: { request in
+                        appleReauthGeneration = store.contextGeneration
+                        request.requestedScopes = []
+                    }, onCompletion: deleteWithApple)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black).frame(height: 46)
+                        .disabled(confirmation != "DELETE" || store.busy)
+                } else if store.account?.authProvider == "password" {
+                    SecureField("Account password", text: $password).textContentType(.password)
+                    Button("Permanently delete account", role: .destructive) {
+                        let value = password; password = ""
+                        Task { await store.deleteAccount(AccountDeletionRequest(password: value)) }
+                    }.disabled(confirmation != "DELETE" || password.isEmpty || store.busy)
+                } else if store.account?.authProvider == "dev", store.developerOptions {
+                    Button("Permanently delete account", role: .destructive) {
+                        let email = store.account?.email
+                        Task { await store.deleteAccount(AccountDeletionRequest(email: email)) }
+                    }.disabled(confirmation != "DELETE" || store.busy)
+                } else {
+                    Text("Sign in again to confirm your account type before deleting it. If this server has not been updated, contact support.")
+                    Link("Contact support", destination: SupportContact.mailURL)
+                }
+                if store.busy { ProgressView("Verifying account…") }
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Delete account").navigationBarTitleDisplayMode(.inline)
+            .onChange(of: store.account?.id) { _, id in if id == nil { dismiss() } }
+    }
+    private func deleteWithApple(_ result: Result<ASAuthorization, Error>) {
+        do {
+            let authorization = try result.get()
+            guard appleReauthGeneration == store.contextGeneration else { return }
+            appleReauthGeneration = nil
+            guard confirmation == "DELETE", let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let token = credential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else { throw APIError.invalidResponse }
+            let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+            Task { await store.deleteAccount(AccountDeletionRequest(idToken: token, authorizationCode: code)) }
+        } catch {
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            store.errorMessage = error.localizedDescription; store.showError = true
+        }
     }
 }

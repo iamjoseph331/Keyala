@@ -195,8 +195,19 @@ pub async fn enroll_page(Path(id): Path<String>) -> R<Html<String>> {
     Ok(Html(format!(
         "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>MasterKey</title>\
          <body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>Add a key to MasterKey</h1>\
-         <p><a href='masterkey://enroll/{id}' style='font-size:1.3rem'>Open in the MasterKey app</a></p>"
+         <p><a href='masterkey://enroll/{id}' style='font-size:1.3rem'>Open in the MasterKey app</a></p>{}", TRUST_LINK
     )))
+}
+
+/// Footer link on every server-served page.
+pub const TRUST_LINK: &str = "<p style='color:#666;font-size:.85rem'>Personal experimental project. <a href='/privacy'>About, privacy and support</a></p>";
+
+const TRUST_HTML: &str = include_str!("trust.html");
+
+/// /about and /privacy: who runs this server and what it does with data. Static, no scripts to the outside.
+pub async fn trust_page() -> Response {
+    let csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+    ([(header::CONTENT_SECURITY_POLICY, csp), (header::REFERRER_POLICY, "no-referrer"), (header::X_FRAME_OPTIONS, "DENY")], Html(TRUST_HTML)).into_response()
 }
 
 /// Lets iOS open https://<server>/connect/* and /enroll/* links (and camera QR scans) in the app.

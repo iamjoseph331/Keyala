@@ -1,0 +1,275 @@
+<title>MasterKey Pairing Flows</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: scenario tabs on top, a stage (browser + phone mocks) beside a step rail, then the dashboard heatmap. MasterKey palette. */
+:root {
+  --bg:#FAF7F2; --ink:#1F1B16; --mut:#7A7268; --acc:#3D7A57; --line:#ECE6DC; --card:#fff; --soft:#EFEAE1;
+  --site:#2F5DA8; --siteSoft:#EAF0FA; --warn:#A8662F; --stage:#E9E4DA;
+  --h:"Space Grotesk",Inter,system-ui,sans-serif; --b:Inter,-apple-system,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#171512; --ink:#F1ECE4; --mut:#A59D92; --acc:#6DB58A; --line:#2E2A25; --card:#211E1A; --soft:#2A2621;
+  --site:#8FB2EE; --siteSoft:#1D2635; --warn:#E0A36B; --stage:#100F0D; color-scheme:dark } }
+:root[data-theme="dark"] {
+  --bg:#171512; --ink:#F1ECE4; --mut:#A59D92; --acc:#6DB58A; --line:#2E2A25; --card:#211E1A; --soft:#2A2621;
+  --site:#8FB2EE; --siteSoft:#1D2635; --warn:#E0A36B; --stage:#100F0D; color-scheme:dark }
+body { background:var(--bg); color:var(--ink); font:15px/1.5 var(--b); }
+.wrap { max-width:1180px; margin:0 auto; padding-block:32px 64px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); display:grid; gap:28px }
+h1,h2,h3 { font-family:var(--h); text-wrap:balance; margin:0 } h1 { font-size:32px } h2 { font-size:22px } h3 { font-size:16px }
+.lead { color:var(--mut); max-width:70ch; margin:6px 0 0 }
+.tabs { display:flex; flex-wrap:wrap; gap:8px }
+.tabs button { font:600 14px var(--b); border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 14px; border-radius:999px; cursor:pointer }
+.tabs button[aria-selected="true"] { background:var(--acc); border-color:var(--acc); color:#fff }
+.tabs .rec { font-size:11px; font-weight:700; margin-left:6px; padding:1px 6px; border-radius:6px; background:var(--soft); color:var(--acc) }
+.tabs button[aria-selected="true"] .rec { background:rgba(255,255,255,.2); color:#fff }
+button:focus-visible { outline:2px solid var(--acc); outline-offset:2px }
+.scenario { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px }
+@media (max-width:900px) { .scenario { grid-template-columns:minmax(0,1fr) } }
+.stage { background:var(--stage); border-radius:18px; padding:20px; display:flex; gap:20px; align-items:flex-start; justify-content:center; flex-wrap:wrap; min-width:0 }
+.browser { flex:1 1 520px; max-width:640px; min-width:0; background:var(--card); border-radius:12px; overflow:hidden; border:1px solid var(--line); position:relative }
+.bar { display:flex; gap:6px; align-items:center; padding:8px 12px; background:var(--soft); font-size:12px; color:var(--mut) }
+.bar i { width:9px; height:9px; border-radius:50%; background:var(--line); display:block }
+.bar span { margin-left:10px; background:var(--card); padding:2px 10px; border-radius:6px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.site { padding:20px; min-height:340px; display:grid; gap:12px; align-content:start; position:relative }
+.site .brand { font:700 16px var(--h); color:var(--site) }
+.field { border:1px solid var(--line); border-radius:8px; padding:10px; color:var(--mut); font-size:13px; min-height:46px }
+.sbtn { font:600 14px var(--b); border:0; border-radius:8px; padding:10px 14px; cursor:pointer; background:var(--site); color:#fff; justify-self:start }
+.sbtn.ghost { background:var(--siteSoft); color:var(--site) }
+.mk { font:600 14px var(--b); border:0; border-radius:10px; padding:10px 14px; cursor:pointer; background:var(--acc); color:#fff; display:inline-flex; gap:8px; align-items:center; justify-self:start }
+.mk .logo { width:18px; height:18px; border-radius:5px; background:#FAF7F2; color:#3D7A57; font:700 9px var(--h); display:grid; place-items:center }
+.mk.ghost { background:var(--soft); color:var(--ink) }
+.chip { display:inline-flex; gap:8px; align-items:center; font-size:13px; padding:6px 10px; border-radius:999px; background:var(--soft); color:var(--acc); font-weight:600; justify-self:start }
+.chip::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--acc) }
+.shade { position:absolute; inset:0; background:rgba(20,18,15,.45); display:grid; place-items:center; padding:16px }
+.modal, .mkcard { background:var(--bg); color:var(--ink); border-radius:14px; padding:18px; display:grid; gap:10px; justify-items:center; text-align:center; max-width:320px; width:100%; border:1px solid var(--line) }
+.mkcard { justify-items:start; text-align:left; max-width:none; grid-template-columns:auto 1fr; column-gap:16px; align-items:center }
+.mkcard .qr { grid-row:span 4 }
+.qr { width:132px; height:132px; background:#fff; padding:6px; border-radius:8px; flex:none }
+.qr svg { width:100%; height:100%; display:block }
+.small { font-size:12px; color:var(--mut) } .code { font:600 15px ui-monospace,Menlo,monospace; letter-spacing:.06em }
+.wait { font-size:13px; color:var(--mut); display:flex; gap:8px; align-items:center }
+.wait::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--warn); animation:pulse 1.2s infinite }
+@keyframes pulse { 50% { opacity:.3 } }
+@media (prefers-reduced-motion: reduce) { .wait::before { animation:none } }
+.note { font-size:12px; padding:6px 8px; border-radius:6px; background:var(--soft); color:var(--warn); font-weight:600 }
+.phone { flex:0 0 250px; height:500px; border-radius:34px; background:var(--bg); border:6px solid var(--ink); padding:34px 14px 14px; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; box-sizing:border-box }
+.phone.off { opacity:.35 }
+.phone .tag { position:absolute; top:10px; left:0; right:0; text-align:center; font-size:11px; color:var(--mut) }
+.phone .ttl { font:700 20px var(--h) }
+.phone .row { background:var(--card); border-radius:12px; padding:10px 12px; font-size:13px; display:grid; gap:2px }
+.phone .spacer { flex:1 }
+.phone .mk { justify-self:stretch; justify-content:center; width:100% }
+.phone .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px }
+.phone .pair .mk { padding:10px 6px }
+.phone.safari { background:var(--card) } .phone.store { background:var(--card) }
+.cam { flex:1; border-radius:16px; background:#222; display:grid; place-items:center; position:relative }
+.cam .qr { width:110px; height:110px } .cam .pop { position:absolute; bottom:12px; left:10px; right:10px; background:#fff; color:#1F1B16; border-radius:12px; padding:8px 10px; font-size:12px; cursor:pointer; text-align:left; border:0; font-family:var(--b) }
+.hot { outline:2px dashed var(--warn); outline-offset:3px }
+.rail { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; display:grid; gap:12px; align-content:start }
+.steps { list-style:none; margin:0; padding:0; display:grid; gap:6px; counter-reset:s }
+.steps li { counter-increment:s; display:grid; grid-template-columns:24px 1fr; gap:8px; font-size:13px; color:var(--mut); cursor:pointer }
+.steps li::before { content:counter(s); width:22px; height:22px; border-radius:50%; border:1px solid var(--line); display:grid; place-items:center; font-size:11px; font-weight:700 }
+.steps li.on { color:var(--ink); font-weight:600 } .steps li.on::before { background:var(--acc); border-color:var(--acc); color:#fff }
+.steps li.done::before { background:var(--soft) }
+.nav { display:flex; gap:8px } .nav button { flex:1; font:600 13px var(--b); padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer }
+.nav button:disabled { opacity:.4; cursor:default }
+.score { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px } .score b { font-variant-numeric:tabular-nums }
+pre { margin:0; background:var(--soft); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre }
+.verdict { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; display:grid; gap:12px }
+.verdict ol { margin:0; padding-left:20px; display:grid; gap:6px; max-width:80ch }
+table { border-collapse:collapse; font-size:13px; width:100% } th,td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top } th { color:var(--mut); font-weight:600 }
+.tblwrap { overflow-x:auto }
+.dash { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; display:grid; gap:14px }
+.dash .head { display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:end }
+.dash select { font:14px var(--b); padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink) }
+.heat { overflow-x:auto } .heat svg { display:block; min-width:640px; width:100% }
+.kpis { display:flex; flex-wrap:wrap; gap:24px; font-size:13px; color:var(--mut) } .kpis b { display:block; font:700 22px var(--h); color:var(--ink); font-variant-numeric:tabular-nums }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>開發者那一側的配對流程</h1>
+    <p class="lead">AI 服務商的網頁要怎麼讓使用者連上 MasterKey。五種情境都可以直接點畫面裡的按鈕（虛線框）或右邊的「下一步」走一遍，右側會算使用者要動幾次手。畫面文字用英文，是 SDK 元件預設會顯示的樣子。</p>
+  </header>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+
+  <section class="scenario">
+    <div class="stage" id="stage"></div>
+    <aside class="rail">
+      <h3 id="sTitle"></h3>
+      <p class="small" id="sWhy" style="margin:0"></p>
+      <ol class="steps" id="steps"></ol>
+      <div class="nav"><button id="back">上一步</button><button id="next">下一步</button></div>
+      <div class="score" id="score"></div>
+      <pre id="code"></pre>
+    </aside>
+  </section>
+
+  <section class="verdict">
+    <h2>我的建議</h2>
+    <ol>
+      <li><b>做一個 SDK 檔案 <code>masterkey.js</code>，兩種觸發共用同一個彈窗。</b>預設是「用到才問」：使用者第一次按「Run」時開發者呼叫 <code>MasterKey.connect()</code>，彈窗說明為什麼要連，連好後直接把剛剛那個動作送出去。想要固定按鈕的開發者放 <code>&lt;masterkey-connect&gt;</code>，按下去開的是同一個彈窗。</li>
+      <li><b>內嵌卡片當作選項，不當預設。</b>只適合第一頁本來就是設定頁的工具。放在一般首頁會在使用者還不知道要做什麼時就要他掃碼。</li>
+      <li><b>SDK 自己判斷是電腦還是手機。</b>手機上顯示 QR 沒有用（不能用同一支手機掃自己），改成一個大按鈕「Open MasterKey」。</li>
+      <li><b>沒裝 App 時不需要特殊機制。</b>掃碼或按按鈕會落到 MasterKey 伺服器的 <code>/connect/{code}</code> 頁，上面放 App Store 按鈕和代碼。代碼有效 10 分鐘，夠下載加用 Apple 登入。裝好之後：電腦情境回去再掃一次（QR 還在）；手機情境回 Safari 再按一次。</li>
+      <li><b>兩個要補的小東西（還沒做）：</b>(a) <code>/connect/{code}</code> 頁的「Open in MasterKey」必須用 <code>masterkey://connect/{code}</code>，因為同網域內的連結不會觸發 Universal Link；(b) 建議後端讓 <code>GET /v1/connect/{code}</code> 多回一個 <code>opened</code> 狀態（手機打開了網頁但還沒核准），電腦上的彈窗就能說「Install MasterKey on your phone, then scan again」，不會讓人乾等。</li>
+      <li><b>App Clip 先不做。</b>它能做到「掃了就直接用」，但存 API key、登入都會變複雜，等有實際流失數據再說。</li>
+    </ol>
+    <div class="tblwrap"><table>
+      <thead><tr><th>方式</th><th>使用者動作</th><th>好處</th><th>代價</th></tr></thead>
+      <tbody id="cmp"></tbody>
+    </table></div>
+  </section>
+
+  <section class="dash">
+    <div class="head">
+      <div><h2>Dashboard：使用時間</h2><p class="small" style="margin:4px 0 0">範例資料。後端已加上 <code>hours_utc</code>（7×24，依呼叫建立時間），主控台換算成看的人的時區。</p></div>
+      <label class="small">時區 <select id="tz">
+        <option value="0">UTC</option><option value="9" selected>Asia/Tokyo (UTC+9)</option><option value="8">Asia/Taipei (UTC+8)</option><option value="-8">America/Los_Angeles (UTC−8)</option>
+      </select></label>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="heat" id="heat"></div>
+    <p class="small" style="margin:0">我們只知道伺服器收到呼叫的時間，不知道使用者手機的時區，所以這裡顯示的是「開發者選的時區」而不是「使用者當地時間」。這不會多洩漏什麼：每一次呼叫本來就經過開發者自己的伺服器。</p>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+function qr(seed) { // deterministic fake QR, enough for a mock
+  let x = seed * 9301 + 49297, n = 25, cells = '';
+  const finder = (r, c) => [[0,0],[0,n-7],[n-7,0]].some(([a,b]) => r>=a && r<a+7 && c>=b && c<b+7);
+  const fOn = (r, c) => { for (const [a,b] of [[0,0],[0,n-7],[n-7,0]]) if (r>=a&&r<a+7&&c>=b&&c<b+7) { const i=r-a, j=c-b; return i==0||i==6||j==0||j==6||(i>=2&&i<=4&&j>=2&&j<=4) } };
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    x = (x * 1103515245 + 12345) % 2147483648;
+    const on = finder(r, c) ? fOn(r, c) : (x >> 16) & 1;
+    if (on) cells += `<rect x="${c}" y="${r}" width="1" height="1"/>`;
+  }
+  return `<div class="qr"><svg viewBox="0 0 ${n} ${n}" fill="#1F1B16" aria-label="QR code">${cells}</svg></div>`;
+}
+const MK = t => `<button class="mk" data-go>${'<span class="logo">MK</span>'}${t}</button>`;
+const site = (url, body) => `<div class="browser"><div class="bar"><i></i><i></i><i></i><span>${url}</span></div><div class="site">${body}</div></div>`;
+const tool = (extra = '', run = false) => `<div class="brand">Resume Tailor</div><div class="field">Paste your resume…  (3 pages loaded)</div><div class="field">Job description: Senior iOS Engineer…</div>${run ? '<button class="sbtn" data-go>Tailor my resume</button>' : ''}${extra}`;
+const modal = (inner) => `<div class="shade"><div class="modal">${inner}</div></div>`;
+const qrModal = (msg = '<div class="wait">Waiting for your phone…</div>', top = '<h3>Connect MasterKey</h3><p class="small" style="margin:0">Scan with your iPhone camera. You approve on the phone, and your own OpenAI key pays.</p>') =>
+  modal(`${top}${qr(7)}<div class="code">MK-7Q4D</div>${msg}<a class="small" href="https://iamjoseph331.github.io/MasterKey/">No app yet? Get MasterKey</a>`);
+const phone = (cls, body, tag = '') => `<div class="phone ${cls}">${tag ? `<div class="tag">${tag}</div>` : ''}${body}</div>`;
+const phoneOff = phone('off', '<div class="ttl">iPhone</div><p class="small">（在口袋裡）</p>');
+const review = (btnTxt = 'Allow, ask each time') => phone('', `<div class="ttl">Connect app?</div>
+  <div class="row"><b>Resume Tailor</b><span class="small">from resume-tailor.example</span></div>
+  <div class="row">Uses your <b>OpenAI</b> key<span class="small">First time: you approve every call</span></div>
+  <div class="spacer"></div><div class="pair"><button class="mk ghost">Deny</button>${MK(btnTxt).replace('<span class="logo">MK</span>','')}</div>`, 'MasterKey');
+const allow = phone('', `<div class="ttl">Resume Tailor</div><div class="row"><span class="small">Estimated</span><b style="font-size:24px">$0.004</b></div>
+  <div class="row">gpt-4o-mini<span class="small">Sends your resume + job post</span></div><div class="spacer"></div>
+  <div class="pair"><button class="mk ghost">Deny</button>${MK('Allow').replace('<span class="logo">MK</span>','')}</div>`, 'MasterKey');
+const done = phone('', '<div class="ttl">Inbox</div><div class="row"><b>Resume Tailor</b><span class="small">Completed, cost $0.003</span></div><div class="spacer"></div>', 'MasterKey');
+const camera = phone('', `<div class="cam">${qr(7)}<button class="pop" data-go><b>masterkey-prod…onrender.com</b><br>Open in Safari</button></div>`, 'Camera');
+
+const S = [
+ { id:'jit', name:'用到才問', rec:true,
+   why:'使用者先用工具，按下「Tailor」時才跳出連接彈窗。連好後剛剛的動作自動送出，不用再按一次。',
+   code:`btn.onclick = async () => {\n  const grant = await MasterKey.connect({\n    app: "app_resume_tailor", vendor: "openai" })\n  run(grant)   // continues the same job\n}`,
+   taps:'電腦 1 下、手機掃碼 + 2 下', cost:'開發者要在動作前呼叫 connect()',
+   steps:[
+    ['在頁面上填好內容，按 Tailor', () => [site('resume-tailor.example', tool('', true)), phoneOff]],
+    ['彈窗說明原因並顯示 QR', () => [site('resume-tailor.example', tool('', true) + qrModal(undefined, '<h3>Use your own OpenAI key</h3><p class="small" style="margin:0">To tailor this resume, connect MasterKey. Scan with your iPhone camera.</p>')), camera]],
+    ['手機掃碼，App 打開核准頁', () => [site('resume-tailor.example', tool('', true) + qrModal()), review()]],
+    ['核准後彈窗自己關掉，工作繼續', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+    ['手機核准這次呼叫，結果出現', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="field" style="color:var(--ink)">✓ Tailored resume ready (2 pages)</div>')), done]],
+   ]},
+ { id:'button', name:'按鈕 → 彈窗',
+   why:'開發者在頁面放一顆「Connect MasterKey」按鈕。直觀，但使用者要先自己發現這顆按鈕、理解為什麼要按。',
+   code:`<script src="https://…/masterkey.js"><\/script>\n<masterkey-connect app="app_resume_tailor"\n  vendor="openai"></masterkey-connect>\n// el.addEventListener("connected", e => …)`,
+   taps:'電腦 2 下、手機掃碼 + 2 下', cost:'使用者連完還要回頭按 Run',
+   steps:[
+    ['使用者看到按鈕', () => [site('resume-tailor.example', tool('<div style="display:flex;gap:8px;flex-wrap:wrap">' + MK('Connect MasterKey') + '<button class="sbtn ghost">Tailor my resume</button></div>')), phoneOff]],
+    ['按下去，彈窗顯示 QR', () => [site('resume-tailor.example', tool() + qrModal()), camera]],
+    ['手機掃碼並核准', () => [site('resume-tailor.example', tool() + qrModal()), review()]],
+    ['按鈕變成已連接，回頭按 Tailor', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><button class="sbtn" data-go>Tailor my resume</button>')), phoneOff]],
+    ['手機核准這次呼叫', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+   ]},
+ { id:'inline', name:'內嵌卡片',
+   why:'QR 直接嵌在頁面裡，不用按任何東西。連好後卡片縮成一個小標籤。適合第一頁就是設定頁的工具；放在一般頁面會太早要求掃碼，而且一直佔位置。',
+   code:`<masterkey-connect mode="inline"\n  app="app_resume_tailor" vendor="openai">\n</masterkey-connect>`,
+   taps:'電腦 1 下、手機掃碼 + 2 下', cost:'一進頁面就要掃，還不知道工具好不好用',
+   steps:[
+    ['一進頁面就看到 QR 卡片', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Scan with your iPhone. Your own OpenAI key pays; you approve each call.</span><span class="code">MK-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), camera]],
+    ['手機掃碼並核准', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Approve on your phone…</span><span class="code">MK-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), review()]],
+    ['卡片收起，變成小標籤', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span>', true)), phoneOff]],
+    ['按 Tailor，手機核准', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+   ]},
+ { id:'noapp', name:'還沒裝 App',
+   why:'電腦上掃碼，但手機沒有 MasterKey。相機會打開 MasterKey 伺服器的網頁，頁面帶使用者去 App Store。裝好登入後回到電腦再掃一次，代碼還有效（10 分鐘）。',
+   code:`// nothing extra for the developer.\n// proposed backend: GET /v1/connect/{code}\n//   status: "pending" | "opened" | "approved"\n// so the modal can say "install, then scan again"`,
+   taps:'掃碼 2 次、下載 + Apple 登入', cost:'要多掃一次；可用 opened 狀態提示',
+   steps:[
+    ['電腦彈窗顯示 QR，手機相機掃', () => [site('resume-tailor.example', tool('', true) + qrModal()), camera]],
+    ['手機落到 MasterKey 網頁', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install MasterKey, then scan again.</div>')), phone('safari', `<div class="small">masterkey-prod…onrender.com/connect/MK-7Q4D</div><div class="ttl">Resume Tailor wants to use your OpenAI key</div><p class="small" style="margin:0">Your key stays on your MasterKey account. You approve each call.</p><div class="spacer"></div>${MK('Download on the App Store')}<p class="small" style="margin:0;text-align:center">Code MK-7Q4D, valid 9 min</p>`, 'Safari')]],
+    ['App Store 下載', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install MasterKey, then scan again.</div>')), phone('store', `<div class="ttl">MasterKey</div><p class="small" style="margin:0">Pay for AI apps with your own key</p><div class="spacer"></div>${MK('Get')}`, 'App Store')]],
+    ['Apple 登入', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Welcome</div><p class="small">Approve AI apps that use your own key.</p><div class="spacer"></div>${MK(' Sign in with Apple').replace('<span class="logo">MK</span>','')}`, 'MasterKey')]],
+    ['登入後第一頁就是「掃描電腦上的碼」', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Connect an app</div><div class="cam">${qr(7)}</div><p class="small" style="margin:0">Point at the code on your computer.</p><button class="mk ghost" data-go>Enter code instead</button>`, 'MasterKey')]],
+    ['核准，電腦上的工作繼續', () => [site('resume-tailor.example', tool('', true) + qrModal()), review()]],
+   ]},
+ { id:'mobile', name:'同一支手機',
+   why:'使用者在手機瀏覽器上用 AI 工具。QR 沒用（不能用自己掃自己），SDK 改顯示「Open MasterKey」按鈕，透過 Universal Link 打開 App，核准後回到 Safari。',
+   code:`// same call; the SDK sees a phone and shows\n// a button instead of a QR:\n//   https://masterkey…/connect/MK-7Q4D  (universal link)\n// on the /connect page itself the button must be\n//   masterkey://connect/MK-7Q4D  (same-domain links\n//   don't trigger universal links)`,
+   taps:'手機 3 下，沒有掃碼', cost:'沒裝 App 時要回 Safari 再按一次',
+   steps:[
+    ['手機網頁按 Tailor，跳出底部面板', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><div class="row">Resume (3 pages)</div><div class="spacer"></div><div class="row" style="border:1px solid var(--line)"><b>Use your own OpenAI key</b><span class="small">Approve in the MasterKey app.</span>${MK('Open MasterKey')}<span class="small">No app? <u>Get MasterKey</u></span></div>`, 'Safari')]],
+    ['App 打開核准頁', () => [review()]],
+    ['回到 Safari（左上角「◀ Safari」或自動）', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval…</div><div class="spacer"></div><button class="mk" data-go>Approve in MasterKey</button>`, 'Safari')]],
+    ['核准這次呼叫', () => [allow]],
+    ['結果出現在網頁', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">MasterKey connected, OpenAI</span><div class="row">✓ Tailored resume ready</div>`, 'Safari')]],
+   ]},
+];
+
+let cur = S[0], step = 0;
+function render() {
+  $('#tabs').innerHTML = S.map(s => `<button role="tab" aria-selected="${s === cur}" data-id="${s.id}">${s.name}${s.rec ? '<span class="rec">建議</span>' : ''}</button>`).join('');
+  $('#sTitle').textContent = cur.name; $('#sWhy').textContent = cur.why; $('#code').textContent = cur.code;
+  $('#steps').innerHTML = cur.steps.map((st, i) => `<li data-i="${i}" class="${i === step ? 'on' : i < step ? 'done' : ''}">${st[0]}</li>`).join('');
+  $('#stage').innerHTML = cur.steps[step][1]().join('');
+  $('#stage').querySelectorAll('[data-go]').forEach(b => { if (step < cur.steps.length - 1) { b.classList.add('hot'); b.onclick = e => { e.preventDefault(); step++; render() } } });
+  $('#score').innerHTML = `<span class="small">使用者動作</span><b>${cur.taps}</b><span class="small">代價</span><b style="font-weight:500">${cur.cost}</b>`;
+  $('#back').disabled = step === 0; $('#next').disabled = step === cur.steps.length - 1;
+}
+$('#tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; cur = S.find(s => s.id === b.dataset.id); step = 0; render() };
+$('#steps').onclick = e => { const li = e.target.closest('li'); if (li) { step = +li.dataset.i; render() } };
+$('#back').onclick = () => { step--; render() }; $('#next').onclick = () => { step++; render() };
+$('#cmp').innerHTML = S.map(s => `<tr><td><b>${s.name}</b>${s.rec ? '（建議）' : ''}</td><td>${s.taps}</td><td>${s.why.split('。')[0]}</td><td>${s.cost}</td></tr>`).join('');
+render();
+
+// usage-time heatmap, sample data in UTC (weekday row 0 = Sunday, like hours_utc)
+const UTC = Array.from({length: 7}, (_, w) => Array.from({length: 24}, (_, h) => {
+  const jst = (h + 9) % 24, work = w >= 1 && w <= 5;
+  const curve = Math.exp(-((jst - 21.5) ** 2) / 6) * 30 + Math.exp(-((jst - 12.5) ** 2) / 3) * (work ? 14 : 6) + (jst > 8 && jst < 24 ? 3 : 0);
+  return Math.round(curve * (work ? 1 : 1.25) + ((w * 7 + h * 13) % 5));
+}));
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function shift(off) { // move UTC cells into the viewer's zone, carrying across midnight
+  const out = Array.from({length: 7}, () => Array(24).fill(0));
+  UTC.forEach((row, w) => row.forEach((n, h) => { const t = w * 24 + h + off, k = (t % 168 + 168) % 168; out[Math.floor(k / 24)][k % 24] += n }));
+  return out;
+}
+function heat() {
+  const off = +$('#tz').value, m = shift(off), max = Math.max(...m.flat()), total = m.flat().reduce((a, b) => a + b, 0);
+  let best = [0, 0]; m.forEach((r, w) => r.forEach((n, h) => { if (n > m[best[0]][best[1]]) best = [w, h] }));
+  const byHour = Array.from({length: 24}, (_, h) => m.reduce((a, r) => a + r[h], 0)), peakH = byHour.indexOf(Math.max(...byHour));
+  const wk = m.slice(1, 6).flat().reduce((a, b) => a + b, 0) / 5, we = (m[0].concat(m[6])).reduce((a, b) => a + b, 0) / 2;
+  $('#kpis').innerHTML = `<div><b>${total.toLocaleString()}</b>requests, last 30 days</div><div><b>${String(peakH).padStart(2,'0')}:00</b>busiest hour</div><div><b>${DAYS[best[0]]} ${String(best[1]).padStart(2,'0')}:00</b>busiest slot</div><div><b>${(we / wk).toFixed(1)}×</b>weekend vs weekday</div>`;
+  const cw = 26, ch = 22, L = 40, T = 20, acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim();
+  let s = `<svg viewBox="0 0 ${L + 24 * cw + 4} ${T + 7 * ch + 24}" role="img" aria-label="Requests by weekday and hour">`;
+  for (let h = 0; h < 24; h += 3) s += `<text x="${L + h * cw + cw / 2}" y="13" font-size="11" text-anchor="middle" fill="var(--mut)">${String(h).padStart(2,'0')}</text>`;
+  m.forEach((r, w) => {
+    s += `<text x="${L - 8}" y="${T + w * ch + 15}" font-size="11" text-anchor="end" fill="var(--mut)">${DAYS[w]}</text>`;
+    r.forEach((n, h) => s += `<rect x="${L + h * cw + 1}" y="${T + w * ch + 1}" width="${cw - 2}" height="${ch - 2}" rx="3" fill="${n ? acc : 'var(--soft)'}" fill-opacity="${n ? (0.12 + 0.88 * n / max).toFixed(2) : 1}"><title>${DAYS[w]} ${h}:00, ${n} requests</title></rect>`);
+  });
+  s += `<text x="${L}" y="${T + 7 * ch + 18}" font-size="11" fill="var(--mut)">Fewer</text>`;
+  [0.15, 0.4, 0.65, 0.9].forEach((o, i) => s += `<rect x="${L + 40 + i * 18}" y="${T + 7 * ch + 8}" width="14" height="12" rx="2" fill="${acc}" fill-opacity="${o}"/>`);
+  s += `<text x="${L + 40 + 4 * 18 + 4}" y="${T + 7 * ch + 18}" font-size="11" fill="var(--mut)">More</text></svg>`;
+  $('#heat').innerHTML = s;
+}
+$('#tz').onchange = heat; heat();
+</script>
