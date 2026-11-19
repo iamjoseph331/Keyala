@@ -1019,6 +1019,14 @@ async fn developer_app_info_rotation_and_report() {
     assert_eq!(tot["unmetered"], 0);
     assert_eq!(rep["daily"].as_array().unwrap().len(), 30);
     assert_eq!(rep["daily"][29]["requests"], 3);
+    let hours = rep["hours_utc"].as_array().unwrap();
+    assert_eq!((hours.len(), hours[0].as_array().unwrap().len()), (7, 24));
+    let now = chrono::Utc::now();
+    use chrono::{Datelike, Timelike};
+    let cell = |t: chrono::DateTime<chrono::Utc>| hours[t.weekday().num_days_from_sunday() as usize][t.hour() as usize].as_i64().unwrap();
+    assert_eq!(hours.iter().flat_map(|r| r.as_array().unwrap()).map(|v| v.as_i64().unwrap()).sum::<i64>(), 3);
+    let earlier = now - chrono::Duration::minutes(5); // the test may straddle an hour boundary
+    assert_eq!(cell(now) + if earlier.hour() != now.hour() { cell(earlier) } else { 0 }, 3, "calls land in the current UTC hour");
     assert_eq!(rep["models"][0]["model"], "gpt-4o-mini");
     assert_eq!(rep["models"][0]["completed"], 2);
     assert_eq!(rep["countries"], json!([{"country": "JP", "users": 1, "requests": 3, "cost_usd": tot["cost_usd"]}]));

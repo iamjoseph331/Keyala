@@ -128,11 +128,12 @@ history are not recoverable this way; users reconnect.
                "input_tokens", "output_tokens", "users", "new_users" },
   "daily":     [{ "date": "2026-11-15", "requests", "completed", "cost_usd" }],      // every day, zeros included
   "models":    [{ "vendor", "model", "requests", "completed", "cost_usd", "input_tokens", "output_tokens" }],
+  "hours_utc": [[0, 0, 3, ...24], ...7],   // requests by UTC weekday (row 0 = Sunday) x hour (0-23), zeros included
   "countries": [{ "country": "JP" | null, "users", "requests", "cost_usd" }] }  // most requests first
 ```
 `country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
 operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
-the IP. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
+the IP. `hours_utc` is when calls were made (request creation time, UTC); the console shifts it to the viewer's time zone. It reveals nothing a developer's own server does not already see, since every call passes through it. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the

@@ -482,6 +482,16 @@ pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query
     let countries: Vec<(Option<String>, i64, i64, i64)> = sqlx::query_as(&format!(
         "SELECT g.country, COUNT(DISTINCT r.user_id), COUNT(*), {cost} {base} GROUP BY g.country ORDER BY 3 DESC, 4 DESC"))
         .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    // when calls happen: requests per UTC weekday (0 = Sunday, SQLite %w) x hour; the console shifts it to the viewer's zone
+    let cells: Vec<(i64, i64, i64)> = sqlx::query_as(&format!(
+        "SELECT CAST(strftime('%w', r.created_at) AS INTEGER), CAST(substr(r.created_at,12,2) AS INTEGER), COUNT(*) {base} GROUP BY 1, 2"))
+        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+    let mut hours = [[0i64; 24]; 7];
+    for (w, h, n) in cells {
+        if let (Some(row), true) = (hours.get_mut(w as usize), (0..24).contains(&h)) {
+            row[h as usize] = n;
+        }
+    }
     Ok(Json(json!({
         "app_id": id, "days": days, "from": from.to_string(), "to": today.to_string(),
         "totals": {"requests": t.0, "completed": t.1, "denied": t.2, "expired": t.3, "failed": t.4, "uncertain": t.5, "pending": t.6,
@@ -489,6 +499,7 @@ pub async fn app_report(State(s): State<AppState>, h: HeaderMap, Query(q): Query
                    "users": t.12, "new_users": new_users},
         "daily": daily,
         "models": models.into_iter().map(|(v, m, r, c, u, i, o)| json!({"vendor": v, "model": m, "requests": r, "completed": c, "cost_usd": usd(u), "input_tokens": i, "output_tokens": o})).collect::<Vec<_>>(),
+        "hours_utc": hours,
         "countries": countries.into_iter().map(|(c, u, r, m)| json!({"country": c, "users": u, "requests": r, "cost_usd": usd(m)})).collect::<Vec<_>>(),
     })))
 }
