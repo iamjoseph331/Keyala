@@ -81,7 +81,7 @@ Policy   { "mode": "ask" | "count" | "budget" | "trust",
            "alert_usd_per_day": 1.00,     // mode=trust (optional elsewhere)
            "expires_at": null }
 App      { "id", "name", "homepage", "icon_url" }
-Grant    { "id", "app": App, "vendor": "openai"|"anthropic", "policy": Policy,
+Grant    { "id", "app": App, "vendor": "openai"|"anthropic"|"openrouter", "policy": Policy,
            "created_at", "last_used_at", "spent_usd", "request_count" }
 Request  { "id", "grant_id", "app": App, "vendor", "model", "endpoint",
            "status": "pending"|"approved"|"sending"|"denied"|"expired"|"completed"|"failed"|"uncertain",
@@ -95,10 +95,11 @@ Key      { "vendor", "last4", "created_at" }
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?, allowed_origins?}` → `{app_id, app_secret}` |
-| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, expires_at}` (10 min). Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
+| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, connect_qr_url, expires_at}` (10 min). `connect_url` = `{server}/connect/{code}` (universal link; a page with the QR on a computer), `connect_qr_url` = an SVG QR of it for the developer's page. Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
 | GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?}` |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
+| POST | `/v1/openrouter/chat/completions` | grant | OpenAI-shaped body for vendor `openrouter`; exact slugs from the allowlist only (`openai/gpt-4o-mini`, `anthropic/claude-haiku-5.5`, ...); OpenRouter's `models` fallback, `provider` routing and `plugins` are rejected (`unsupported_option`) because they change the price |
 | GET | `/v1/requests/{id}` | grant | `{status, response?}` |
 | GET | `/v1/app` | app secret | `{app_id, name, homepage, icon_url, allowed_origins, created_at}` |
 | POST | `/v1/app/secret` | app secret | rotate: `{app_secret}`; the old secret stops working at once |
@@ -127,11 +128,12 @@ history are not recoverable this way; users reconnect.
                "input_tokens", "output_tokens", "users", "new_users" },
   "daily":     [{ "date": "2026-11-15", "requests", "completed", "cost_usd" }],      // every day, zeros included
   "models":    [{ "vendor", "model", "requests", "completed", "cost_usd", "input_tokens", "output_tokens" }],
+  "hours_utc": [[0, 0, 3, ...24], ...7],   // requests by UTC weekday (row 0 = Sunday) x hour (0-23), zeros included
   "countries": [{ "country": "JP" | null, "users", "requests", "cost_usd" }] }  // most requests first
 ```
 `country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
 operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
-the IP. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
+the IP. `hours_utc` is when calls were made (request creation time, UTC); the console shifts it to the viewer's time zone. It reveals nothing a developer's own server does not already see, since every call passes through it. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
 
 Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the
@@ -145,7 +147,7 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | POST | `/v1/auth/password` | only if `MK_PASSWORD_LOGIN` is set (one operator-provisioned account, a fallback while Apple sign-in is unavailable): `{username, password}` → `{session_token, user}`; 404 unconfigured, 401 `invalid_credentials`, 429 `rate_limited` (10 per 10 min per address). Identity `{username}@password.invalid`, never linked to Apple or email accounts |
 | POST | `/v1/auth/dev` | only if `MK_DEV_LOGIN=1`: `{email}` → `{session_token, user}` |
 | GET | `/v1/me/keys` | `[Key]` |
-| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned) |
+| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned). 400 `invalid_key` if the shape is wrong for the vendor (OpenAI `sk-…` not `sk-ant-`, Anthropic `sk-ant-…`; admin keys `sk-admin-`/`sk-ant-admin` refused) or the vendor's free `GET /v1/models` answers 401. A 403 (e.g. a restricted key without the models-list permission) or an unreachable vendor = saved with `checked: false`; a 200 = `checked: true` (field added to this response and to enrollment upload). Mock: a key containing `MK_MOCK_INVALID` is rejected |
 | DELETE | `/v1/me/keys/{vendor}` | |
 | POST | `/v1/me/devices` | `{apns_token}` |
 | GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin, requires_ask}` (`origin` null for server apps; `requires_ask` is true when this user has no prior grant for this app) |
@@ -159,6 +161,53 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | POST | `/v1/me/requests/{id}/approve` | `{policy?}` (omit = once) → `Request` |
 | POST | `/v1/me/requests/{id}/deny` | → `Request` |
 | GET | `/v1/me/events` | SSE: `request.created`, `request.updated`, `grant.updated` (data = object JSON) |
+
+### One-tap OpenRouter (OAuth PKCE, run by the server)
+OpenAI and Anthropic have no API that creates a personal key; OpenRouter does. The server keeps the PKCE verifier,
+so the new key goes from OpenRouter to the server and never through the phone.
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/me/oauth/openrouter` | session | `{limit_usd?}` → `{flow_id, auth_url, expires_at}` (10 min). `limit_usd` prefills OpenRouter's spending cap (the user can change it). Open `auth_url` in `ASWebAuthenticationSession` with callback scheme `masterkey` |
+| GET | `/v1/me/oauth/openrouter/flows/{flow_id}` | session (owner only, else 404) | `{flow_id, provider, status: pending\|exchanging\|saved\|failed\|cancelled\|expired, reason, last4, expires_at}`. This, not the callback URL, is the outcome |
+| POST | `/v1/me/oauth/openrouter/flows/{flow_id}/cancel` | session (owner only) | pending → `cancelled` (later callbacks for it do nothing); other states unchanged; returns the flow |
+| GET | `/oauth/openrouter/callback` | single-use `state` | OpenRouter redirects here; pending → exchanging exactly once, the server exchanges the code (verifier deleted first), stores the key as vendor `openrouter`, emits SSE `key.updated`, and answers a page that redirects to `masterkey://oauth/openrouter?status=ok&flow={flow_id}` or `?status=error&reason=…[&flow=…]`. No key or last4 in the URL. Declined at OpenRouter = no state, so `reason=cancelled` without `flow`: the app cancels its own flow. A crash mid-exchange marks the flow `failed`/`interrupted` on restart (codes are single use; never retried) |
+Mock mode: `auth_url` is the server's own `/oauth/openrouter/mock`, which approves at once (key `sk-or-v1-mock…`), so the
+whole loop runs locally. OpenRouter keys can also be pasted (`sk-or-…`, checked with the free `GET /api/v1/key`).
+
+### Add a key from a computer (enrollment)
+The user is usually signed in to the provider's console on a computer, so the key is pasted there,
+on the server's own page `{server}/add-key` (same origin as the API, no CORS; CSP, no-referrer, no-store).
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/enroll` | none (10/10 min per IP) | `{vendor}` → `{enroll_id, enroll_url, qr_url, enroll_secret, expires_at}` (10 min). `enroll_id` = `en_` + 22 random chars (unguessable; QR only, no typed code). `enroll_secret` (`mk_es_…`) stays in the page's memory |
+| GET | `/v1/enroll/{id}` | `enroll_secret` | `Enrollment` (the page polls) |
+| POST | `/v1/enroll/{id}/key` | `enroll_secret` | `{api_key}` → `Enrollment`; only while `claimed`, exactly once (409 `not_claimed` otherwise); same checks as PUT keys (400 `invalid_key`; response adds `checked`). The candidate is then immutable |
+| GET | `/v1/me/enroll/{id}` | session | `Enrollment` + `current_last4` (the key it would replace, or null). Any signed-in user while `pending`, afterwards only the claimer (else 404) |
+| POST | `/v1/me/enroll/{id}/claim` | session | empty body → `Enrollment`; `pending` → `claimed`, binds this user; 409 `not_pending` if already claimed/expired |
+| POST | `/v1/me/enroll/{id}/confirm` | session | empty body → `Key`; `submitted` → `saved` and the key stored, in one transaction; 409 `not_submitted`. Single use |
+| POST | `/v1/me/enroll/{id}/cancel` | session | → 204; `claimed`/`submitted` → `cancelled`, candidate wiped |
+`Enrollment { id, vendor, status: pending|claimed|submitted|saved|cancelled|expired, last4, expires_at }`.
+SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidates are AES-GCM encrypted
+(AAD `enroll|{id}`) and wiped on save, cancel or expiry. Wrong key after upload = cancel and start again.
+`/enroll/{id}` (universal link, page with an "Open in app" link) and `/enroll/{id}/qr.svg`, `/connect/{code}/qr.svg`.
+`/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{MK_APPLE_TEAM_ID}.{MK_APPLE_BUNDLE_ID}`
+(default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `masterkey://connect/{code}` and `masterkey://enroll/{id}` remain.
+
+### Account controls and operations (launch readiness)
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/v1/me/sessions/revoke-all` | session | `{keep_current?: true}` → `{revoked}`. Signs out every other device (and this one when `keep_current` is false) |
+| POST | `/v1/me/logout` | session | no body → `{signed_out: true}`. Deletes only the session whose token is sent (other sessions of the same or any other user are untouched). Calling it again, or with an unknown token, answers 401 `unauthorized` like any dead session, so a client treats 401 on logout as "already signed out" and clears local state either way. Grant tokens and keys are not affected (use stop-all for that) |
+| POST | `/v1/me/stop-all` | session | no body → `{grants_revoked, requests_denied, requests_in_flight, enrollments_cancelled, flows_cancelled}`. Lost-device switch: every grant token dies at once; pending and approved-but-unsent requests become `denied` (reservations refunded; an unsent approved request is never sent afterwards); requests already `sending` cannot be recalled and are counted in `requests_in_flight`. Keys stay stored; sessions stay valid. New connects work normally afterwards |
+| POST | `/v1/me/delete` | session + fresh identity | `{confirm: "DELETE", id_token?, authorization_code?, password?, email?}` → `{deleted: true, apple_revoked: true\|false\|null}`. 400 `confirmation_required` (confirm is not exactly `DELETE`), 401 `reauth_failed`, 409 `request_in_flight` (a call is being sent to a provider; retry in about a minute), 429 `rate_limited`. Deletes in one transaction: sessions, devices, stored provider keys, grants (tokens die), every request with its payload and response, enrollments (incl. uploaded candidates), OAuth flows, the user row. Developer reports are computed from stored requests, so a deleted account's calls also leave the app's report (nothing is retained). Irreversible |
+**`user.auth_provider`:** every login response (`/v1/auth/apple|password|dev`) returns `user: {id, email, auth_provider}` with `auth_provider` one of `"apple"`, `"password"`, `"dev"`, set by the login route that verified the identity. Native should choose the fresh-reauth UI from it (Apple: new Apple sign-in sheet and send `id_token` + `authorization_code`; password: ask for the password; dev: email). It is display/UX only; authorization uses the stored identity (Apple `sub`, operator password account, dev email), never the email text and never links accounts by email. `email` is whatever Apple supplied at first sign-in (possibly a private relay, or the placeholder `{sub}@apple.invalid`); it changes only by changing it with Apple, MasterKey has no editable profile. `/v1/auth/dev` refuses any email ending `.invalid`.
+**Deletion durability:** the deletion is recorded as `deleted <user_id> <time>` in `deleted-accounts.log` and fsynced BEFORE the database transaction commits. If that file cannot be written the request fails with `503 deletion_unavailable`, nothing is deleted and the session stays valid (retry later). If the commit itself fails after the record was written, an `undeleted <user_id> <time>` line cancels it. `docs/ops/replay-deletions.sh` uses the last line per id after a restore. Apple revocation runs after the commit, so a refused deletion never revokes Apple access. Backups are NOT erased on deletion; they roll off by retention, and a restore re-applies the recorded deletions.
+Fresh identity, by how the account signs in: Apple accounts send a **fresh Apple `id_token`** (its `sub` must equal the account's, `iat` within 5 minutes, same audience as sign-in); password accounts send `password`; dev-login accounts send their `email` (only exists when `MK_DEV_LOGIN=1`). A session token alone never deletes an account.
+Apple revocation: if the app also sends the `authorization_code` from that same Apple sign-in and the operator configured `MK_APPLE_SIGNIN_KEY_P8` (+ `MK_APPLE_SIGNIN_KEY_ID`, team `MK_APPLE_TEAM_ID`), the server exchanges the code at `appleid.apple.com/auth/token` and revokes the refresh token at `/auth/revoke` before deleting; `apple_revoked` is `true`. If not configured or Apple refuses, deletion still completes with `apple_revoked: false` (non-Apple accounts: `null`) and the app should tell the user they can also remove MasterKey under Settings > Apple Account > Sign in with Apple. The `.p8` is never in git or logs.
+**Operator switches (not user API):** `MK_PAUSE_UPSTREAM=1`, or the file `PAUSE_UPSTREAM` created next to the database, makes new proxy calls answer `503 upstream_paused` with no reservation, and holds approved-but-unsent requests (still `approved`, sent after unpausing). `GET /v1/status` (public, no secrets) → `{ok, paused, db, version}`; `/healthz` stays `ok`. Consistent backup, restore drill and runbook: `docs/ops/`.
+`GET /v1/status` (public) -> `{ok, paused, db, version}`, HTTP 503 when the database does not answer. `MK_BACKUP_DIR` (+ `MK_BACKUP_KEEP`, default 7; `MK_BACKUP_INTERVAL_SECS`, default 86400) writes `VACUUM INTO` backups in-process, counted from the newest file. Each deletion appends `deleted <user_id> <time>` (no email) to `deleted-accounts.log` beside the database for restore replay. See docs/ops/.
+
+**Server pages:** `/about` and `/privacy` (same page, English / 繁體中文 / 日本語, picked by browser language) state who runs the server (a personal experimental project, no SLA), what is stored and sent where, retention, deletion and backups, and support contact. `/add-key`, `/connect/{code}`, `/enroll/{id}` and the OpenRouter result page link to it. They make no claim about production disk or backups; update the text when production persistence is actually applied.
 
 Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
 `mk_sess_` (so a leaked token is identifiable).

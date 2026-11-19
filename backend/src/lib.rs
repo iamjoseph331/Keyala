@@ -1,6 +1,9 @@
 //! MasterKey server: lets users lend an API key to apps, approving calls from their phone.
 mod apns;
 mod apple;
+mod enroll;
+mod oauth;
+mod ops;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -45,6 +48,8 @@ pub struct Config {
     /// operator asserts pricing.rs was checked against vendor pricing (MK_PRICES_VERIFIED=1)
     pub prices_verified: bool,
     pub apple_bundle_id: String,
+    /// Apple developer team, for the universal-link association file (MK_APPLE_TEAM_ID)
+    pub apple_team_id: String,
     /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
@@ -57,6 +62,16 @@ pub struct Config {
     /// One operator-provisioned password account (MK_PASSWORD_LOGIN=`username:sha256hex(password)`),
     /// a fallback while Sign in with Apple is unavailable. Unset = `POST /v1/auth/password` is 404.
     pub password_login: Option<(String, [u8; 32])>,
+    /// Sign in with Apple key for revoking tokens on account deletion: (key id, .p8 PEM). Optional.
+    pub apple_signin_key: Option<(String, String)>,
+    /// Apple's auth host, overridable so tests can serve a local one
+    pub apple_auth_url: String,
+    /// Operator switch (MK_PAUSE_UPSTREAM=1, or a `PAUSE_UPSTREAM` file beside the database): no new upstream calls.
+    pub pause_upstream: bool,
+    /// In-process backups: directory (MK_BACKUP_DIR), how many to keep, and how often.
+    pub backup_dir: Option<std::path::PathBuf>,
+    pub backup_keep: usize,
+    pub backup_interval: Duration,
 }
 
 #[derive(Deserialize, Clone)]
@@ -101,8 +116,18 @@ impl Config {
             vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
             prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
             apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.sorevan.masterkey".into()),
+            apple_team_id: env("MK_APPLE_TEAM_ID").unwrap_or_else(|| "83APHP8F76".into()),
             apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
+            apple_signin_key: match (env("MK_APPLE_SIGNIN_KEY_ID"), env("MK_APPLE_SIGNIN_KEY_P8")) {
+                (Some(k), Some(p)) => Some((k, p.replace("\\n", "\n"))),
+                _ => None,
+            },
+            apple_auth_url: env("MK_APPLE_AUTH_URL").unwrap_or_else(|| "https://appleid.apple.com".into()).trim_end_matches('/').to_string(),
+            pause_upstream: env("MK_PAUSE_UPSTREAM").as_deref() == Some("1"),
+            backup_dir: env("MK_BACKUP_DIR").map(Into::into),
+            backup_keep: env("MK_BACKUP_KEEP").and_then(|v| v.parse().ok()).filter(|k| *k >= 1).unwrap_or(7),
+            backup_interval: Duration::from_secs(env("MK_BACKUP_INTERVAL_SECS").and_then(|v| v.parse().ok()).filter(|s| *s >= 1).unwrap_or(86_400)),
             country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
             password_login: match env("MK_PASSWORD_LOGIN") {
                 None => None,
@@ -162,6 +187,8 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     sqlx::migrate!("./migrations").run(&db).await?;
     // a crash mid-send means we cannot know whether the vendor got it: never retry.
     sqlx::query("UPDATE requests SET status='uncertain' WHERE status='sending'").execute(&db).await?;
+    // a crash mid-exchange: OpenRouter codes are single use, so never retry; say so instead
+    sqlx::query("UPDATE oauth_flows SET status='failed', reason='interrupted', verifier=NULL WHERE status='exchanging'").execute(&db).await?;
     let state: AppState = Arc::new(Inner {
         db,
         cfg,
@@ -186,6 +213,9 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         tokio::spawn(send_request(state.clone(), id));
     }
     tokio::spawn(proxy::sweeper(state.clone()));
+    if state.cfg.backup_dir.is_some() {
+        tokio::spawn(ops::backup_loop(state.clone()));
+    }
     Ok(state)
 }
 
@@ -219,16 +249,41 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/openai/chat/completions", post(proxy::openai))
         .route("/v1/anthropic/messages", post(proxy::anthropic))
         .route("/v1/anthropic/v1/messages", post(proxy::anthropic)) // official SDK: base_url + /v1/messages
+        .route("/v1/openrouter/chat/completions", post(proxy::openrouter))
         .route("/v1/requests/{id}", get(proxy::poll_request))
         .route("/v1/apps", post(create_app))
         .route("/v1/app", get(get_app))
         .route("/v1/app/secret", post(rotate_secret))
         .route("/v1/app/report", get(app_report))
+        .route("/connect/{code}/qr.svg", get(enroll::connect_qr))
         .layer(middleware::from_fn(cors));
     Router::new()
         .merge(developer)
         .route("/healthz", get(|| async { "ok" }))
+        .route("/v1/status", get(ops::status))
+        .route("/v1/me/sessions/revoke-all", post(ops::revoke_sessions))
+        .route("/v1/me/stop-all", post(ops::stop_all))
+        .route("/v1/me/delete", post(ops::delete_account))
         .route("/connect/{code}", get(connect_page))
+        .route("/.well-known/apple-app-site-association", get(enroll::aasa))
+        .route("/add-key", get(enroll::add_key_page))
+        .route("/about", get(enroll::trust_page))
+        .route("/privacy", get(enroll::trust_page))
+        .route("/v1/me/logout", post(ops::logout))
+        .route("/enroll/{id}", get(enroll::enroll_page))
+        .route("/enroll/{id}/qr.svg", get(enroll::enroll_qr))
+        .route("/v1/enroll", post(enroll::create))
+        .route("/v1/enroll/{id}", get(enroll::poll))
+        .route("/v1/enroll/{id}/key", post(enroll::upload))
+        .route("/v1/me/enroll/{id}", get(enroll::preview))
+        .route("/v1/me/enroll/{id}/claim", post(enroll::claim))
+        .route("/v1/me/enroll/{id}/confirm", post(enroll::confirm))
+        .route("/v1/me/enroll/{id}/cancel", post(enroll::cancel))
+        .route("/v1/me/oauth/openrouter", post(oauth::start))
+        .route("/v1/me/oauth/openrouter/flows/{id}", get(oauth::status))
+        .route("/v1/me/oauth/openrouter/flows/{id}/cancel", post(oauth::cancel))
+        .route("/oauth/openrouter/callback", get(oauth::callback))
+        .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/auth/password", post(password_login))

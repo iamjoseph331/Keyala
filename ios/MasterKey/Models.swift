@@ -3,8 +3,29 @@ import Foundation
 enum Provider: String, Codable, CaseIterable, Identifiable {
     case openAI = "openai"
     case anthropic
+    case openRouter = "openrouter"
     var id: String { rawValue }
-    var title: String { self == .openAI ? "OpenAI" : "Anthropic" }
+    var title: String {
+        switch self {
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .openRouter: "OpenRouter"
+        }
+    }
+    var keyPlaceholder: String {
+        switch self {
+        case .openAI: "sk-..."
+        case .anthropic: "sk-ant-..."
+        case .openRouter: "sk-or-v1-..."
+        }
+    }
+    var keysURL: URL {
+        switch self {
+        case .openAI: URL(string: "https://platform.openai.com/api-keys")!
+        case .anthropic: URL(string: "https://platform.claude.com/settings/keys")!
+        case .openRouter: URL(string: "https://openrouter.ai/settings/keys")!
+        }
+    }
 }
 
 struct RequestRecord: Codable, Identifiable {
@@ -22,6 +43,7 @@ struct RequestRecord: Codable, Identifiable {
     var error: String?
     var isDemo: Bool = false
     var estimatedCostMicrousd: Int64
+    var actualUSD: String { actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" }
     var estimatedUSD: String { String(format: "$%.6f", Double(estimatedCostMicrousd) / 1_000_000) }
 
     enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error; case grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
@@ -89,13 +111,17 @@ struct KeyRecord: Codable, Identifiable {
     var provider: Provider
     var label: String
     var lastFour: String
-    enum CodingKeys: String, CodingKey { case vendor, last4, label }
-    init(id: String, provider: Provider, label: String, lastFour: String) { self.id = id; self.provider = provider; self.label = label; self.lastFour = lastFour }
+    var createdAt: String?
+    var checked: Bool? = nil
+    enum CodingKeys: String, CodingKey { case vendor, last4, label, checked; case createdAt = "created_at" }
+    init(id: String, provider: Provider, label: String, lastFour: String, createdAt: String? = nil) { self.id = id; self.provider = provider; self.label = label; self.lastFour = lastFour; self.createdAt = createdAt }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self); provider = try c.decode(Provider.self, forKey: .vendor)
         id = provider.rawValue; label = try c.decodeIfPresent(String.self, forKey: .label) ?? provider.title; lastFour = try c.decode(String.self, forKey: .last4)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        checked = try c.decodeIfPresent(Bool.self, forKey: .checked)
     }
-    func encode(to encoder: Encoder) throws { var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(provider, forKey: .vendor); try c.encode(lastFour, forKey: .last4); try c.encode(label, forKey: .label) }
+    func encode(to encoder: Encoder) throws { var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(provider, forKey: .vendor); try c.encode(lastFour, forKey: .last4); try c.encode(label, forKey: .label); try c.encodeIfPresent(createdAt, forKey: .createdAt); try c.encodeIfPresent(checked, forKey: .checked) }
 }
 
 struct GrantRecord: Codable, Identifiable {
@@ -182,8 +208,34 @@ struct Policy: Encodable {
 struct AccountProfile: Codable {
     let id: String
     let email: String
+    var authProvider: String? = nil
+
+    enum CodingKeys: String, CodingKey { case id, email; case authProvider = "auth_provider" }
 
     var displayEmail: String? { email.hasSuffix("@apple.invalid") ? nil : email }
+}
+
+struct AccountDeletionRequest: Encodable {
+    let confirm = "DELETE"
+    var idToken: String? = nil
+    var authorizationCode: String? = nil
+    var password: String? = nil
+    var email: String? = nil
+    enum CodingKeys: String, CodingKey {
+        case confirm, password, email
+        case idToken = "id_token", authorizationCode = "authorization_code"
+    }
+}
+
+struct AccountDeletionResult: Decodable {
+    let deleted: Bool
+    let appleRevoked: Bool?
+    enum CodingKeys: String, CodingKey { case deleted; case appleRevoked = "apple_revoked" }
+}
+
+struct StopAllResult: Decodable {
+    let requestsInFlight: Int
+    enum CodingKeys: String, CodingKey { case requestsInFlight = "requests_in_flight" }
 }
 
 struct AuthenticatedSession: Codable {
@@ -192,3 +244,201 @@ struct AuthenticatedSession: Codable {
 
     enum CodingKeys: String, CodingKey { case user; case sessionToken = "session_token" }
 }
+
+
+struct AppPreferences {
+    static let productionURL = "https://masterkey-prod-vkgm.onrender.com"
+    static let stagingURL = "https://masterkey-staging-vkgm.onrender.com"
+    let serverURL: String
+    let sampleData: Bool
+    let developerOptions: Bool
+
+    static func load(_ defaults: UserDefaults) -> AppPreferences {
+        let saved = defaults.string(forKey: "serverURL")?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let usable = saved.flatMap { value -> String? in
+            guard value != "https://localhost:8443", let url = URLComponents(string: value),
+                  let host = url.host, !host.isEmpty, url.user == nil, url.password == nil,
+                  url.query == nil, url.fragment == nil,
+                  url.scheme?.lowercased() == "https" || (url.scheme?.lowercased() == "http" && ["localhost", "127.0.0.1", "::1"].contains(host.lowercased())) else { return nil }
+            return value
+        }
+        let server = usable ?? productionURL
+        // The old demoMode default was on; only the new explicit setting enables sample data.
+        let sample = defaults.bool(forKey: "developerSampleData")
+        return AppPreferences(serverURL: server, sampleData: sample,
+                              developerOptions: defaults.bool(forKey: "developerOptions") || server != productionURL || sample)
+    }
+}
+
+enum PairingLink {
+    static func code(from text: String) -> String? {
+        let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = input.uppercased()
+        if normalized.range(of: "^MK-[A-Z0-9]{4}$", options: .regularExpression) != nil { return normalized }
+        guard let components = URLComponents(string: input),
+              components.user == nil, components.password == nil, components.port == nil,
+              components.query == nil, components.fragment == nil,
+              components.percentEncodedPath == components.path else { return nil }
+        let path: String
+        if components.scheme?.lowercased() == "masterkey", components.host?.lowercased() == "connect" {
+            path = components.path
+        } else if serverURL(from: input) != nil, components.path.hasPrefix("/connect/") {
+            path = String(components.path.dropFirst("/connect".count))
+        } else { return nil }
+        guard path.uppercased().range(of: "^/MK-[A-Z0-9]{4}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst()).uppercased()
+    }
+
+    static func serverURL(from text: String) -> String? {
+        guard let url = URLComponents(string: text), url.scheme?.lowercased() == "https",
+              url.user == nil, url.password == nil, url.port == nil, let host = url.host?.lowercased() else { return nil }
+        let server = "https://" + host
+        return [AppPreferences.productionURL, AppPreferences.stagingURL].contains(server) ? server : nil
+    }
+}
+
+
+struct KeyEnrollment: Decodable {
+    let id: String
+    let vendor: Provider
+    let status: String
+    let last4: String?
+    let currentLast4: String?
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, vendor, status, last4
+        case currentLast4 = "current_last4", expiresAt = "expires_at"
+    }
+
+    var isExpired: Bool {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fractional = formatter.date(from: expiresAt)
+        formatter.formatOptions = [.withInternetDateTime]
+        guard let date = fractional ?? formatter.date(from: expiresAt) else { return true }
+        return date <= Date()
+    }
+    var canClaim: Bool { status == "pending" && !isExpired }
+    var canConfirm: Bool { status == "submitted" && last4?.count == 4 && !isExpired }
+    var shouldPoll: Bool { status == "claimed" && !isExpired }
+}
+
+enum EnrollmentLink {
+    static func id(from text: String) -> String? {
+        guard let url = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              url.user == nil, url.password == nil, url.port == nil, url.query == nil, url.fragment == nil,
+              url.percentEncodedPath == url.path else { return nil }
+        let path: String
+        if url.scheme?.lowercased() == "masterkey", url.host?.lowercased() == "enroll" {
+            path = url.path
+        } else if PairingLink.serverURL(from: text) != nil, url.path.hasPrefix("/enroll/") {
+            path = String(url.path.dropFirst("/enroll".count))
+        } else { return nil }
+        guard path.range(of: "^/en_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst())
+    }
+}
+
+struct OpenRouterAuthorization: Decodable {
+    let flowID: String
+    let authURL: URL
+    let expiresAt: String
+    enum CodingKeys: String, CodingKey { case flowID = "flow_id", authURL = "auth_url", expiresAt = "expires_at" }
+
+    func validatedURL(callbackURL: URL, allowMock: Bool) throws -> URL {
+        guard flowID.range(of: "^of_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil,
+              let url = URLComponents(url: authURL, resolvingAgainstBaseURL: false),
+              url.user == nil, url.password == nil, url.fragment == nil,
+              let items = url.queryItems, items.allSatisfy({ $0.value != nil }),
+              Set(items.map(\.name)).count == items.count else { throw APIError.invalidResponse }
+        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
+        guard let state = query["state"], state.range(of: "^[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { throw APIError.invalidResponse }
+        if url.scheme == "https", url.host == "openrouter.ai", url.port == nil, url.path == "/auth" {
+            guard query["callback_url"] == callbackURL.absoluteString,
+                  query["code_challenge_method"] == "S256",
+                  query["code_challenge"]?.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil,
+                  Set(query.keys).isSubset(of: ["callback_url", "code_challenge", "code_challenge_method", "state", "key_label", "limit", "expiration"]) else { throw APIError.invalidResponse }
+            return authURL
+        }
+        guard allowMock, url.scheme == callbackURL.scheme, url.host == callbackURL.host, url.port == callbackURL.port,
+              url.path == callbackURL.deletingLastPathComponent().appendingPathComponent("mock").path,
+              Set(query.keys) == ["state"] else { throw APIError.invalidResponse }
+        return authURL
+    }
+
+}
+
+struct OpenRouterFlow: Decodable {
+    let flowID: String
+    let provider: Provider
+    let status: String
+    let reason: String?
+    let lastFour: String?
+    enum CodingKeys: String, CodingKey { case flowID = "flow_id", provider, status, reason; case lastFour = "last4" }
+
+    func confirmedKey(in keys: [KeyRecord], expectedFlowID: String) -> KeyRecord? {
+        guard flowID == expectedFlowID, provider == .openRouter, status == "saved", let lastFour else { return nil }
+        return keys.first(where: { $0.provider == .openRouter && $0.lastFour == lastFour })
+    }
+}
+
+enum OpenRouterCallback {
+    static func validate(_ url: URL, expectedFlowID: String) throws {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "masterkey", parts.host == "oauth", parts.path == "/openrouter",
+              parts.percentEncodedPath == parts.path, parts.user == nil, parts.password == nil,
+              parts.port == nil, parts.fragment == nil, let items = parts.queryItems,
+              items.allSatisfy({ $0.value != nil }), Set(items.map(\.name)).count == items.count else { throw APIError.invalidResponse }
+        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
+        guard Set(query.keys).isSubset(of: ["status", "reason", "flow"]),
+              (query["status"] == "ok" || query["status"] == "error"),
+              query["flow"] == expectedFlowID || (query["flow"] == nil && query["status"] == "error") else { throw APIError.invalidResponse }
+    }
+}
+
+struct RequestMessage: Identifiable {
+    let id: Int
+    let role: String
+    let text: String
+}
+
+extension RequestRecord {
+    var canApproveWithSwipe: Bool {
+        status == "pending" && payload != nil && (0...50_000).contains(estimatedCostMicrousd)
+    }
+    var readableMessages: [RequestMessage] {
+        guard case .object(let body)? = payload else { return [] }
+        func content(_ value: JSONValue) -> String {
+            if case .string(let text) = value { return text }
+            if case .array(let parts) = value {
+                return parts.map { part in
+                    if case .object(let block) = part, case .string(let text)? = block["text"] { return text }
+                    return part.prettyPrinted
+                }.joined(separator: "\n\n")
+            }
+            return value.prettyPrinted
+        }
+        var messages: [RequestMessage] = []
+        if let system = body["system"] { messages.append(.init(id: messages.count, role: "System", text: content(system))) }
+        if case .array(let rows)? = body["messages"] {
+            for row in rows {
+                guard case .object(let message) = row else {
+                    messages.append(.init(id: messages.count, role: "Message", text: row.prettyPrinted)); continue
+                }
+                var role = "Message"
+                if case .string(let value)? = message["role"] { role = value.capitalized }
+                if case .string(let name)? = message["name"] { role += " / " + name }
+                messages.append(.init(id: messages.count, role: role, text: message["content"].map(content) ?? row.prettyPrinted))
+            }
+        }
+        return messages
+    }
+}
+
+enum SupportContact {
+    static let email = "josephchen637@gmail.com"
+    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=MasterKey%20support")!
+}
+
+func localized(_ key: String) -> String { NSLocalizedString(key, comment: "") }

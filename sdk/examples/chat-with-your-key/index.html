@@ -48,9 +48,10 @@
       <button id="btn-connect">Connect your MasterKey</button>
     </div>
     <div id="c-code" class="hidden">
-      <div class="muted">Open the MasterKey app and enter</div>
+      <div class="muted">Scan with your iPhone camera</div>
+      <img id="qr" width="200" height="200" alt="QR code to connect in MasterKey" style="display:block;margin:12px 0;background:#fff;border-radius:12px">
+      <div class="muted">On this phone? <a id="url" href="#">Open MasterKey</a>. Or enter the code in the app:</div>
       <div class="code" id="code">MK-----</div>
-      <div class="muted">or open <a id="url" href="#" target="_blank" rel="noopener"></a></div>
       <p class="muted pulse" style="margin-top:14px">Waiting for approval on your phone…</p>
     </div>
   </section>
@@ -101,7 +102,8 @@ $('btn-connect').onclick = async () => {
   const c = await api('/api/connect', { method: 'POST' });
   if (c.error) { $('btn-connect').textContent = c.error; return; }
   $('code').textContent = c.code;
-  $('url').textContent = $('url').href = c.url;
+  $('url').href = c.url;
+  $('qr').src = c.qr;
   $('c-idle').classList.add('hidden'); $('c-code').classList.remove('hidden');
   pollConnect();
 };

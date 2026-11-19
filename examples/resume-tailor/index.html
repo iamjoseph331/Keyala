@@ -4,322 +4,294 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Resume Tailor</title>
-<meta name="description" content="Tailor your resume to any job description in a minute. Runs on your own AI key through MasterKey.">
+<meta name="description" content="Tailor your resume to any job description in a minute. Runs on your own AI account through MasterKey.">
+<link rel="icon" href="masterkey-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#f4f6fb; --card:#fff; --ink:#0f1222; --ink2:#3b4157; --muted:#6b7187; --line:#e3e7f0; --soft:#f1f3f9;
-    --accent:#4f46e5; --accent2:#7c3aed; --accent-ink:#fff; --accent-soft:#eef0ff;
-    --ok:#059669; --okbg:#d1fae5; --warn:#a16207; --warnbg:#fef3c7; --bad:#b91c1c; --badbg:#fee2e2;
-    --paper:#fff; --paper-ink:#1b1d22; --mark:#fde68a; --mark-ink:#3f2d00;
-    --radius:18px;
-    --shadow-sm:0 1px 2px rgba(15,18,34,.05);
-    --shadow:0 1px 2px rgba(15,18,34,.04), 0 4px 12px rgba(15,18,34,.05), 0 24px 48px -12px rgba(30,27,75,.14);
-    --hero:linear-gradient(135deg,#1e1b4b 0%,#3730a3 45%,#6d28d9 100%);
+    --bg:#f7f7f4; --card:#fff; --ink:#15171c; --ink2:#3d424d; --muted:#6c717c; --line:#e4e4de; --soft:#f1f1ec;
+    --accent:#2450d6; --accent-ink:#fff; --accent-soft:#eaf0ff;
+    --ok:#1e7a4c; --okbg:#e3f2e9; --warn:#946200; --warnbg:#fff3d6; --bad:#b3261e; --badbg:#fde7e5;
+    --mark:#ffe58f; --mark-ink:#3a2c00;
+    /* MasterKey's own colours, so the hand-off is recognisable */
+    --mk:#3d7a57; --mk-paper:#faf7f2; --mk-ink:#1f1b16; --mk-muted:#7a7268; --mk-line:#ece6dc;
+    --radius:16px;
+    --shadow:0 1px 2px rgba(21,23,28,.04), 0 8px 24px -12px rgba(21,23,28,.12);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0b0d14; --card:#141722; --ink:#eceef5; --ink2:#c3c8d8; --muted:#8a91a6; --line:#252a3a; --soft:#1b1f2d;
-      --accent:#8b8dff; --accent2:#a78bfa; --accent-ink:#0b0d14; --accent-soft:#1f2147;
-      --ok:#6ee7b7; --okbg:#0f2f25; --warn:#fcd34d; --warnbg:#33290b; --bad:#fca5a5; --badbg:#3b1414;
-      --paper:#181b26; --paper-ink:#e8eaf2; --mark:#5b4a12; --mark-ink:#fde68a;
-      --shadow:0 1px 2px rgba(0,0,0,.3), 0 24px 48px -12px rgba(0,0,0,.5);
-      --hero:linear-gradient(135deg,#0f0d2e 0%,#25206b 50%,#4c1d95 100%); }
+    :root { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
+      --accent:#8aa8ff; --accent-ink:#0d1020; --accent-soft:#1c2440;
+      --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
+      --mark:#5c4b12; --mark-ink:#ffe58f;
+      --mk-paper:#1d211e; --mk-ink:#eae6dd; --mk-muted:#a39d92; --mk-line:#2f352f;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
   }
   * { box-sizing:border-box }
   html { scroll-behavior:smooth }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
   a { color:var(--accent) }
-  .container { max-width:1200px; margin:0 auto; padding:0 20px }
+  .container { max-width:1180px; margin:0 auto; padding:0 16px }
   .hidden { display:none !important }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer; background:var(--soft); color:var(--ink) }
+  button:hover { filter:brightness(.97) }
+  button:disabled { opacity:.5; cursor:default }
+  button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
 
-  /* ---------- hero ---------- */
-  .hero { position:relative; background:var(--hero); color:#fff; padding-bottom:120px; overflow:hidden }
-  .hero::before { content:""; position:absolute; inset:0; background-image:radial-gradient(rgba(255,255,255,.13) 1px, transparent 1px); background-size:22px 22px; mask-image:linear-gradient(to bottom, #000 30%, transparent) }
-  .hero::after { content:""; position:absolute; width:640px; height:640px; right:-160px; top:-260px; border-radius:50%; background:radial-gradient(circle, rgba(167,139,250,.45), transparent 65%) }
-  .hero > * { position:relative; z-index:1 }
-  nav { display:flex; align-items:center; justify-content:space-between; padding:18px 0 }
-  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.05rem; color:#fff; text-decoration:none }
-  .logo { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22) }
-  nav .links { display:flex; gap:18px; font-size:.9rem }
-  nav .links a { color:rgba(255,255,255,.8); text-decoration:none } nav .links a:hover { color:#fff }
-  @media (max-width:600px) { nav .links a:not(:last-child) { display:none } }
-  .brand, nav .links a, .mk-badge { white-space:nowrap }
-  .hero-grid { display:grid; gap:36px; grid-template-columns:minmax(0,1fr); padding:36px 0 0; align-items:center }
-  @media (min-width:960px) { .hero-grid { grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); padding-top:48px } }
-  .eyebrow { display:inline-flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); font-size:.8rem; font-weight:600 }
-  .hero h1 { font-size:clamp(2rem, 4.6vw, 3.2rem); line-height:1.1; letter-spacing:-.035em; margin:18px 0 14px; font-weight:800 }
-  .hero h1 em { font-style:normal; background:linear-gradient(90deg,#c7d2fe,#f0abfc); -webkit-background-clip:text; background-clip:text; color:transparent }
-  .hero .lead { font-size:1.08rem; color:rgba(255,255,255,.82); max-width:540px; margin:0 0 22px }
-  .ticks { display:flex; flex-wrap:wrap; gap:10px 22px; padding:0; margin:0; list-style:none; font-size:.92rem; color:rgba(255,255,255,.9) }
-  .ticks li { display:flex; align-items:center; gap:8px }
-  .ticks svg { color:#86efac; flex:none }
+  /* nav + hero */
+  nav { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 0 }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:750; font-size:1.05rem; color:var(--ink); text-decoration:none; white-space:nowrap }
+  .logo { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--accent); color:var(--accent-ink) }
+  nav .right { display:flex; align-items:center; gap:16px; font-size:.9rem }
+  nav .right a { color:var(--ink2); text-decoration:none; white-space:nowrap }
+  nav select { width:auto; padding:6px 28px 6px 10px; font-size:.85rem; border-radius:8px }
+  @media (max-width:640px) { nav .right a { display:none } }
+  .hero { padding:28px 0 34px; max-width:760px }
+  .eyebrow { display:inline-block; padding:4px 12px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:.8rem; font-weight:600 }
+  .hero h1 { font-size:clamp(1.9rem,4.4vw,3rem); line-height:1.12; letter-spacing:-.03em; margin:14px 0 12px; font-weight:800 }
+  .hero h1 em { font-style:normal; color:var(--accent) }
+  .hero .lead { font-size:1.06rem; color:var(--ink2); margin:0 0 18px }
+  .ticks { display:flex; flex-wrap:wrap; gap:8px 20px; padding:0; margin:0; list-style:none; font-size:.9rem; color:var(--ink2) }
+  .ticks li::before { content:"✓"; color:var(--ok); font-weight:700; margin-right:7px }
 
-  /* MasterKey panel (top right) */
-  .mk { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:var(--radius); padding:22px; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); box-shadow:0 20px 40px -16px rgba(0,0,0,.4) }
-  .mk-head { display:flex; align-items:center; gap:10px; margin-bottom:6px }
-  .mk-head b { font-size:1.02rem }
-  .mk-badge { margin-left:auto; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:6px; background:rgba(134,239,172,.16); color:#86efac }
-  .mk p { margin:0 0 14px; font-size:.9rem; color:rgba(255,255,255,.78) }
-  .mk-body { display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start }
-  .mk ol { list-style:none; margin:0; padding:0; display:grid; gap:12px; counter-reset:s }
-  .mk li { counter-increment:s; display:grid; grid-template-columns:24px 1fr; gap:10px; font-size:.88rem; line-height:1.45; color:rgba(255,255,255,.88) }
-  .mk li::before { content:counter(s); width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:#fff; color:#3730a3; font-weight:700; font-size:.78rem }
-  .mk li b { color:#fff; display:block }
-  .qr { width:112px; text-align:center; font-size:.72rem; color:rgba(255,255,255,.7) }
-  .qr .box { width:112px; height:112px; border-radius:12px; background:#fff; display:grid; place-items:center; margin-bottom:6px; color:#3730a3; position:relative; overflow:hidden }
-  .qr .box img { width:100%; height:100%; object-fit:contain }
-  .qr .soon { position:absolute; bottom:6px; left:6px; right:6px; font-size:.62rem; font-weight:700; background:#eef0ff; border-radius:5px; padding:2px 0 }
-  @media (max-width:440px) { .mk-body { grid-template-columns:1fr } .qr { display:flex; align-items:center; gap:12px; width:auto; text-align:left } .qr .box { flex:none; margin:0 } }
-  .mk-foot { display:flex; gap:14px; margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,.14); font-size:.85rem }
-  .mk-foot a { color:#c7d2fe; text-decoration:none; font-weight:600 } .mk-foot a:hover { color:#fff }
-
-  /* ---------- tool ---------- */
-  .tool { margin-top:-88px; position:relative; z-index:2 }
+  /* layout */
   .grid { display:grid; gap:20px; grid-template-columns:minmax(0,1fr) }
-  @media (min-width:980px) { .grid { grid-template-columns:minmax(0,5fr) minmax(0,6fr); align-items:start } .out { position:sticky; top:20px } }
+  @media (min-width:1000px) { .grid { grid-template-columns:minmax(0,11fr) minmax(0,10fr); align-items:start } .out { position:sticky; top:16px } }
+  .col { display:grid; gap:16px; min-width:0 }
   .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow) }
-  form.card { padding:6px 24px 24px }
-  fieldset { border:0; margin:0; padding:20px 0 6px; border-bottom:1px solid var(--line) }
-  fieldset:last-of-type { border-bottom:0 }
-  legend { float:left; width:100%; display:flex; align-items:center; gap:10px; font-weight:650; margin-bottom:12px; padding:0 }
-  legend + * { clear:both }
-  legend .n { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent2)); font-size:.75rem; color:#fff }
-  legend .opt { font-weight:400; color:var(--muted); font-size:.85rem }
-  .hint { color:var(--muted); font-size:.85rem; margin:8px 0 10px }
-  textarea, select { width:100%; font:inherit; color:var(--ink); background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:11px 13px; transition:border-color .15s, box-shadow .15s, background .15s }
-  textarea { resize:vertical; min-height:96px }
-  textarea:hover, select:hover { border-color:color-mix(in srgb, var(--accent) 35%, var(--line)) }
-  textarea:focus, select:focus { outline:0; background:var(--card); border-color:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent) }
-  .drop { position:relative; display:flex; align-items:center; gap:16px; padding:20px; border:1.5px dashed color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:14px; cursor:pointer; margin-bottom:10px; background:linear-gradient(180deg, var(--accent-soft), transparent); transition:border-color .15s, transform .15s, box-shadow .15s }
-  .drop:hover, .drop.over { border-color:var(--accent); box-shadow:0 8px 24px -10px color-mix(in srgb, var(--accent) 50%, transparent); transform:translateY(-1px) }
+  .step { padding:20px 22px }
+  .step-head { display:flex; align-items:center; gap:10px; margin:0 0 12px; font-size:1.02rem; font-weight:700 }
+  .n { flex:none; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:var(--accent); color:var(--accent-ink); font-size:.8rem }
+  .step.done .n { background:var(--ok) }
+  .step.locked { opacity:.55 }
+  .sub { color:var(--muted); font-size:.88rem; margin:-4px 0 14px }
+  label.lbl { display:block; font-size:.85rem; color:var(--muted); margin:14px 0 6px; font-weight:500 }
+  textarea, select { width:100%; font:inherit; color:var(--ink); background:var(--soft); border:1px solid var(--line); border-radius:11px; padding:10px 12px }
+  textarea { resize:vertical; min-height:92px }
+  textarea:focus, select:focus { outline:0; background:var(--card); border-color:var(--accent) }
+
+  /* step 1: connect */
+  #step1 { container-type:inline-size }
+  .connect { display:grid; gap:16px; grid-template-columns:minmax(0,1fr) }
+  @container (min-width:620px) { .connect { grid-template-columns:minmax(0,1fr) 240px } }
+  .providers { display:grid; gap:8px }
+  .prov { display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:12px 14px; border:1px solid var(--line); background:var(--card); border-radius:12px; font-weight:600 }
+  .prov:hover:not(:disabled) { border-color:var(--accent) }
+  .prov small { display:block; font-weight:400; color:var(--muted); font-size:.8rem }
+  .prov .pi { flex:none; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; color:#fff; font-weight:700; font-size:.85rem }
+  .prov .state { margin-left:auto; font-size:.8rem; font-weight:600; color:var(--muted); white-space:nowrap }
+  .prov.on { border-color:color-mix(in srgb, var(--ok) 45%, var(--line)); background:color-mix(in srgb, var(--okbg) 45%, var(--card)) }
+  .prov.on .state { color:var(--ok) }
+  .pairing { text-align:center; padding:6px 0 }
+  .pairing img { display:block; width:184px; height:184px; margin:10px auto; background:#fff; border-radius:12px; border:1px solid var(--line) }
+  .pairing .code { font:700 1.5rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; margin:6px 0 }
+  .wait { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--warn); font-size:.9rem; margin:10px 0 }
+  .st { flex:none; width:8px; height:8px; border-radius:50%; background:var(--line) }
+  .st.waiting { background:var(--warn); animation:p 1.2s infinite } .st.done { background:var(--ok) } .st.error { background:var(--bad) }
+  @keyframes p { 50% { opacity:.25 } }
+  .linkbtn { background:none; padding:4px 0; color:var(--accent); font-weight:600 }
+
+  /* the MasterKey panel */
+  .mk { background:var(--mk-paper); color:var(--mk-ink); border:1px solid var(--mk-line); border-radius:14px; padding:16px; font-size:.86rem }
+  .mk-head { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+  .mk-head img { width:30px; height:30px }
+  .mk-head b { font-size:.95rem; line-height:1.2 }
+  .mk-head span { display:block; font-size:.72rem; font-weight:700; letter-spacing:.05em; color:var(--mk); text-transform:uppercase }
+  .mk p { margin:0 0 10px; color:var(--mk-muted) }
+  .mk ol { margin:0 0 12px; padding-left:18px; display:grid; gap:6px }
+  .mk li b { color:var(--mk-ink) }
+  .mk li span { color:var(--mk-muted) }
+  .mk .get { display:flex; align-items:center; gap:12px; padding-top:12px; border-top:1px solid var(--mk-line) }
+  .mk .get img { flex:none; width:84px; height:84px; border-radius:8px; background:#fff; padding:4px }
+  .mk .get a { color:var(--mk); font-weight:600; text-decoration:none; display:block; margin-top:4px }
+
+  /* inputs */
+  .drop { position:relative; display:flex; align-items:center; gap:14px; padding:16px; border:1.5px dashed color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:12px; cursor:pointer; margin-bottom:10px; background:var(--accent-soft) }
+  .drop:hover, .drop.over { border-color:var(--accent) }
   .drop:focus-within { outline:2px solid var(--accent); outline-offset:2px }
-  .drop .ic { flex:none; width:46px; height:46px; border-radius:12px; display:grid; place-items:center; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 6px 16px -6px var(--accent) }
+  .drop .ic { flex:none; width:42px; height:42px; border-radius:11px; display:grid; place-items:center; color:var(--accent-ink); background:var(--accent) }
   .drop b { display:block }
   .drop small { color:var(--muted) }
   .drop input { position:absolute; width:1px; height:1px; opacity:0 }
-  .fmts { display:flex; gap:6px; margin-top:6px }
-  .fmts span { font-size:.68rem; font-weight:700; letter-spacing:.04em; padding:2px 7px; border-radius:5px; background:var(--card); border:1px solid var(--line); color:var(--ink2) }
   .jd { position:relative; margin-bottom:10px }
-  .jd textarea { min-height:120px; padding-right:40px }
+  .jd textarea { min-height:110px; padding-right:40px }
   .jd .rm { position:absolute; top:8px; right:8px; width:26px; height:26px; padding:0; border-radius:8px; background:transparent; color:var(--muted); font-size:18px; line-height:1 }
-  .jd .rm:hover { background:var(--line); color:var(--ink) }
-  label.sub { display:block; font-size:.85rem; color:var(--muted); margin-bottom:6px; font-weight:500 }
   .chips { display:flex; flex-wrap:wrap; gap:8px }
   .chips label { position:relative }
   .chips input { position:absolute; opacity:0; inset:0 }
-  .chips span { display:inline-block; padding:7px 15px; border-radius:999px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-size:.9rem; font-weight:500; user-select:none; transition:all .15s }
-  .chips span:hover { border-color:var(--accent) }
-  .chips input:checked + span { background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff; box-shadow:0 4px 12px -4px var(--accent) }
+  .chips span { display:inline-block; padding:6px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-size:.88rem; font-weight:500; user-select:none }
+  .chips input:checked + span { background:var(--accent); border-color:var(--accent); color:var(--accent-ink) }
   .chips input:focus-visible + span { outline:2px solid var(--accent); outline-offset:2px }
-  .conn { display:flex; gap:16px; flex-wrap:wrap; font-size:.85rem; color:var(--muted) }
-  .conn .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--line); margin-right:6px }
-  .conn .on .dot { background:var(--ok); box-shadow:0 0 0 3px var(--okbg) }
-  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer; background:var(--soft); color:var(--ink); transition:transform .1s, box-shadow .15s, filter .15s }
-  button:hover { filter:brightness(.97) }
-  button:active { transform:translateY(1px) }
-  button:disabled { opacity:.55; cursor:default }
-  button.primary { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:15px; font-size:1rem; margin-top:20px; border-radius:14px; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 10px 24px -10px var(--accent), inset 0 1px 0 rgba(255,255,255,.2) }
-  button.primary:hover { filter:brightness(1.06); box-shadow:0 14px 28px -10px var(--accent), inset 0 1px 0 rgba(255,255,255,.2) }
-  button.ghost { background:transparent; color:var(--accent); padding:6px 0 }
+  .two { display:grid; gap:0 14px; grid-template-columns:minmax(0,1fr) }
+  @media (min-width:560px) { .two { grid-template-columns:minmax(0,1fr) minmax(0,1fr) } }
+  .est { margin:10px 0 0; padding:10px 12px; border-radius:10px; background:var(--soft); font-size:.86rem; color:var(--ink2) }
+  .est b { color:var(--ink) }
+  button.primary { width:100%; padding:15px; font-size:1rem; border-radius:13px; color:var(--accent-ink); background:var(--accent) }
+  .secure { text-align:center; margin:10px 0 0; font-size:.8rem; color:var(--muted) }
   .err { color:var(--bad); font-size:.9rem; margin:10px 0 0 }
-  .secure { display:flex; align-items:center; justify-content:center; gap:6px; margin:12px 0 0; font-size:.8rem; color:var(--muted) }
 
+  /* output */
   .out { min-height:420px; display:flex; flex-direction:column; overflow:hidden }
   .tabs { display:flex; gap:4px; padding:10px 10px 0; border-bottom:1px solid var(--line); overflow-x:auto }
   .tab { display:flex; align-items:center; gap:8px; white-space:nowrap; background:transparent; border-radius:8px 8px 0 0; padding:9px 12px; color:var(--muted); font-weight:550; border-bottom:2px solid transparent }
   .tab[aria-selected=true] { color:var(--ink); border-bottom-color:var(--accent) }
-  .st { width:8px; height:8px; border-radius:50%; background:var(--line) }
-  .st.waiting { background:var(--warn); animation:p 1.2s infinite } .st.done { background:var(--ok) } .st.error { background:var(--bad) }
-  @keyframes p { 50% { opacity:.25 } }
   .bar { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--line) }
   .bar .acts { display:flex; gap:8px; flex-wrap:wrap }
-  .bar button { padding:7px 12px; font-size:.88rem; border:1px solid var(--line); background:var(--card) }
+  .bar button { padding:7px 12px; font-size:.86rem; border:1px solid var(--line); background:var(--card) }
   .note { display:flex; align-items:center; gap:10px; margin:16px; padding:12px 14px; border-radius:12px; background:var(--warnbg); color:var(--warn); font-size:.92rem }
   .note.bad { background:var(--badbg); color:var(--bad) }
-  .note .st { flex:none }
-  .paper { margin:16px; padding:36px 40px; background:var(--paper); color:var(--paper-ink); border:1px solid var(--line); border-radius:10px; max-height:72vh; overflow:auto; font-size:14px; line-height:1.5; box-shadow:var(--shadow-sm) }
-  @media (max-width:520px) { .paper { padding:22px 18px } }
-  .paper h1 { font-size:1.6rem; margin:0 0 4px; letter-spacing:-.02em }
-  .paper h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent); margin:22px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--line) }
+  .paper { margin:16px; padding:32px 36px; background:#fff; color:#1b1d22; border:1px solid var(--line); border-radius:10px; max-height:72vh; overflow:auto; font-size:14px; line-height:1.5 }
+  @media (max-width:520px) { .paper { padding:20px 16px } }
+  .paper h1 { font-size:1.55rem; margin:0 0 4px; letter-spacing:-.02em }
+  .paper h2 { font-size:.76rem; text-transform:uppercase; letter-spacing:.1em; color:#2450d6; margin:20px 0 8px; padding-bottom:4px; border-bottom:1px solid #e4e4de }
   .paper h3 { font-size:1rem; margin:14px 0 2px }
-  .paper p { margin:4px 0 }
-  .paper ul { margin:4px 0 8px; padding-left:20px }
-  .paper li { margin:2px 0 }
+  .paper p { margin:4px 0 } .paper ul { margin:4px 0 8px; padding-left:20px } .paper li { margin:2px 0 }
   .paper mark, .ba mark { background:var(--mark); color:var(--mark-ink); padding:0 3px; border-radius:4px }
-
-  /* example output in the empty state */
+  .paper mark { background:#ffe58f; color:#3a2c00 }
   .sample-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:16px 18px 0 }
-  .sample-head b { font-size:.95rem }
   .tag { font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent) }
-  .sample .paper { position:relative; max-height:520px; overflow:hidden; user-select:none }
-  .sample .paper::after { content:""; position:absolute; left:0; right:0; bottom:0; height:120px; background:linear-gradient(transparent, var(--paper)) }
+  .sample .paper { position:relative; max-height:480px; overflow:hidden; user-select:none }
+  .sample .paper::after { content:""; position:absolute; left:0; right:0; bottom:0; height:110px; background:linear-gradient(transparent,#fff) }
   .legend { display:flex; gap:16px; flex-wrap:wrap; padding:0 18px 18px; font-size:.8rem; color:var(--muted) }
-  .legend span { display:flex; align-items:center; gap:6px }
-  .legend i { width:12px; height:12px; border-radius:3px; background:var(--mark) }
+  .legend i { display:inline-block; width:12px; height:12px; border-radius:3px; background:#ffe58f; margin-right:6px; vertical-align:-1px }
 
-  /* ---------- sections below ---------- */
-  section.band { padding:72px 0 0 }
-  .section-head { text-align:center; max-width:640px; margin:0 auto 36px }
-  .section-head h2 { font-size:clamp(1.5rem,3vw,2.1rem); letter-spacing:-.03em; margin:0 0 10px; font-weight:800 }
+  /* sections below */
+  section.band { padding:64px 0 0 }
+  .section-head { text-align:center; max-width:640px; margin:0 auto 28px }
+  .section-head h2 { font-size:clamp(1.4rem,3vw,1.95rem); letter-spacing:-.025em; margin:0 0 8px; font-weight:800 }
   .section-head p { color:var(--muted); margin:0 }
-  .ba { display:grid; gap:20px; grid-template-columns:minmax(0,1fr); align-items:stretch }
-  @media (min-width:860px) { .ba { grid-template-columns:minmax(0,1fr) 56px minmax(0,1fr) } }
-  .ba .card { padding:22px 24px }
-  .ba h3 { margin:0 0 12px; font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); display:flex; align-items:center; gap:8px }
+  .ba { display:grid; gap:16px; grid-template-columns:minmax(0,1fr) }
+  @media (min-width:860px) { .ba { grid-template-columns:minmax(0,1fr) minmax(0,1fr) } }
+  .ba .card { padding:20px 22px }
+  .ba h3 { margin:0 0 10px; font-size:.76rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted) }
+  .ba .after { border-color:color-mix(in srgb, var(--accent) 40%, var(--line)) }
   .ba .after h3 { color:var(--accent) }
-  .ba .after { border-color:color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow:var(--shadow), 0 0 0 4px var(--accent-soft) }
-  .ba ul { margin:0; padding-left:18px; display:grid; gap:8px; color:var(--ink2) }
-  .ba .jdline { margin-top:14px; padding:10px 12px; border-radius:10px; background:var(--soft); font-size:.85rem; color:var(--muted) }
-  .arrow { display:grid; place-items:center; color:var(--accent) }
-  @media (max-width:859px) { .arrow svg { transform:rotate(90deg) } }
-  .features { display:grid; gap:18px; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)) }
-  .feature { padding:24px; transition:transform .2s, box-shadow .2s }
-  .feature:hover { transform:translateY(-3px) }
-  .feature .fi { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent); margin-bottom:14px }
-  .feature h3 { margin:0 0 6px; font-size:1.02rem }
-  .feature p { margin:0; color:var(--muted); font-size:.92rem }
-  .steps { display:grid; gap:18px; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); counter-reset:st }
-  .step { counter-increment:st; padding:22px; position:relative }
-  .step::before { content:"0" counter(st); font-weight:800; font-size:1.6rem; letter-spacing:-.03em; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent }
-  .step h3 { margin:6px 0 4px; font-size:1rem }
-  .step p { margin:0; color:var(--muted); font-size:.9rem }
-  footer { margin-top:80px; padding:28px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.86rem }
-  footer .container { display:flex; flex-wrap:wrap; gap:12px 28px; justify-content:space-between }
+  .ba ul { margin:0; padding-left:18px; display:grid; gap:6px; color:var(--ink2) }
+  .ba .jdline { margin-top:12px; padding:10px 12px; border-radius:10px; background:var(--soft); font-size:.85rem; color:var(--muted) }
+  .how { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); counter-reset:h }
+  .how .card { padding:20px; counter-increment:h }
+  .how .card::before { content:counter(h); display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:700; margin-bottom:10px }
+  .how h3 { margin:0 0 4px; font-size:1rem } .how p { margin:0; color:var(--muted); font-size:.9rem }
+  footer { margin-top:72px; padding:26px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem }
+  footer .container { display:flex; flex-wrap:wrap; gap:10px 28px; justify-content:space-between }
   footer code { background:var(--soft); padding:2px 6px; border-radius:6px; font-size:.85em; word-break:break-all }
 
-  dialog { border:0; border-radius:20px; padding:30px; width:min(420px, calc(100% - 32px)); background:var(--card); color:var(--ink); text-align:center; box-shadow:0 30px 80px rgba(0,0,0,.35) }
-  dialog::backdrop { background:rgba(10,12,24,.5); backdrop-filter:blur(4px) }
-  dialog h2 { margin:0 0 6px; font-size:1.15rem }
-  .code { font:700 2.6rem/1.1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; margin:16px 0; padding:14px; border-radius:14px; background:var(--soft) }
-  .waitline { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--warn); font-size:.9rem; margin:16px 0 }
-  .noapp { font-size:.82rem; color:var(--muted); margin-bottom:14px }
-
   @media print {
-    body { background:#fff } .hero, .band, footer, form, .tabs, .bar, .note, dialog, .sample { display:none !important }
-    .tool { margin:0 } .grid { display:block } .card { border:0; box-shadow:none } .out { position:static }
-    .paper { margin:0; padding:0; border:0; max-height:none; overflow:visible; background:#fff; color:#000; box-shadow:none }
+    body { background:#fff } nav, .hero, .band, footer, .col, .tabs, .bar, .note, .sample { display:none !important }
+    .grid { display:block } .card { border:0; box-shadow:none } .out { position:static }
+    .paper { margin:0; padding:0; border:0; max-height:none; overflow:visible }
   }
-  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; scroll-behavior:auto !important } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; scroll-behavior:auto !important } }
 </style>
 </head>
 <body>
-<header class="hero">
-  <div class="container">
-    <nav>
-      <a class="brand" href="#">
-        <span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg></span>
-        Resume Tailor
-      </a>
-      <div class="links"><a href="#example">Example</a><a href="#how">How it works</a><a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">MasterKey</a></div>
-    </nav>
-
-    <div class="hero-grid">
-      <div>
-        <span class="eyebrow">Free to use. Runs on your own AI key.</span>
-        <h1>Tailor your resume to <em>every job</em> in a minute.</h1>
-        <p class="lead">Upload your resume, paste the job description, and get a version that speaks the job's language. Only facts from your resume, rewritten for this role, in any language you pick.</p>
-        <ul class="ticks">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No sign-up</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Files read in your browser</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>You approve every AI call</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Never invents experience</li>
-        </ul>
-      </div>
-
-      <aside class="mk" aria-labelledby="mk-title">
-        <div class="mk-head">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg>
-          <b id="mk-title">Powered by MasterKey</b>
-          <span class="mk-badge">Your key</span>
-        </div>
-        <p>This app has no API key and no subscription. You use your own OpenAI or Anthropic key, and the app never sees it.</p>
-        <div class="mk-body">
-          <ol>
-            <li><span><b>Get the MasterKey app</b>Scan the code with your iPhone.</span></li>
-            <li><span><b>Add your API key once</b>Stored encrypted. Apps like this one never see it.</span></li>
-            <li><span><b>Approve each request</b>See the exact prompt and estimated cost on your phone, then tap approve.</span></li>
-          </ol>
-          <div class="qr">
-            <!-- App Store QR: replace the SVG below with <img src="appstore-qr.png" alt="Download MasterKey on the App Store"> -->
-            <div class="box" aria-label="App Store QR code, coming soon">
-              <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
-              <span class="soon">COMING SOON</span>
-            </div>
-            <span>App Store</span>
-          </div>
-        </div>
-        <div class="mk-foot">
-          <a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">What is MasterKey? &rarr;</a>
-          <a href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noopener">Open source &rarr;</a>
-        </div>
-      </aside>
+<div class="container">
+  <nav>
+    <a class="brand" href="#">
+      <span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg></span>
+      Resume Tailor
+    </a>
+    <div class="right">
+      <a href="#how" data-i18n="nav.how"></a>
+      <a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">MasterKey</a>
+      <select id="ui-lang" aria-label="Language">
+        <option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option>
+      </select>
     </div>
-  </div>
-</header>
+  </nav>
 
-<main class="container tool">
-  <div class="grid">
-    <form class="card" id="form" novalidate>
-      <fieldset>
-        <legend><span class="n">1</span>Your resume</legend>
-        <label class="drop" id="drop">
-          <input type="file" id="file" accept=".pdf,.docx,.txt,.md,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
-          <span><b id="drop-title">Upload your resume</b><small id="drop-sub">Drop it here or click to choose.</small>
-            <span class="fmts" aria-hidden="true"><span>PDF</span><span>DOCX</span><span>TXT</span><span>MD</span></span></span>
-        </label>
-        <textarea id="resume" rows="6" placeholder="…or paste your resume text here. Uploaded files appear here so you can check them."></textarea>
-      </fieldset>
+  <header class="hero">
+    <span class="eyebrow" data-i18n="hero.eyebrow"></span>
+    <h1 data-i18n-html="hero.h1"></h1>
+    <p class="lead" data-i18n="hero.lead"></p>
+    <ul class="ticks"><li data-i18n="tick.1"></li><li data-i18n="tick.2"></li><li data-i18n="tick.3"></li><li data-i18n="tick.4"></li></ul>
+  </header>
 
-      <fieldset>
-        <legend><span class="n">2</span><span>Job description<span id="jd-plural">s</span></span></legend>
-        <div id="jds"></div>
-        <button type="button" class="ghost" id="add-jd">+ Add another job</button>
-      </fieldset>
-
-      <fieldset>
-        <legend><span class="n">3</span>Style</legend>
-        <label class="sub" for="language">Language</label>
-        <select id="language">
-          <option value="">Same as my resume</option>
-          <option>English</option><option>Japanese</option><option>Simplified Chinese</option><option>Traditional Chinese</option>
-          <option>Korean</option><option>Spanish</option><option>French</option><option>German</option><option>Portuguese</option>
-        </select>
-        <label class="sub" style="margin-top:14px">Tone</label>
-        <div class="chips" role="radiogroup" aria-label="Tone">
-          <label><input type="radio" name="tone" value="professional" checked><span>Professional</span></label>
-          <label><input type="radio" name="tone" value="confident and achievement-focused"><span>Confident</span></label>
-          <label><input type="radio" name="tone" value="concise and to the point"><span>Concise</span></label>
-          <label><input type="radio" name="tone" value="warm and personable"><span>Warm</span></label>
-          <label><input type="radio" name="tone" value="technical and precise"><span>Technical</span></label>
+  <main class="grid">
+    <div class="col">
+      <!-- 1. connect -->
+      <section class="card step" id="step1" aria-labelledby="s1-title">
+        <h2 class="step-head"><span class="n">1</span><span id="s1-title" data-i18n="s1.title"></span></h2>
+        <p class="sub" data-i18n="s1.sub"></p>
+        <div class="connect">
+          <div>
+            <div class="providers" id="providers"></div>
+            <div class="pairing hidden" id="pairing" aria-live="polite">
+              <div data-i18n="pair.scan"></div>
+              <img id="p-qr" alt="" width="184" height="184">
+              <div class="sub" style="margin:0"><span data-i18n="pair.phone"></span> <a id="p-url" href="#" data-i18n="pair.open"></a></div>
+              <div class="sub" style="margin:8px 0 0" data-i18n="pair.code"></div>
+              <div class="code" id="p-code">MK-----</div>
+              <div class="wait"><span class="st waiting"></span><span data-i18n="pair.wait"></span></div>
+              <button type="button" id="p-cancel" data-i18n="pair.cancel"></button>
+            </div>
+            <p class="err hidden" id="c-err" role="alert"></p>
+          </div>
+          <aside class="mk" aria-labelledby="mk-title">
+            <div class="mk-head"><img src="masterkey-icon.svg" alt=""><div><span data-i18n="mk.badge"></span><b id="mk-title" data-i18n="mk.title"></b></div></div>
+            <p data-i18n="mk.p"></p>
+            <ol>
+              <li><b data-i18n="mk.s1t"></b> <span data-i18n="mk.s1d"></span></li>
+              <li><b data-i18n="mk.s2t"></b> <span data-i18n="mk.s2d"></span></li>
+              <li><b data-i18n="mk.s3t"></b> <span data-i18n="mk.s3d"></span></li>
+            </ol>
+            <div class="get">
+              <!-- Points to the MasterKey site until there is an App Store listing; swap masterkey-qr.svg for the App Store QR then. -->
+              <img src="masterkey-qr.svg" alt="QR: iamjoseph331.github.io/MasterKey">
+              <div><b data-i18n="mk.get"></b><a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener" data-i18n="mk.what"></a></div>
+            </div>
+          </aside>
         </div>
-      </fieldset>
+      </section>
 
-      <fieldset>
-        <legend><span class="n">4</span>Anything missing? <span class="opt">(optional)</span></legend>
-        <textarea id="extra" rows="3" placeholder="Projects, achievements or experience that aren't in your resume yet. Only facts you give here or in your resume will be used."></textarea>
-      </fieldset>
+      <form class="col" id="form" novalidate>
+        <!-- 2. resume -->
+        <section class="card step" id="step2">
+          <h2 class="step-head"><span class="n">2</span><span data-i18n="s2.title"></span></h2>
+          <label class="drop" id="drop">
+            <input type="file" id="file" accept=".pdf,.docx,.txt,.md,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+            <span><b id="drop-title" data-i18n="drop.title"></b><small id="drop-sub" data-i18n="drop.sub"></small></span>
+          </label>
+          <textarea id="resume" rows="6" data-i18n-ph="resume.ph" aria-label="Resume"></textarea>
+        </section>
 
-      <fieldset>
-        <legend><span class="n">5</span><label for="model">Model</label></legend>
-        <select id="model"></select>
-        <p class="hint" id="model-hint">Billed to your own API key. You approve every call on your phone before it runs.</p>
-        <div class="conn" id="conn"></div>
-      </fieldset>
+        <!-- 3. jobs -->
+        <section class="card step" id="step3">
+          <h2 class="step-head"><span class="n">3</span><span data-i18n="s3.title"></span></h2>
+          <div id="jds"></div>
+          <button type="button" class="linkbtn" id="add-jd" data-i18n="jd.add"></button>
+        </section>
 
-      <button class="primary" id="go">Tailor my resume</button>
-      <p class="secure"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Nothing runs until you approve it in MasterKey.</p>
-      <p class="err hidden" id="form-err" role="alert"></p>
-    </form>
+        <!-- 4. style + model -->
+        <section class="card step" id="step4">
+          <h2 class="step-head"><span class="n">4</span><span data-i18n="s4.title"></span></h2>
+          <div class="two">
+            <div><label class="lbl" for="language" data-i18n="lang.label"></label><select id="language"></select></div>
+            <div><label class="lbl" for="model" data-i18n="model.label"></label><select id="model"></select></div>
+          </div>
+          <label class="lbl" data-i18n="tone.label"></label>
+          <div class="chips" role="radiogroup" id="tones"></div>
+          <label class="lbl" for="extra" data-i18n="extra.label"></label>
+          <textarea id="extra" rows="3" data-i18n-ph="extra.ph"></textarea>
+          <p class="est" id="est"></p>
+        </section>
+
+        <div>
+          <button class="primary" id="go"></button>
+          <p class="secure" data-i18n="secure"></p>
+          <p class="err hidden" id="form-err" role="alert"></p>
+        </div>
+      </form>
+    </div>
 
     <section class="card out" aria-live="polite">
       <div class="sample" id="empty">
-        <div class="sample-head"><b>What you'll get</b><span class="tag">Example output</span></div>
-        <article class="paper" aria-label="Example tailored resume">
+        <div class="sample-head"><b data-i18n="sample.title"></b><span class="tag" data-i18n="sample.tag"></span></div>
+        <article class="paper" aria-label="Example">
           <h1>Jane Doe</h1>
-          <p>Backend Engineer | Tokyo | jane@example.com | github.com/janedoe</p>
+          <p>Backend Engineer | Tokyo | jane@example.com</p>
           <h2>Summary</h2>
           <p>Backend engineer with 4 years building <mark>high-throughput Rust services</mark> and leading <mark>PostgreSQL</mark> migrations for a 2M-user product.</p>
           <h2>Experience</h2>
@@ -329,146 +301,247 @@
             <li>Built <mark>Rust</mark> services handling 10k requests per second with p99 latency under 20 ms</li>
             <li>Led a zero-downtime migration from MySQL to <mark>PostgreSQL</mark> across 40 tables</li>
             <li>Designed <mark>distributed</mark> job queues that cut nightly batch time by 60%</li>
-            <li>Mentored three engineers on async Rust and code review</li>
           </ul>
           <h2>Skills</h2>
-          <p><mark>Rust</mark>, Tokio, Axum, <mark>PostgreSQL</mark>, Docker, <mark>Kubernetes</mark>, CI/CD</p>
-          <h2>Education</h2>
-          <h3>B.Sc. Computer Science, Kyoto University</h3>
+          <p><mark>Rust</mark>, Tokio, Axum, <mark>PostgreSQL</mark>, Docker, <mark>Kubernetes</mark></p>
         </article>
-        <div class="legend"><span><i></i>Terms matched to the job description</span><span>One version per job, ready to copy, download or print</span></div>
+        <div class="legend"><span><i></i><span data-i18n="legend.1"></span></span><span data-i18n="legend.2"></span></div>
       </div>
       <div id="results" class="hidden">
         <div class="tabs" role="tablist" id="tabs"></div>
         <div id="panel"></div>
       </div>
     </section>
-  </div>
-</main>
+  </main>
 
-<section class="band" id="example">
-  <div class="container">
-    <div class="section-head">
-      <h2>Same experience, told for this job</h2>
-      <p>Resume Tailor reorders, rephrases and emphasises what you already did. It mirrors the job's key terms where they truthfully apply, and never adds anything you didn't write.</p>
-    </div>
+  <section class="band" id="example">
+    <div class="section-head"><h2 data-i18n="ex.h2"></h2><p data-i18n="ex.p"></p></div>
     <div class="ba">
       <div class="card">
-        <h3>Your resume</h3>
+        <h3 data-i18n="ex.yours"></h3>
         <ul>
           <li>Worked on backend services in Rust, around 10k req/s.</li>
           <li>Moved our database from MySQL to Postgres. I owned the plan and the rollout.</li>
           <li>Wrote the job scheduler that runs nightly batches across 12 servers.</li>
         </ul>
-        <div class="jdline"><b>The job asks for:</b> Rust, PostgreSQL, distributed systems, ownership of migrations.</div>
+        <div class="jdline"><b data-i18n="ex.asks"></b> Rust, PostgreSQL, distributed systems, ownership of migrations.</div>
       </div>
-      <div class="arrow" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
       <div class="card after">
-        <h3>Tailored version</h3>
+        <h3 data-i18n="ex.after"></h3>
         <ul>
           <li>Built <mark>Rust</mark> backend services handling 10k requests per second.</li>
           <li>Owned the MySQL to <mark>PostgreSQL</mark> <mark>migration</mark>, from plan to rollout.</li>
           <li>Built a <mark>distributed</mark> job scheduler running nightly batches across 12 servers.</li>
         </ul>
-        <div class="jdline">Same facts. Stronger verbs, the job's own words, most relevant first.</div>
+        <div class="jdline" data-i18n="ex.note"></div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<section class="band">
-  <div class="container features">
-    <div class="card feature">
-      <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
-      <h3>Truthful by design</h3>
-      <p>Uses only facts from your resume and the extra notes you add. No made-up titles, dates or numbers.</p>
+  <section class="band" id="how">
+    <div class="section-head"><h2 data-i18n="how.h2"></h2><p data-i18n="how.p"></p></div>
+    <div class="how">
+      <div class="card"><h3 data-i18n="how.1t"></h3><p data-i18n="how.1d"></p></div>
+      <div class="card"><h3 data-i18n="how.2t"></h3><p data-i18n="how.2d"></p></div>
+      <div class="card"><h3 data-i18n="how.3t"></h3><p data-i18n="how.3d"></p></div>
+      <div class="card"><h3 data-i18n="how.4t"></h3><p data-i18n="how.4d"></p></div>
     </div>
-    <div class="card feature">
-      <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg></div>
-      <h3>Any language, any tone</h3>
-      <p>Translate while you tailor: English, Japanese, Chinese, Korean, Spanish and more. Pick a tone from concise to warm.</p>
-    </div>
-    <div class="card feature">
-      <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></div>
-      <h3>Many jobs at once</h3>
-      <p>Paste several job descriptions and get one tailored version for each, side by side in tabs.</p>
-    </div>
-    <div class="card feature">
-      <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-      <h3>Your model, your cost</h3>
-      <p>Choose Claude or GPT. A typical run costs from under a cent to a few cents, paid straight to your own provider.</p>
-    </div>
-  </div>
-</section>
-
-<section class="band" id="how">
-  <div class="container">
-    <div class="section-head">
-      <h2>How it works</h2>
-      <p>Four steps, about a minute. MasterKey keeps your API key off this site the whole time.</p>
-    </div>
-    <div class="steps">
-      <div class="card step"><h3>Add your resume and the job</h3><p>Upload a PDF or Word file, or paste text. Add as many job descriptions as you like.</p></div>
-      <div class="card step"><h3>Pick language, tone and model</h3><p>Translate if you need to, choose how it should sound, and pick the AI model.</p></div>
-      <div class="card step"><h3>Approve on your phone</h3><p>MasterKey shows you the exact prompt and estimated cost. Nothing runs without your tap.</p></div>
-      <div class="card step"><h3>Copy, download or print</h3><p>Get clean Markdown for each job, ready to paste into any editor or save as PDF.</p></div>
-    </div>
-  </div>
-</section>
+  </section>
+</div>
 
 <footer>
   <div class="container">
-    <span>A MasterKey example app. Open source under Apache-2.0.</span>
-    <span>For developers: a static page with no backend. Each AI call is <code>fetch(MK_URL + '/v1/anthropic/messages', { headers: { Authorization: 'Bearer ' + grant } })</code></span>
+    <span data-i18n="foot.1"></span>
+    <span><span data-i18n="foot.2"></span> <code>fetch(MK_URL + '/v1/openai/chat/completions', { headers: { Authorization: 'Bearer ' + grant } })</code></span>
   </div>
 </footer>
-
-<dialog id="connect">
-  <h2>Connect your <span id="c-vendor">Anthropic</span> key</h2>
-  <div class="hint">Open the MasterKey app and enter this code</div>
-  <div class="code" id="c-code">MK-----</div>
-  <div class="hint">or on this device, open <a id="c-url" href="#"></a></div>
-  <div class="waitline"><span class="st waiting"></span><span id="c-status">Waiting for approval on your phone…</span></div>
-  <div class="noapp">No MasterKey app yet? <a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">See how to get started</a></div>
-  <button type="button" id="c-cancel">Cancel</button>
-</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script>
-const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
-const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
-const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
-const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic' };
-
-const $ = (id) => document.getElementById(id);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+"use strict";
+// ================= copy: English, Traditional Chinese, Japanese =================
+const I18N = {
+  en: {
+    'nav.how': 'How it works',
+    'hero.eyebrow': 'Free. Runs on your own AI account.',
+    'hero.h1': 'Tailor your resume to <em>every job</em> in a minute.',
+    'hero.lead': 'Upload your resume, paste the job description, and get a version that speaks the job\'s language. Only facts from your resume, rewritten for this role, in the language you pick.',
+    'tick.1': 'No sign-up', 'tick.2': 'Files stay in your browser', 'tick.3': 'You approve every AI call', 'tick.4': 'Never invents experience',
+    's1.title': 'Connect your AI', 's1.sub': 'Pick the account that pays for the AI. Your key stays in MasterKey; this page never sees it.',
+    'prov.openai': 'GPT models', 'prov.anthropic': 'Claude models', 'prov.openrouter': 'Claude and GPT, one sign-in in the app',
+    'prov.connect': 'Connect', 'prov.on': 'Connected', 'prov.off': 'Disconnect',
+    'pair.scan': 'Scan with your iPhone camera', 'pair.phone': 'On this iPhone?', 'pair.open': 'Open MasterKey', 'pair.code': 'or enter this code in the app',
+    'pair.wait': 'Waiting for you to approve on your phone…', 'pair.cancel': 'Cancel',
+    'err.denied': 'You declined the connection on your phone.', 'err.expired': 'The code expired. Try again.', 'err.reach': 'Could not reach MasterKey.',
+    'err.waking': 'Waking up the MasterKey server, this can take up to a minute…',
+    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'This app has no API key and no subscription. You use your own OpenAI, Anthropic or OpenRouter account.',
+    'mk.s1t': 'Get the MasterKey app.', 'mk.s1d': 'Scan the code below to join the beta.',
+    'mk.s2t': 'Connect once.', 'mk.s2d': 'OpenRouter is one tap; OpenAI and Anthropic keys are pasted from your computer.',
+    'mk.s3t': 'Approve each request.', 'mk.s3d': 'You see the exact prompt and the estimated cost first.',
+    'mk.get': 'Get MasterKey', 'mk.what': 'What is MasterKey? →',
+    's2.title': 'Your resume', 'drop.title': 'Upload your resume', 'drop.sub': 'PDF, DOCX, TXT or MD. Drop it here or click to choose.',
+    'resume.ph': '…or paste your resume text here. Uploaded files appear here so you can check them.',
+    'drop.reading': 'Reading {name}…', 'drop.read': '{n} characters read. Check the text below, or drop another file.',
+    'drop.empty': 'No text found. If it is a scanned PDF, paste the text instead.', 'drop.doc': 'Old .doc files are not supported. Save it as .docx or PDF.',
+    's3.title': 'Job descriptions', 'jd.ph': 'Paste the job description: title, company, responsibilities, requirements…', 'jd.add': '+ Add another job', 'jd.rm': 'Remove this job',
+    's4.title': 'Style and model', 'lang.label': 'Resume language', 'lang.same': 'Same as my resume', 'model.label': 'AI model', 'model.none': 'Connect a provider first',
+    'tone.label': 'Tone', 'tone.professional': 'Professional', 'tone.confident': 'Confident', 'tone.concise': 'Concise', 'tone.warm': 'Warm', 'tone.technical': 'Technical',
+    'extra.label': 'Anything missing? (optional)', 'extra.ph': 'Projects, achievements or experience that aren\'t in your resume yet. Only facts you give here or in your resume are used.',
+    'est.none': 'Connect a provider in step 1 to choose a model and see the cost.',
+    'est.text': 'At most <b>{cost}</b> per job from your {vendor} account, usually far less. Your phone shows this estimate before you approve. {price} per 1M tokens (in / out).',
+    'go.one': 'Tailor my resume', 'go.many': 'Tailor for {n} jobs', 'go.connect': 'Connect a provider in step 1',
+    'secure': 'Nothing runs until you approve it in MasterKey.',
+    'form.resume': 'Add your resume first: upload a file or paste the text.', 'form.jd': 'Paste at least one job description.',
+    'sample.title': 'What you\'ll get', 'sample.tag': 'Example', 'legend.1': 'Terms matched to the job', 'legend.2': 'One version per job: copy, download or print',
+    'job.waiting': 'Waiting for your approval in the MasterKey app…', 'job.queued': 'Queued. Runs after the job before it.', 'job.notrun': 'Not run: reconnect and try again.',
+    'job.copy': 'Copy', 'job.copied': 'Copied', 'job.dl': 'Download .md', 'job.print': 'Print / PDF', 'job.n': 'Job {n}',
+    'fail.denied': 'You denied this request in MasterKey.', 'fail.expired': 'The request expired before you approved it.',
+    'fail.gone': 'The MasterKey connection was revoked or reset. Connect again in step 1.', 'fail.timeout': 'The AI provider did not answer in time. Check the result in your MasterKey app; it was not retried.',
+    'ex.h2': 'Same experience, told for this job', 'ex.p': 'It reorders, rephrases and emphasises what you already did, mirrors the job\'s key terms where they truthfully apply, and never adds anything you didn\'t write.',
+    'ex.yours': 'Your resume', 'ex.asks': 'The job asks for:', 'ex.after': 'Tailored version', 'ex.note': 'Same facts. Stronger verbs, the job\'s own words, most relevant first.',
+    'how.h2': 'How it works', 'how.p': 'About a minute. MasterKey keeps your API key off this site the whole time.',
+    'how.1t': 'Connect your AI', 'how.1d': 'Scan the code with the MasterKey app once. OpenAI, Anthropic or OpenRouter.',
+    'how.2t': 'Add your resume and the jobs', 'how.2d': 'Upload a PDF or Word file, or paste text. Add as many job descriptions as you like.',
+    'how.3t': 'Approve on your phone', 'how.3d': 'MasterKey shows the exact prompt and the estimated cost. Nothing runs without your tap.',
+    'how.4t': 'Copy, download or print', 'how.4d': 'Clean Markdown for each job, ready for any editor or to save as PDF.',
+    'foot.1': 'A MasterKey example app. Open source under Apache-2.0.', 'foot.2': 'For developers: a static page with no backend. Each AI call is',
+  },
+  'zh-Hant': {
+    'nav.how': '使用方式',
+    'hero.eyebrow': '免費。使用你自己的 AI 帳戶。',
+    'hero.h1': '一分鐘，把履歷改寫成<em>每份職缺</em>想看的樣子。',
+    'hero.lead': '上傳履歷、貼上職缺說明，就能得到用該職缺語言重寫的版本。只使用履歷裡的事實，並以你選擇的語言輸出。',
+    'tick.1': '不用註冊', 'tick.2': '檔案只在瀏覽器裡讀取', 'tick.3': '每次 AI 呼叫都由你核准', 'tick.4': '絕不捏造經歷',
+    's1.title': '連接你的 AI', 's1.sub': '選擇要付費的 AI 帳戶。金鑰保存在 MasterKey，這個網頁看不到。',
+    'prov.openai': 'GPT 模型', 'prov.anthropic': 'Claude 模型', 'prov.openrouter': 'Claude 與 GPT，在 App 裡一鍵登入',
+    'prov.connect': '連接', 'prov.on': '已連接', 'prov.off': '中斷連接',
+    'pair.scan': '用 iPhone 相機掃描', 'pair.phone': '正在用 iPhone？', 'pair.open': '開啟 MasterKey', 'pair.code': '或在 App 中輸入這組代碼',
+    'pair.wait': '等待你在手機上核准…', 'pair.cancel': '取消',
+    'err.denied': '你在手機上拒絕了連接。', 'err.expired': '代碼已過期，請再試一次。', 'err.reach': '無法連線到 MasterKey。',
+    'err.waking': '正在喚醒 MasterKey 伺服器，最多約需一分鐘…',
+    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': '這個 App 沒有 API 金鑰，也不用訂閱。你使用自己的 OpenAI、Anthropic 或 OpenRouter 帳戶。',
+    'mk.s1t': '下載 MasterKey App。', 'mk.s1d': '掃描下方 QR code 加入測試版。',
+    'mk.s2t': '連接一次。', 'mk.s2d': 'OpenRouter 一鍵完成；OpenAI 與 Anthropic 的金鑰從電腦貼上。',
+    'mk.s3t': '逐次核准。', 'mk.s3d': '先看到完整提示內容與預估費用。',
+    'mk.get': '取得 MasterKey', 'mk.what': '什麼是 MasterKey？→',
+    's2.title': '你的履歷', 'drop.title': '上傳履歷', 'drop.sub': 'PDF、DOCX、TXT 或 MD。拖放到這裡或點擊選擇。',
+    'resume.ph': '…或直接貼上履歷文字。上傳的檔案內容會顯示在這裡供你確認。',
+    'drop.reading': '正在讀取 {name}…', 'drop.read': '已讀取 {n} 個字元。請確認下方文字，或換一個檔案。',
+    'drop.empty': '找不到文字。如果是掃描的 PDF，請直接貼上文字。', 'drop.doc': '不支援舊版 .doc，請另存為 .docx 或 PDF。',
+    's3.title': '職缺說明', 'jd.ph': '貼上職缺說明：職稱、公司、工作內容、條件…', 'jd.add': '+ 新增另一份職缺', 'jd.rm': '移除這份職缺',
+    's4.title': '風格與模型', 'lang.label': '履歷語言', 'lang.same': '與原履歷相同', 'model.label': 'AI 模型', 'model.none': '請先連接 AI 帳戶',
+    'tone.label': '語氣', 'tone.professional': '專業', 'tone.confident': '自信', 'tone.concise': '精簡', 'tone.warm': '親切', 'tone.technical': '技術',
+    'extra.label': '還有遺漏的嗎？（選填）', 'extra.ph': '履歷裡還沒寫的專案、成果或經歷。只會使用你在這裡或履歷中提供的事實。',
+    'est.none': '在步驟 1 連接 AI 帳戶後，即可選擇模型並看到費用。',
+    'est.text': '每份職缺最多 <b>{cost}</b>，由你的 {vendor} 帳戶支付，實際通常少很多。核准前手機會顯示同樣的預估。每 100 萬 token {price}（輸入 / 輸出）。',
+    'go.one': '開始改寫履歷', 'go.many': '為 {n} 份職缺改寫', 'go.connect': '請先在步驟 1 連接 AI 帳戶',
+    'secure': '在你於 MasterKey 核准之前，什麼都不會執行。',
+    'form.resume': '請先加入履歷：上傳檔案或貼上文字。', 'form.jd': '請至少貼上一份職缺說明。',
+    'sample.title': '你會得到', 'sample.tag': '範例', 'legend.1': '與職缺相符的關鍵字', 'legend.2': '每份職缺一個版本：可複製、下載或列印',
+    'job.waiting': '等待你在 MasterKey App 中核准…', 'job.queued': '排隊中，前一份完成後執行。', 'job.notrun': '未執行：請重新連接後再試。',
+    'job.copy': '複製', 'job.copied': '已複製', 'job.dl': '下載 .md', 'job.print': '列印 / PDF', 'job.n': '職缺 {n}',
+    'fail.denied': '你在 MasterKey 中拒絕了這個請求。', 'fail.expired': '請求在你核准前已過期。',
+    'fail.gone': 'MasterKey 連接已被撤銷或重設，請在步驟 1 重新連接。', 'fail.timeout': 'AI 服務沒有及時回應。請在 MasterKey App 查看結果；系統不會自動重試。',
+    'ex.h2': '同樣的經歷，為這份職缺重新敘述', 'ex.p': '重新排序、改寫並強調你做過的事，在屬實的地方使用職缺的關鍵字，絕不加入你沒寫過的內容。',
+    'ex.yours': '你的履歷', 'ex.asks': '職缺要求：', 'ex.after': '改寫後', 'ex.note': '事實不變。動詞更有力，用職缺自己的字眼，最相關的放最前面。',
+    'how.h2': '使用方式', 'how.p': '大約一分鐘。全程 MasterKey 都不會讓這個網站拿到你的 API 金鑰。',
+    'how.1t': '連接你的 AI', 'how.1d': '用 MasterKey App 掃描一次。支援 OpenAI、Anthropic、OpenRouter。',
+    'how.2t': '加入履歷與職缺', 'how.2d': '上傳 PDF 或 Word 檔，或貼上文字。職缺說明想加幾份都可以。',
+    'how.3t': '在手機上核准', 'how.3d': 'MasterKey 會顯示完整提示內容與預估費用。沒有你的點擊就不會執行。',
+    'how.4t': '複製、下載或列印', 'how.4d': '每份職缺一份乾淨的 Markdown，可貼到任何編輯器或存成 PDF。',
+    'foot.1': 'MasterKey 範例 App。以 Apache-2.0 開源。', 'foot.2': '給開發者：沒有後端的靜態網頁。每次 AI 呼叫就是',
+  },
+  ja: {
+    'nav.how': '使い方',
+    'hero.eyebrow': '無料。あなた自身の AI アカウントで動きます。',
+    'hero.h1': '履歴書を<em>応募する職ごとに</em>、1分で最適化。',
+    'hero.lead': '履歴書をアップロードして求人票を貼り付けるだけで、その職に響く表現に書き直します。使うのは履歴書にある事実だけ。言語も選べます。',
+    'tick.1': '登録不要', 'tick.2': 'ファイルはブラウザ内で読み込み', 'tick.3': 'AI の呼び出しは毎回あなたが承認', 'tick.4': '経歴を盛らない',
+    's1.title': 'AI を接続する', 's1.sub': '料金を払う AI アカウントを選びます。キーは MasterKey に保管され、このページからは見えません。',
+    'prov.openai': 'GPT モデル', 'prov.anthropic': 'Claude モデル', 'prov.openrouter': 'Claude と GPT、アプリでワンタップ接続',
+    'prov.connect': '接続', 'prov.on': '接続済み', 'prov.off': '接続を解除',
+    'pair.scan': 'iPhone のカメラでスキャン', 'pair.phone': 'この iPhone で見ている場合は', 'pair.open': 'MasterKey を開く', 'pair.code': 'またはアプリでこのコードを入力',
+    'pair.wait': 'スマートフォンでの承認を待っています…', 'pair.cancel': 'キャンセル',
+    'err.denied': 'スマートフォンで接続が拒否されました。', 'err.expired': 'コードの有効期限が切れました。もう一度お試しください。', 'err.reach': 'MasterKey に接続できませんでした。',
+    'err.waking': 'MasterKey サーバーを起動しています。最大1分ほどかかります…',
+    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'このアプリには API キーもサブスクリプションもありません。あなたの OpenAI、Anthropic、OpenRouter アカウントを使います。',
+    'mk.s1t': 'MasterKey アプリを入手。', 'mk.s1d': '下のコードをスキャンしてベータに参加。',
+    'mk.s2t': '一度だけ接続。', 'mk.s2d': 'OpenRouter はワンタップ。OpenAI と Anthropic のキーはパソコンから貼り付け。',
+    'mk.s3t': 'リクエストごとに承認。', 'mk.s3d': '送信されるプロンプトと費用の見積もりを先に確認できます。',
+    'mk.get': 'MasterKey を入手', 'mk.what': 'MasterKey とは？ →',
+    's2.title': 'あなたの履歴書', 'drop.title': '履歴書をアップロード', 'drop.sub': 'PDF・DOCX・TXT・MD。ドロップするかクリックして選択。',
+    'resume.ph': '…または履歴書のテキストを貼り付け。アップロードした内容もここに表示されるので確認できます。',
+    'drop.reading': '{name} を読み込み中…', 'drop.read': '{n} 文字を読み込みました。下のテキストを確認するか、別のファイルをドロップしてください。',
+    'drop.empty': 'テキストが見つかりません。スキャンした PDF の場合はテキストを貼り付けてください。', 'drop.doc': '古い .doc 形式には対応していません。.docx か PDF で保存してください。',
+    's3.title': '求人票', 'jd.ph': '求人票を貼り付け：職種、会社、仕事内容、応募条件…', 'jd.add': '+ 求人を追加', 'jd.rm': 'この求人を削除',
+    's4.title': 'スタイルとモデル', 'lang.label': '履歴書の言語', 'lang.same': '元の履歴書と同じ', 'model.label': 'AI モデル', 'model.none': '先に AI を接続してください',
+    'tone.label': 'トーン', 'tone.professional': 'プロフェッショナル', 'tone.confident': '自信', 'tone.concise': '簡潔', 'tone.warm': '親しみ', 'tone.technical': '技術的',
+    'extra.label': '書き足したいことは？（任意）', 'extra.ph': '履歴書にまだないプロジェクト、実績、経験。ここか履歴書にある事実だけが使われます。',
+    'est.none': 'ステップ1で AI を接続すると、モデルを選んで費用を確認できます。',
+    'est.text': '1件あたり最大 <b>{cost}</b>（{vendor} アカウントに請求、実際は通常ずっと少額）。承認前にスマートフォンにも同じ見積もりが表示されます。100万トークンあたり {price}（入力 / 出力）。',
+    'go.one': '履歴書を最適化', 'go.many': '{n} 件の求人向けに最適化', 'go.connect': 'ステップ1で AI を接続してください',
+    'secure': 'MasterKey で承認するまで何も実行されません。',
+    'form.resume': '先に履歴書を追加してください：ファイルをアップロードするかテキストを貼り付け。', 'form.jd': '求人票を少なくとも1件貼り付けてください。',
+    'sample.title': '仕上がりイメージ', 'sample.tag': '例', 'legend.1': '求人に合わせたキーワード', 'legend.2': '求人ごとに1つ：コピー、ダウンロード、印刷',
+    'job.waiting': 'MasterKey アプリでの承認を待っています…', 'job.queued': '待機中。前の求人のあとに実行します。', 'job.notrun': '未実行：もう一度接続してからお試しください。',
+    'job.copy': 'コピー', 'job.copied': 'コピーしました', 'job.dl': '.md をダウンロード', 'job.print': '印刷 / PDF', 'job.n': '求人 {n}',
+    'fail.denied': 'MasterKey でこのリクエストを拒否しました。', 'fail.expired': '承認前にリクエストの有効期限が切れました。',
+    'fail.gone': 'MasterKey の接続が取り消されたかリセットされました。ステップ1でもう一度接続してください。', 'fail.timeout': 'AI サービスが時間内に応答しませんでした。結果は MasterKey アプリで確認してください。自動再試行はしていません。',
+    'ex.h2': '同じ経験を、この求人向けに', 'ex.p': 'すでにやってきたことを並べ替え、言い換え、強調します。事実に合う範囲で求人のキーワードを使い、書いていないことは足しません。',
+    'ex.yours': 'あなたの履歴書', 'ex.asks': '求人の要件：', 'ex.after': '最適化後', 'ex.note': '事実はそのまま。力強い動詞、求人と同じ言葉、関連の高い順。',
+    'how.h2': '使い方', 'how.p': '約1分。MasterKey があなたの API キーをこのサイトから遠ざけます。',
+    'how.1t': 'AI を接続', 'how.1d': 'MasterKey アプリで一度スキャンするだけ。OpenAI、Anthropic、OpenRouter に対応。',
+    'how.2t': '履歴書と求人を追加', 'how.2d': 'PDF か Word をアップロード、またはテキストを貼り付け。求人は何件でも。',
+    'how.3t': 'スマートフォンで承認', 'how.3d': 'MasterKey が送信内容と費用の見積もりを表示。タップしない限り実行されません。',
+    'how.4t': 'コピー、ダウンロード、印刷', 'how.4d': '求人ごとにきれいな Markdown。どのエディタにも貼れ、PDF にも保存できます。',
+    'foot.1': 'MasterKey のサンプルアプリ。Apache-2.0 のオープンソース。', 'foot.2': '開発者向け：バックエンドのない静的ページです。AI の呼び出しは',
+  },
+};
+const LANGS = Object.keys(I18N);
+let ui = (() => { try { const s = localStorage.getItem('rt-ui'); if (LANGS.includes(s)) return s; } catch {} const n = (navigator.language || 'en').toLowerCase(); return n.startsWith('zh') ? 'zh-Hant' : n.startsWith('ja') ? 'ja' : 'en'; })();
+const t = (k, v = {}) => (I18N[ui][k] ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '');
+// Output languages: the value goes into the prompt (English), the label follows the UI.
+const OUT_LANGS = [['English', 'English', '英文', '英語'], ['Japanese', '日本語', '日文', '日本語'], ['Traditional Chinese', '繁體中文', '繁體中文', '繁体字中国語'], ['Simplified Chinese', '简体中文', '簡體中文', '簡体字中国語'], ['Korean', '한국어', '韓文', '韓国語'], ['Spanish', 'Español', '西班牙文', 'スペイン語'], ['French', 'Français', '法文', 'フランス語'], ['German', 'Deutsch', '德文', 'ドイツ語']];
+const TONES = [['professional', 'professional'], ['confident', 'confident and achievement-focused'], ['concise', 'concise and to the point'], ['warm', 'warm and personable'], ['technical', 'technical and precise']];
 
 // ================= MasterKey: the whole backend of this app =================
 // A static page: no server, no API key. The visitor's own key stays in MasterKey; this page only
 // ever holds a grant token, and every call follows the policy the visitor approves on their phone.
 // Local testing (localhost only): ?mk=http://localhost:8080&app=app_resume_tailor
+// Staging (any host): ?server=staging. Only these two fixed servers can be picked by URL.
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const qs = new URLSearchParams(location.search);
-const MK_URL = ((LOCAL && qs.get('mk')) || 'https://masterkey-prod-vkgm.onrender.com').replace(/\/$/, '');
+const SERVERS = { prod: 'https://masterkey-prod-vkgm.onrender.com', staging: 'https://masterkey-staging-vkgm.onrender.com' };
+const MK_URL = ((LOCAL && qs.get('mk')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
 const APP_ID = (LOCAL && qs.get('app')) || 'app_resume_tailor';
 
-// Must match the MasterKey server's allowlist (backend/src/pricing.rs). USD per 1M tokens, display only.
+const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic', openrouter: 'OpenRouter' };
+const VCOLOR = { openai: '#10a37f', anthropic: '#d97757', openrouter: '#6366f1' };
+const openaiShape = (vendor) => vendor !== 'anthropic'; // OpenRouter speaks the OpenAI chat-completions shape
+let hasOpenRouter = false; // probed below: prod gets OpenRouter on its next promotion
+const activeVendors = () => Object.keys(VENDOR).filter((v) => v !== 'openrouter' || hasOpenRouter);
+
+// Must match the server's allowlist (backend/src/pricing.rs). USD per 1M tokens (in, out).
 const MODELS = [
-  { id: 'claude-sonnet-5-5', vendor: 'anthropic', label: 'Claude Sonnet 5.5', price: '$2 / $10' },
-  { id: 'claude-opus-5-5', vendor: 'anthropic', label: 'Claude Opus 5.5', price: '$4 / $20' },
-  { id: 'claude-haiku-5-5', vendor: 'anthropic', label: 'Claude Haiku 5.5', price: '$0.10 / $0.50' },
-  { id: 'gpt-4.1', vendor: 'openai', label: 'GPT-4.1', price: '$2 / $8' },
-  { id: 'gpt-4.1-mini', vendor: 'openai', label: 'GPT-4.1 mini', price: '$0.40 / $1.60' },
-  { id: 'gpt-4o', vendor: 'openai', label: 'GPT-4o', price: '$2.50 / $10' },
-  { id: 'gpt-4o-mini', vendor: 'openai', label: 'GPT-4o mini', price: '$0.15 / $0.60' },
+  { id: 'claude-haiku-5-5', vendor: 'anthropic', label: 'Claude Haiku 5.5', i: 0.10, o: 0.50 },
+  { id: 'claude-sonnet-5-5', vendor: 'anthropic', label: 'Claude Sonnet 5.5', i: 2, o: 10 },
+  { id: 'claude-opus-5-5', vendor: 'anthropic', label: 'Claude Opus 5.5', i: 4, o: 20 },
+  { id: 'gpt-4o-mini', vendor: 'openai', label: 'GPT-4o mini', i: 0.15, o: 0.60 },
+  { id: 'gpt-4.1-mini', vendor: 'openai', label: 'GPT-4.1 mini', i: 0.40, o: 1.60 },
+  { id: 'gpt-4.1', vendor: 'openai', label: 'GPT-4.1', i: 2, o: 8 },
+  { id: 'gpt-4o', vendor: 'openai', label: 'GPT-4o', i: 2.50, o: 10 },
+  { id: 'anthropic/claude-haiku-5.5', vendor: 'openrouter', label: 'Claude Haiku 5.5', i: 0.10, o: 0.50 },
+  { id: 'anthropic/claude-sonnet-5.5', vendor: 'openrouter', label: 'Claude Sonnet 5.5', i: 2, o: 10 },
+  { id: 'openai/gpt-4o-mini', vendor: 'openrouter', label: 'GPT-4o mini', i: 0.15, o: 0.60 },
+  { id: 'openai/gpt-4.1-mini', vendor: 'openrouter', label: 'GPT-4.1 mini', i: 0.40, o: 1.60 },
 ];
 const MAX_TOKENS = 4096; // the server's per-model output cap; a full resume fits
 
 // ponytail: grant tokens live in localStorage (per browser, per MasterKey server). Revoking in the app or a server reset just means reconnecting.
 const store = {
   get: (v) => { try { return localStorage.getItem(`rt-grant:${MK_URL}:${v}`); } catch { return null; } },
-  set: (v, t) => { try { t ? localStorage.setItem(`rt-grant:${MK_URL}:${v}`, t) : localStorage.removeItem(`rt-grant:${MK_URL}:${v}`); } catch {} },
+  set: (v, tk) => { try { tk ? localStorage.setItem(`rt-grant:${MK_URL}:${v}`, tk) : localStorage.removeItem(`rt-grant:${MK_URL}:${v}`); } catch {} },
 };
 
 async function mk(path, { body, token, headers = {} } = {}) {
@@ -480,10 +553,10 @@ async function mk(path, { body, token, headers = {} } = {}) {
 
 function failure(status, j = {}) {
   const type = j.error?.type;
-  if (status === 403 && type === 'masterkey_denied') return { kind: 'denied', message: 'You denied this request in MasterKey.' };
-  if (status === 410) return { kind: 'expired', message: 'The request expired before you approved it.' };
-  if (status === 401) return { kind: 'disconnected', message: 'The MasterKey connection was revoked or reset. Connect again.' };
-  if (status === 504) return { kind: 'error', message: 'The AI provider did not answer in time. Check the result in your MasterKey app; it was not retried.' };
+  if (status === 403 && type === 'masterkey_denied') return { kind: 'denied', message: t('fail.denied') };
+  if (status === 410) return { kind: 'expired', message: t('fail.expired') };
+  if (status === 401) return { kind: 'disconnected', message: t('fail.gone') };
+  if (status === 504) return { kind: 'error', message: t('fail.timeout') };
   return { kind: 'error', message: j.error?.message || `MasterKey returned ${status}` };
 }
 
@@ -503,16 +576,27 @@ function prompt({ resume, jd, language, tone, extra }) {
   return { system, user };
 }
 
-const textOf = (vendor, r) => vendor === 'openai' ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
+function requestFor(model, input) {
+  const { system, user } = prompt(input);
+  return openaiShape(model.vendor)
+    ? [`/v1/${model.vendor}/chat/completions`, { model: model.id, max_tokens: MAX_TOKENS, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }]
+    : ['/v1/anthropic/messages', { model: model.id, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content: user }] }];
+}
+
+// The same ceiling the server reserves (and the phone shows): input <= UTF-8 bytes of the request
+// JSON + 16 per message + 64, output = max_tokens. Real usage is usually far lower.
+function ceilingUSD(model, body) {
+  const inTok = new TextEncoder().encode(JSON.stringify(body)).length + 16 * body.messages.length + 64;
+  return (inTok * model.i + MAX_TOKENS * model.o) / 1e6;
+}
+
+const textOf = (vendor, r) => openaiShape(vendor) ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
 
 // One job: a plain OpenAI / Anthropic request, sent to MasterKey with the grant instead of an API key.
 // No retries: a slow approval returns 202 and we poll; the Idempotency-Key guards against double billing.
 async function tailor(model, input, idemKey) {
   const token = store.get(model.vendor);
-  const { system, user } = prompt(input);
-  const [path, body] = model.vendor === 'openai'
-    ? ['/v1/openai/chat/completions', { model: model.id, max_tokens: MAX_TOKENS, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }]
-    : ['/v1/anthropic/messages', { model: model.id, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content: user }] }];
+  const [path, body] = requestFor(model, input);
   let r = await mk(path, { body, token, headers: { 'Idempotency-Key': idemKey, 'X-MasterKey-Wait': '25' } });
   while (r.status === 202) {
     await sleep(1500);
@@ -530,17 +614,74 @@ async function tailor(model, input, idemKey) {
   return { error: err };
 }
 // =============================================================================
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const usd = (x) => x < 0.01 ? '$' + x.toFixed(4) : '$' + x.toFixed(2);
 
-let models = MODELS, connected = {}, jobs = [], active = 0, running = false;
+let connected = {}, pairing = null, jobs = [], active = 0, running = false;
+
+// ---------- step 1: connect ----------
+function renderProviders() {
+  $('providers').replaceChildren(...activeVendors().map((v) => {
+    const on = connected[v];
+    const b = el('button', { type: 'button', className: 'prov' + (on ? ' on' : ''), disabled: !!pairing },
+      el('span', { className: 'pi', textContent: { openai: 'O', anthropic: 'A', openrouter: 'R' }[v], style: `background:${VCOLOR[v]}` }),
+      el('span', {}, VENDOR[v], el('small', { textContent: t('prov.' + v) })),
+      el('span', { className: 'state', textContent: on ? '✓ ' + t('prov.on') : t('prov.connect') }));
+    b.onclick = () => on ? disconnect(v) : connect(v);
+    if (on) b.title = t('prov.off');
+    return b;
+  }));
+  $('providers').classList.toggle('hidden', !!pairing);
+  $('step1').classList.toggle('done', activeVendors().some((v) => connected[v]));
+}
+
+function disconnect(v) {
+  // ponytail: forgets the grant in this browser only; the user revokes it for good in the MasterKey app (Apps).
+  store.set(v, null); connected[v] = false; renderAll();
+}
+
+function connErr(msg) { $('c-err').textContent = msg; $('c-err').classList.toggle('hidden', !msg); }
+
+async function connect(vendor) {
+  connErr('');
+  const slow = setTimeout(() => connErr(t('err.waking')), 3000);
+  let res;
+  try { res = await mk('/v1/connect', { body: { app_id: APP_ID, vendor } }); }
+  catch { clearTimeout(slow); return connErr(t('err.reach') + ' ' + MK_URL); }
+  clearTimeout(slow); connErr('');
+  if (res.status !== 200) return connErr(res.json.error?.message || `MasterKey ${res.status}`);
+  const c = res.json, me = (pairing = { vendor, code: c.connect_code });
+  $('p-code').textContent = c.connect_code;
+  $('p-url').href = c.connect_url;
+  $('p-qr').hidden = !c.connect_qr_url; // older servers have no QR
+  if (c.connect_qr_url) { $('p-qr').src = c.connect_qr_url; $('p-qr').alt = 'QR ' + c.connect_code; }
+  $('pairing').classList.remove('hidden');
+  renderProviders();
+  try {
+    for (;;) {
+      await sleep(1500);
+      if (pairing !== me) return; // cancelled or replaced
+      const s = (await mk('/v1/connect/' + encodeURIComponent(c.connect_code), { token: c.connect_secret })).json;
+      if (pairing !== me) return;
+      if (s.status === 'approved' && s.grant_token) store.set(vendor, s.grant_token);
+      if (s.status === 'approved') { connected[vendor] = !!store.get(vendor); break; }
+      if (s.status !== 'pending') { connErr(s.status === 'denied' ? t('err.denied') : t('err.expired')); break; }
+    }
+  } catch { connErr(t('err.reach')); }
+  if (pairing === me) { pairing = null; $('pairing').classList.add('hidden'); renderAll(); }
+}
+$('p-cancel').onclick = () => { pairing = null; $('pairing').classList.add('hidden'); renderProviders(); };
 
 // ---------- inputs ----------
 function addJd(value = '') {
   const box = el('div', { className: 'jd' });
-  const ta = el('textarea', { rows: 5, value, placeholder: 'Paste the job description: title, company, responsibilities, requirements…' });
-  ta.setAttribute('aria-label', 'Job description');
-  const rm = el('button', { type: 'button', className: 'rm', title: 'Remove this job', textContent: '×' });
-  rm.setAttribute('aria-label', 'Remove this job');
+  const ta = el('textarea', { rows: 5, value, placeholder: t('jd.ph') });
+  ta.setAttribute('aria-label', t('s3.title'));
+  ta.oninput = renderEstimate;
+  const rm = el('button', { type: 'button', className: 'rm', title: t('jd.rm'), textContent: '×' });
+  rm.setAttribute('aria-label', t('jd.rm'));
   rm.onclick = () => { box.remove(); syncJds(); };
   box.append(ta, rm);
   $('jds').append(box);
@@ -550,11 +691,13 @@ function addJd(value = '') {
 function syncJds() {
   const n = $('jds').children.length;
   $('jds').querySelectorAll('.rm').forEach((b) => b.classList.toggle('hidden', n < 2));
-  $('jd-plural').classList.toggle('hidden', n < 2);
-  $('go').textContent = n > 1 ? `Tailor for ${n} jobs` : 'Tailor my resume';
+  renderGo(); renderEstimate();
 }
 $('add-jd').onclick = () => addJd().focus();
 
+const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
 const loadScript = (src) => new Promise((ok, fail) => document.head.append(el('script', { src, onload: ok, onerror: () => fail(new Error('could not load ' + src)) })));
 async function extract(file) {
   const ext = file.name.split('.').pop().toLowerCase();
@@ -573,110 +716,116 @@ async function extract(file) {
     if (!window.mammoth) await loadScript(MAMMOTH);
     return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
   }
-  if (ext === 'doc') throw new Error('Old .doc files are not supported. Save it as .docx or PDF.');
+  if (ext === 'doc') throw new Error(t('drop.doc'));
   return file.text();
 }
 async function useFile(file) {
   if (!file) return;
-  $('drop-title').textContent = 'Reading ' + file.name + '…';
+  $('drop-title').textContent = t('drop.reading', { name: file.name });
   try {
-    const t = (await extract(file)).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-    if (!t) throw new Error('No text found. If it is a scanned PDF, paste the text instead.');
-    $('resume').value = t;
+    const text = (await extract(file)).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (!text) throw new Error(t('drop.empty'));
+    $('resume').value = text;
     $('drop-title').textContent = file.name;
-    $('drop-sub').textContent = `${t.length.toLocaleString()} characters read. Check the text below, or drop another file.`;
+    $('drop-sub').textContent = t('drop.read', { n: text.length.toLocaleString() });
+    renderEstimate();
   } catch (e) {
-    $('drop-title').textContent = 'Upload your resume';
+    $('drop-title').textContent = t('drop.title');
     $('drop-sub').textContent = e.message;
   }
 }
 $('file').onchange = (e) => useFile(e.target.files[0]);
-['dragenter', 'dragover'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
-['dragleave', 'drop'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+['dragenter', 'dragover'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
 $('drop').addEventListener('drop', (e) => useFile(e.dataTransfer.files[0]));
+$('resume').oninput = renderEstimate;
+$('extra').oninput = renderEstimate;
+
+// ---------- step 4: style, model, cost ----------
+const inputs = () => ({
+  resume: $('resume').value.trim().slice(0, 60000),
+  extra: $('extra').value.trim().slice(0, 60000),
+  language: $('language').value,
+  tone: TONES.find(([k]) => k === document.querySelector('[name=tone]:checked')?.value)?.[1] || 'professional',
+  jds: [...$('jds').querySelectorAll('textarea')].map((x) => x.value.trim().slice(0, 60000)).filter(Boolean),
+});
+const usable = () => MODELS.filter((m) => connected[m.vendor] && activeVendors().includes(m.vendor));
+const currentModel = () => usable().find((m) => m.id === $('model').value);
+
+function renderStyle() {
+  const li = 1 + LANGS.indexOf(ui), keepL = $('language').value, keepT = document.querySelector('[name=tone]:checked')?.value || 'professional';
+  $('language').replaceChildren(el('option', { value: '', textContent: t('lang.same') }), ...OUT_LANGS.map((l) => el('option', { value: l[0], textContent: l[li] })));
+  $('language').value = keepL;
+  $('tones').setAttribute('aria-label', t('tone.label'));
+  $('tones').replaceChildren(...TONES.map(([k]) => el('label', {}, el('input', { type: 'radio', name: 'tone', value: k, checked: k === keepT }), el('span', { textContent: t('tone.' + k) }))));
+}
 
 function renderModels() {
-  $('model').replaceChildren(...Object.keys(VENDOR).sort().map((v) => {
-    const g = el('optgroup', { label: VENDOR[v] });
-    g.append(...models.filter((m) => m.vendor === v).map((m) => el('option', { value: m.id, textContent: m.label })));
-    return g;
-  }));
-  try { const saved = localStorage.getItem('rt-model'); if (models.some((m) => m.id === saved)) $('model').value = saved; } catch {}
-  renderModelHint();
-}
-function renderModelHint() {
-  const m = models.find((x) => x.id === $('model').value);
-  if (m) $('model-hint').textContent = `${m.price} per 1M tokens (in / out), billed to your own ${VENDOR[m.vendor]} key. You approve every call on your phone before it runs.`;
-  $('conn').replaceChildren(...Object.keys(VENDOR).map((v) => el('span', { className: connected[v] ? 'on' : '' }, el('span', { className: 'dot' }), `${VENDOR[v]} ${connected[v] ? 'connected' : 'not connected'}`)));
-}
-$('model').onchange = () => { try { localStorage.setItem('rt-model', $('model').value); } catch {} renderModelHint(); };
-
-// ---------- MasterKey connect ----------
-async function connect(vendor) {
-  const slow = setTimeout(() => formError('Waking up the MasterKey server, this can take up to a minute…'), 3000);
-  let res;
-  try { res = await mk('/v1/connect', { body: { app_id: APP_ID, vendor } }); }
-  catch { throw new Error(`Could not reach MasterKey at ${MK_URL}.`); }
-  finally { clearTimeout(slow); formError(''); }
-  if (res.status !== 200) throw new Error(res.json.error?.message || `MasterKey refused the connection (${res.status}).`);
-  const c = res.json;
-  $('c-vendor').textContent = VENDOR[vendor];
-  $('c-code').textContent = c.connect_code;
-  $('c-url').textContent = $('c-url').href = c.connect_url;
-  $('c-status').textContent = 'Waiting for approval on your phone…';
-  const dlg = $('connect');
-  let cancelled = false;
-  $('c-cancel').onclick = () => { cancelled = true; dlg.close(); };
-  dlg.onclose = () => { cancelled = true; };
-  dlg.showModal();
-  for (;;) {
-    await sleep(1500);
-    if (cancelled) return false;
-    const s = (await mk('/v1/connect/' + encodeURIComponent(c.connect_code), { token: c.connect_secret })).json;
-    if (s.status === 'approved' && s.grant_token) store.set(vendor, s.grant_token);
-    if (s.status === 'approved') { connected[vendor] = !!store.get(vendor); renderModelHint(); dlg.onclose = null; dlg.close(); return true; }
-    if (s.status !== 'pending') { dlg.onclose = null; dlg.close(); throw new Error(s.status === 'denied' ? 'Connection denied on your phone.' : 'The connect code expired. Try again.'); }
+  const list = usable(), keep = $('model').value;
+  if (!list.length) {
+    $('model').replaceChildren(el('option', { value: '', textContent: t('model.none') }));
+    $('model').disabled = true;
+  } else {
+    $('model').disabled = false;
+    $('model').replaceChildren(...[...new Set(list.map((m) => m.vendor))].map((v) => {
+      const g = el('optgroup', { label: VENDOR[v] });
+      g.append(...list.filter((m) => m.vendor === v).map((m) => el('option', { value: m.id, textContent: m.label })));
+      return g;
+    }));
+    let saved = keep; try { saved = keep || localStorage.getItem('rt-model'); } catch {}
+    if (list.some((m) => m.id === saved)) $('model').value = saved;
   }
+}
+$('model').onchange = () => { try { localStorage.setItem('rt-model', $('model').value); } catch {} renderEstimate(); };
+
+function renderEstimate() {
+  const m = currentModel();
+  if (!m) { $('est').textContent = t('est.none'); return; }
+  const inp = inputs();
+  const worst = Math.max(...(inp.jds.length ? inp.jds : ['']).map((jd) => ceilingUSD(m, requestFor(m, { ...inp, jd })[1])));
+  const p = (x) => '$' + (x < 1 ? x.toFixed(2) : x);
+  $('est').innerHTML = t('est.text', { cost: usd(worst), vendor: VENDOR[m.vendor], price: `${p(m.i)} / ${p(m.o)}` }); // trusted copy, numbers only
+}
+
+function renderGo() {
+  const n = $('jds').children.length, ready = usable().length > 0;
+  $('go').textContent = !ready ? t('go.connect') : n > 1 ? t('go.many', { n }) : t('go.one');
+  $('go').disabled = running || !ready;
 }
 
 // ---------- run ----------
 function formError(msg) { $('form-err').textContent = msg; $('form-err').classList.toggle('hidden', !msg); }
-const titleOf = (jd, i) => (jd.split('\n').map((s) => s.trim()).find(Boolean) || `Job ${i + 1}`).replace(/^#+\s*/, '').slice(0, 36);
+const titleOf = (jd, i) => (jd.split('\n').map((s) => s.trim()).find(Boolean) || t('job.n', { n: i + 1 })).replace(/^#+\s*/, '').slice(0, 36);
 
 $('form').onsubmit = async (e) => {
   e.preventDefault();
   if (running) return;
   formError('');
-  const resume = $('resume').value.trim();
-  const jds = [...$('jds').querySelectorAll('textarea')].map((t) => t.value.trim()).filter(Boolean);
-  if (!resume) return formError('Add your resume first: upload a file or paste the text.');
-  if (!jds.length) return formError('Paste at least one job description.');
-  const model = models.find((m) => m.id === $('model').value);
-  const base = { resume: resume.slice(0, 60000), extra: $('extra').value.trim().slice(0, 60000), language: $('language').value, tone: document.querySelector('[name=tone]:checked').value };
-
-  running = true; $('go').disabled = true;
+  const model = currentModel();
+  if (!model) return $('step1').scrollIntoView({ behavior: 'smooth' });
+  const inp = inputs();
+  if (!inp.resume) return formError(t('form.resume'));
+  if (!inp.jds.length) return formError(t('form.jd'));
+  running = true; renderGo();
   try {
-    if (!connected[model.vendor] && !(await connect(model.vendor))) return;
-    jobs = jds.map((jd, i) => ({ jd, title: titleOf(jd, i), status: 'queued', key: crypto.randomUUID() }));
+    jobs = inp.jds.map((jd, i) => ({ jd, title: titleOf(jd, i), status: 'queued', key: crypto.randomUUID() }));
     active = 0; renderResults();
-    if (innerWidth < 980) document.querySelector('.out').scrollIntoView({ behavior: 'smooth' });
+    if (innerWidth < 1000) document.querySelector('.out').scrollIntoView({ behavior: 'smooth' });
     for (const job of jobs) {
       job.status = 'waiting'; renderResults();
       let r;
-      try { r = await tailor(model, { ...base, jd: job.jd.slice(0, 60000) }, job.key); }
-      catch { r = { error: { kind: 'error', message: `Could not reach MasterKey at ${MK_URL}.` } }; }
+      try { r = await tailor(model, { ...inp, jd: job.jd }, job.key); }
+      catch { r = { error: { kind: 'error', message: t('err.reach') + ' ' + MK_URL } }; }
       Object.assign(job, r.error ? { status: 'error', error: r.error.message } : { status: 'done', text: r.text });
       renderResults();
       if (r.error?.kind === 'disconnected') {
-        connected[model.vendor] = false; renderModelHint();
-        jobs.filter((j) => j.status === 'queued').forEach((j) => Object.assign(j, { status: 'error', error: 'Not run: reconnect MasterKey and try again.' }));
+        connected[model.vendor] = false; renderAll();
+        jobs.filter((j) => j.status === 'queued').forEach((j) => Object.assign(j, { status: 'error', error: t('job.notrun') }));
         break;
       }
     }
-  } catch (err) {
-    formError(err.message);
   } finally {
-    running = false; $('go').disabled = false; renderResults();
+    running = false; renderGo(); renderResults();
   }
 };
 
@@ -685,34 +834,49 @@ function renderResults() {
   $('results').classList.toggle('hidden', !jobs.length);
   $('tabs').classList.toggle('hidden', jobs.length < 2);
   $('tabs').replaceChildren(...jobs.map((j, i) => {
-    const t = el('button', { type: 'button', className: 'tab', onclick: () => { active = i; renderResults(); } }, el('span', { className: 'st ' + j.status }), j.title);
-    t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', i === active);
-    return t;
+    const b = el('button', { type: 'button', className: 'tab', onclick: () => { active = i; renderResults(); } }, el('span', { className: 'st ' + j.status }), j.title);
+    b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', i === active);
+    return b;
   }));
   const j = jobs[active];
   if (!j) return;
   if (j.status === 'done') {
-    const copy = el('button', { type: 'button', textContent: 'Copy' });
-    copy.onclick = async () => { await navigator.clipboard.writeText(j.text); copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy'), 1400); };
-    const dl = el('button', { type: 'button', textContent: 'Download .md', onclick: () => {
+    const copy = el('button', { type: 'button', textContent: t('job.copy') });
+    copy.onclick = async () => { await navigator.clipboard.writeText(j.text); copy.textContent = t('job.copied'); setTimeout(() => (copy.textContent = t('job.copy')), 1400); };
+    const dl = el('button', { type: 'button', textContent: t('job.dl'), onclick: () => {
       const a = el('a', { href: URL.createObjectURL(new Blob([j.text], { type: 'text/markdown' })), download: `resume-${j.title.replace(/[^\w-]+/g, '-').toLowerCase()}.md` });
       a.click(); URL.revokeObjectURL(a.href);
     } });
-    const pr = el('button', { type: 'button', textContent: 'Print / PDF', onclick: () => window.print() });
+    const pr = el('button', { type: 'button', textContent: t('job.print'), onclick: () => window.print() });
     const paper = el('article', { className: 'paper' });
     paper.innerHTML = DOMPurify.sanitize(marked.parse(j.text));
     $('panel').replaceChildren(el('div', { className: 'bar' }, el('b', { textContent: j.title }), el('div', { className: 'acts' }, copy, dl, pr)), paper);
   } else if (j.status === 'error') {
     $('panel').replaceChildren(el('div', { className: 'note bad' }, el('span', { className: 'st error' }), j.error));
   } else {
-    const msg = j.status === 'waiting' ? 'Waiting for your approval in the MasterKey app…' : 'Queued. Runs after the job before it.';
-    $('panel').replaceChildren(el('div', { className: 'note' }, el('span', { className: 'st ' + j.status }), msg));
+    $('panel').replaceChildren(el('div', { className: 'note' }, el('span', { className: 'st ' + j.status }), t(j.status === 'waiting' ? 'job.waiting' : 'job.queued')));
   }
 }
 
-addJd();
-connected = { openai: !!store.get('openai'), anthropic: !!store.get('anthropic') };
-renderModels();
+// ---------- language + boot ----------
+function applyText() {
+  document.documentElement.lang = ui;
+  for (const n of document.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
+  for (const n of document.querySelectorAll('[data-i18n-html]')) n.innerHTML = t(n.dataset.i18nHtml); // static copy from I18N only
+  for (const n of document.querySelectorAll('[data-i18n-ph]')) n.placeholder = t(n.dataset.i18nPh);
+  for (const ta of $('jds').querySelectorAll('textarea')) ta.placeholder = t('jd.ph');
+  $('ui-lang').value = ui;
+}
+function renderAll() { renderProviders(); renderModels(); renderEstimate(); renderGo(); }
+$('ui-lang').onchange = () => { ui = $('ui-lang').value; try { localStorage.setItem('rt-ui', ui); } catch {} applyText(); renderStyle(); renderAll(); renderResults(); };
+
+connected = Object.fromEntries(Object.keys(VENDOR).map((v) => [v, !!store.get(v)]));
+applyText(); renderStyle(); addJd(); renderAll();
+// Is OpenRouter available on this server? An unknown route answers 404 (or fails CORS); a real one answers 401 without a grant.
+(async () => {
+  try { hasOpenRouter = (await fetch(MK_URL + '/v1/openrouter/chat/completions', { method: 'POST' })).status !== 404; } catch { hasOpenRouter = false; }
+  if (hasOpenRouter) renderAll();
+})();
 </script>
 </body>
 </html>

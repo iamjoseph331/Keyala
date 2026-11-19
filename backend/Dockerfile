@@ -7,10 +7,10 @@ COPY src ./src
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -u 10001 mk && mkdir /data && chown mk /data
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -u 10001 mk && mkdir -p /data /var/data && chown mk /data /var/data
 COPY --from=build /app/target/release/masterkey-server /usr/local/bin/masterkey-server
-USER mk
 ENV PORT=8080 MK_DATABASE_URL=sqlite:///data/masterkey.db?mode=rwc
 EXPOSE 8080
-CMD ["masterkey-server"]
+# A mounted disk (Render: /var/data) arrives owned by root: hand it to mk, then run as mk.
+CMD ["sh", "-c", "chown mk /var/data 2>/dev/null; exec setpriv --reuid=mk --regid=mk --init-groups masterkey-server"]

@@ -3,11 +3,104 @@ import Foundation
 @main
 enum ContractTests {
     static func main() throws {
+        let preferenceSuite = "masterkey-tests-" + UUID().uuidString
+        let preferences = UserDefaults(suiteName: preferenceSuite)!
+        defer { preferences.removePersistentDomain(forName: preferenceSuite) }
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL)
+        precondition(!AppPreferences.load(preferences).sampleData && !AppPreferences.load(preferences).developerOptions)
+        preferences.set(true, forKey: "demoMode")
+        preferences.set("https://localhost:8443", forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL && !AppPreferences.load(preferences).sampleData)
+        preferences.set("https://user:secret@example.invalid", forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL)
+        preferences.set(AppPreferences.stagingURL, forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == AppPreferences.stagingURL && AppPreferences.load(preferences).developerOptions)
+        preferences.set(true, forKey: "developerSampleData")
+        precondition(AppPreferences.load(preferences).sampleData)
+        precondition(PairingLink.code(from: "masterkey://connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.code(from: " mk-4f7q ") == "MK-4F7Q")
+        precondition(PairingLink.code(from: AppPreferences.productionURL + "/connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.code(from: AppPreferences.stagingURL + "/connect/MK-4F7Q") == "MK-4F7Q")
+        precondition(PairingLink.serverURL(from: AppPreferences.stagingURL + "/connect/MK-4F7Q") == AppPreferences.stagingURL)
+        for invalid in ["https://example.com/MK-4F7Q", "masterkey://connect/MK-4F7Q?server=evil", "masterkey://connect/MK-4F7Q#secret", "masterkey://user@connect/MK-4F7Q", "masterkey://connect:80/MK-4F7Q", "masterkey://connect/%4DK-4F7Q", "masterkey://connect/MK-4F7Q/", "masterkey://requests/MK-4F7Q", "MK-123", "1234", "MK-12345", "sk-secret", AppPreferences.productionURL + "/connect/MK-4F7Q?token=secret", AppPreferences.productionURL + ".evil/connect/MK-4F7Q", AppPreferences.productionURL + "/connect/%4DK-4F7Q", AppPreferences.productionURL + "/enroll/MK-4F7Q"] {
+            precondition(PairingLink.code(from: invalid) == nil, "Unsafe pairing input must be rejected")
+        }
+        precondition(Provider.openAI.keyPlaceholder == "sk-..." && Provider.anthropic.keyPlaceholder == "sk-ant-...")
+        let enrollID = "en_abcdefghijklmnopqrstuv"
+        precondition(EnrollmentLink.id(from: "masterkey://enroll/" + enrollID) == enrollID)
+        precondition(EnrollmentLink.id(from: AppPreferences.productionURL + "/enroll/" + enrollID) == enrollID)
+        precondition(EnrollmentLink.id(from: AppPreferences.stagingURL + "/enroll/" + enrollID) == enrollID)
+        for invalid in ["en_abcdefghijklmnopqrstuv", "masterkey://enroll/en_short", "masterkey://enroll/" + enrollID + "/", "masterkey://enroll/" + enrollID + "?key=secret", "masterkey://enroll/" + enrollID + "#secret", "masterkey://user@enroll/" + enrollID, "masterkey://enroll:80/" + enrollID, "masterkey://connect/" + enrollID, AppPreferences.productionURL + "/enroll/%65n_abcdefghijklmnopqrstuv", AppPreferences.productionURL + ".evil/enroll/" + enrollID, "http://masterkey-prod-vkgm.onrender.com/enroll/" + enrollID] {
+            precondition(EnrollmentLink.id(from: invalid) == nil, "Unsafe enrollment input must be rejected")
+        }
         let decoder = JSONDecoder()
+        let enrolled = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":"A123","current_last4":"B456","expires_at":"2099-01-01T00:00:00.000Z"}"#.utf8))
+        precondition(enrolled.canConfirm && !enrolled.canClaim && !enrolled.shouldPoll && enrolled.currentLast4 == "B456")
+        let awaiting = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"anthropic","status":"claimed","last4":null,"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(awaiting.shouldPoll && !awaiting.canConfirm && !awaiting.canClaim)
+        let expiredEnrollment = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":"A123","expires_at":"2000-01-01T00:00:00Z"}"#.utf8))
+        precondition(expiredEnrollment.isExpired && !expiredEnrollment.canConfirm)
+        let invalidEnrollment = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":null,"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(!invalidEnrollment.canConfirm)
         let login = try decoder.decode(AuthenticatedSession.self, from: Data(#"{"session_token":"mk_sess_test","user":{"id":"usr_test","email":"preview@example.invalid"}}"#.utf8))
+        let accountWithProvider = try decoder.decode(AccountProfile.self, from: Data(#"{"id":"usr_apple","email":"relay@example.invalid","auth_provider":"apple"}"#.utf8))
+        precondition(accountWithProvider.authProvider == "apple")
+        let deletion = AccountDeletionRequest(idToken: "test-fresh-identity", authorizationCode: "test-authorization-code")
+        let deletionJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(deletion)) as! [String: Any]
+        precondition(deletionJSON["confirm"] as? String == "DELETE")
+        precondition(deletionJSON["id_token"] as? String == "test-fresh-identity")
+        precondition(deletionJSON["authorization_code"] as? String == "test-authorization-code")
+        precondition(deletionJSON["password"] == nil && deletionJSON["email"] == nil)
+        let stopped = try decoder.decode(StopAllResult.self, from: Data(#"{"requests_in_flight":1,"grants_revoked":2,"requests_denied":3}"#.utf8))
+        precondition(stopped.requestsInFlight == 1)
+        let deleted = try decoder.decode(AccountDeletionResult.self, from: Data(#"{"deleted":true,"apple_revoked":false}"#.utf8))
+        precondition(deleted.deleted && deleted.appleRevoked == false)
         let restored = try decoder.decode(AuthenticatedSession.self, from: JSONEncoder().encode(login))
         precondition(restored.user.id == "usr_test" && restored.user.displayEmail == "preview@example.invalid")
         precondition(AccountProfile(id: "usr_apple", email: "placeholder@apple.invalid").displayEmail == nil)
+        let routerKey = try decoder.decode(KeyRecord.self, from: Data(#"{"vendor":"openrouter","last4":"O123","created_at":"2026-11-18T00:00:00Z"}"#.utf8))
+        precondition(routerKey.provider == .openRouter && routerKey.provider.title == "OpenRouter")
+        precondition(Provider.openRouter.keyPlaceholder == "sk-or-v1-...")
+        let callbackURL = URL(string: "https://masterkey-staging-vkgm.onrender.com/oauth/openrouter/callback")!
+        let oauthState = String(repeating: "a", count: 22)
+        let oauthFlowID = "of_" + String(repeating: "c", count: 22)
+        var authURL = URLComponents(string: "https://openrouter.ai/auth")!
+        authURL.queryItems = [URLQueryItem(name: "callback_url", value: callbackURL.absoluteString), URLQueryItem(name: "state", value: oauthState), URLQueryItem(name: "code_challenge", value: String(repeating: "b", count: 43)), URLQueryItem(name: "code_challenge_method", value: "S256")]
+        func authorization(_ url: URL) throws -> OpenRouterAuthorization {
+            try decoder.decode(OpenRouterAuthorization.self, from: JSONSerialization.data(withJSONObject: ["flow_id": oauthFlowID, "auth_url": url.absoluteString, "expires_at": "2099-01-01T00:00:00Z"]))
+        }
+        let validatedAuthorization = try authorization(authURL.url!).validatedURL(callbackURL: callbackURL, allowMock: false)
+        precondition(validatedAuthorization == authURL.url!)
+        var wrongCallback = authURL
+        wrongCallback.queryItems = authURL.queryItems!.map { $0.name == "callback_url" ? URLQueryItem(name: "callback_url", value: "https://evil.example/oauth/openrouter/callback") : $0 }
+        for url in [URL(string: "https://evil.example/auth?state=" + oauthState)!, wrongCallback.url!, URL(string: "http://openrouter.ai/auth?state=" + oauthState)!] {
+            do { _ = try authorization(url).validatedURL(callbackURL: callbackURL, allowMock: false); preconditionFailure("Untrusted provider sign-in URLs must fail closed") } catch APIError.invalidResponse { }
+        }
+        let mockURL = URL(string: "http://127.0.0.1:8093/oauth/openrouter/mock?state=" + oauthState)!
+        let mockCallback = URL(string: "http://127.0.0.1:8093/oauth/openrouter/callback")!
+        let validatedMock = try authorization(mockURL).validatedURL(callbackURL: mockCallback, allowMock: true)
+        precondition(validatedMock == mockURL)
+        do { _ = try authorization(mockURL).validatedURL(callbackURL: mockCallback, allowMock: false); preconditionFailure("Mock consent requires explicit developer options") } catch APIError.invalidResponse { }
+        try OpenRouterCallback.validate(URL(string: "masterkey://oauth/openrouter?status=ok&flow=" + oauthFlowID)!, expectedFlowID: oauthFlowID)
+        try OpenRouterCallback.validate(URL(string: "masterkey://oauth/openrouter?status=error&reason=cancelled")!, expectedFlowID: oauthFlowID)
+        for callback in ["masterkey://oauth/openrouter?status=ok&status=error", "masterkey://oauth/openrouter?status=ok&flow=wrong", "masterkey://oauth/openrouter?status=ok", "masterkey://oauth/openrouter?status=ok&api_key=secret", "masterkey://evil/openrouter?status=ok", "https://oauth/openrouter?status=ok"] {
+            do { try OpenRouterCallback.validate(URL(string: callback)!, expectedFlowID: oauthFlowID); preconditionFailure("Untrusted provider callbacks must be rejected") } catch APIError.invalidResponse { }
+        }
+        let savedFlow = try decoder.decode(OpenRouterFlow.self, from: JSONSerialization.data(withJSONObject: ["flow_id": oauthFlowID, "provider": "openrouter", "status": "saved", "last4": "O123"]))
+        precondition(savedFlow.confirmedKey(in: [routerKey], expectedFlowID: oauthFlowID)?.lastFour == "O123")
+        precondition(savedFlow.confirmedKey(in: [routerKey], expectedFlowID: "of_other") == nil)
+        precondition(savedFlow.confirmedKey(in: [], expectedFlowID: oauthFlowID) == nil)
+        let pendingFlow = try decoder.decode(OpenRouterFlow.self, from: JSONSerialization.data(withJSONObject: ["flow_id": oauthFlowID, "provider": "openrouter", "status": "pending", "last4": "O123"]))
+        precondition(pendingFlow.confirmedKey(in: [routerKey], expectedFlowID: oauthFlowID) == nil, "An existing key cannot confirm a pending authorization")
+        var shortcut = makeRequest(id: "req_shortcut", status: "pending", createdAt: "2026-11-18T00:00:00Z", payload: .object(["messages": .array([.object(["role": .string("user"), "content": .string("繁體中文と日本語")])])]))
+        shortcut.estimatedCostMicrousd = 50_000
+        precondition(shortcut.canApproveWithSwipe && shortcut.readableMessages.first?.text == "繁體中文と日本語")
+        shortcut.estimatedCostMicrousd = 50_001
+        precondition(!shortcut.canApproveWithSwipe)
+        shortcut.estimatedCostMicrousd = -1
+        precondition(!shortcut.canApproveWithSwipe)
+        shortcut.estimatedCostMicrousd = 28; shortcut.payload = nil
+        precondition(!shortcut.canApproveWithSwipe)
         let browserPreview = try decoder.decode(ConnectPreview.self, from: Data(#"{"app":{"name":"Resume Tailor"},"vendor":"openai","origin":"https://example.invalid:8443","requires_ask":true}"#.utf8))
         precondition(browserPreview.sourceHost == "example.invalid:8443" && browserPreview.requiresAsk == true)
         let serverPreview = try decoder.decode(ConnectPreview.self, from: Data(#"{"app":{"name":"Example app"},"vendor":"anthropic","origin":null,"requires_ask":false}"#.utf8))
@@ -31,6 +124,10 @@ enum ContractTests {
 
         let key = try decoder.decode(KeyRecord.self, from: #"{"vendor":"anthropic","last4":"A123","created_at":"2026-11-14T00:00:00Z"}"#.data(using: .utf8)!)
         precondition(key.provider == .anthropic && key.lastFour == "A123")
+
+
+        let uncheckedKey = try decoder.decode(KeyRecord.self, from: Data(#"{"vendor":"openai","last4":"ABCD","checked":false}"#.utf8))
+        precondition(uncheckedKey.checked == false)
 
         let grant = try decoder.decode(GrantRecord.self, from: #"{"id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","policy":{"mode":"count","remaining_count":7,"expires_at":"2026-12-01T00:00:00Z"},"created_at":"2026-11-14T00:00:00Z","spent_usd":0.42,"request_count":3}"#.data(using: .utf8)!)
         precondition(grant.maxRequests == 7 && grant.expiresAt == "2026-12-01T00:00:00Z")

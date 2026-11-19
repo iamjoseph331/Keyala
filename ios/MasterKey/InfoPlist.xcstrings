@@ -1,0 +1,52 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan an app’s MasterKey QR code to review and approve its connection."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描 App 的 MasterKey QR code，以審閱並批准連結。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの MasterKey QR コードをスキャンして、接続を確認・許可します。"
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm request approvals with Face ID before an app can use your provider account."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 App 使用你的服務商帳號前，透過 Face ID 確認批准操作。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリがプロバイダーのアカウントを利用する前に、Face ID で許可操作を確認します。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

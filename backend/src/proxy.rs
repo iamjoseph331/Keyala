@@ -9,6 +9,7 @@ use axum::{
 // Upstream URLs are constants: nothing in a request can choose the host.
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
+const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 const PENDING_TTL_SECS: i64 = 600;
 
 pub async fn openai(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
@@ -16,6 +17,9 @@ pub async fn openai(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<R
 }
 pub async fn anthropic(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
     proxy(s, h, "anthropic", body).await
+}
+pub async fn openrouter(State(s): State<AppState>, h: HeaderMap, body: Bytes) -> R<Response> {
+    proxy(s, h, "openrouter", body).await
 }
 
 enum Decision {
@@ -53,6 +57,9 @@ async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<(Decision, i
 }
 
 async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> R<Response> {
+    if crate::ops::paused(&s) {
+        return Err(api(503, "upstream_paused", "the operator paused provider calls; try again later"));
+    }
     let g = auth_grant(&s, &h, vendor == "anthropic").await?;
     if g.vendor != vendor {
         return Err(api(403, "vendor_mismatch", format!("this grant is for {}, not {vendor}", g.vendor)));
@@ -60,7 +67,11 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
     let mut payload: Value = serde_json::from_slice(&body).map_err(|_| bad("body must be valid JSON"))?;
     let chk = pricing::validate(vendor, &mut payload, s.cfg.vendor_mock || s.cfg.prices_verified)?;
     let wait = h.get("x-masterkey-wait").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<u64>().ok()).unwrap_or(60).min(120);
-    let endpoint = if vendor == "openai" { "/v1/openai/chat/completions" } else { "/v1/anthropic/messages" };
+    let endpoint = match vendor {
+        "openai" => "/v1/openai/chat/completions",
+        "openrouter" => "/v1/openrouter/chat/completions",
+        _ => "/v1/anthropic/messages",
+    };
 
     let idem = match h.get("idempotency-key") {
         None => None,
@@ -229,6 +240,18 @@ pub async fn deny_request(State(s): State<AppState>, h: HeaderMap, Path(id): Pat
 pub async fn sweeper(s: AppState) {
     loop {
         tokio::time::sleep(Duration::from_secs(30)).await;
+        // key enrollments never outlive their 10 minutes, and neither does an uploaded key
+        let _ = sqlx::query("UPDATE enrollments SET status='expired', ciphertext=NULL, nonce=NULL WHERE expires_at<=? AND status IN ('pending','claimed','submitted')").bind(now()).execute(&s.db).await;
+        // flows stay readable for a day after their 10 minutes, then go
+        let _ = sqlx::query("UPDATE oauth_flows SET verifier=NULL WHERE expires_at<=? AND verifier IS NOT NULL").bind(now()).execute(&s.db).await;
+        let _ = sqlx::query("DELETE FROM oauth_flows WHERE expires_at<=?").bind(after(-86_400)).execute(&s.db).await;
+        if !crate::ops::paused(&s) {
+            // approved while paused (or lost at a restart): never claimed, so sending is safe
+            let held: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved' AND decided_at<=?").bind(after(-5)).fetch_all(&s.db).await.unwrap_or_default();
+            for id in held {
+                tokio::spawn(send_request(s.clone(), id));
+            }
+        }
         let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='pending' AND expires_at<=?").bind(now()).fetch_all(&s.db).await.unwrap_or_default();
         for id in ids {
             let r = sqlx::query("UPDATE requests SET status='expired', decided_at=? WHERE id=? AND status='pending'").bind(now()).bind(&id).execute(&s.db).await;
@@ -256,6 +279,9 @@ pub async fn send_request(s: AppState, id: String) {
 }
 
 async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
+    if crate::ops::paused(s) {
+        return Ok(()); // stays `approved`; the sweeper sends it once unpaused
+    }
     let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=? AND status='approved' AND EXISTS (SELECT 1 FROM grants WHERE id=requests.grant_id AND revoked_at IS NULL)").bind(id).execute(&s.db).await?.rows_affected() == 1;
     if !won {
         // still approved here means the claim lost to a revoked grant: deny and give the reservation back.
@@ -296,7 +322,7 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<(), sqlx::Error> {
+pub(crate) async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<(), sqlx::Error> {
     if r.reserved_micro > 0 {
         sqlx::query("UPDATE grants SET remaining_micro=remaining_micro+? WHERE id=? AND mode='budget' AND policy_gen=?").bind(r.reserved_micro).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
     }
@@ -333,6 +359,8 @@ async fn call_upstream(s: &AppState, vendor: &str, key: &str, payload: &str) -> 
     }
     let req = if vendor == "openai" {
         s.http.post(OPENAI_URL).header("authorization", format!("Bearer {key}"))
+    } else if vendor == "openrouter" {
+        s.http.post(OPENROUTER_URL).header("authorization", format!("Bearer {key}")).header("x-title", "MasterKey")
     } else {
         s.http.post(ANTHROPIC_URL).header("x-api-key", key).header("anthropic-version", "2023-06-01")
     };
@@ -360,7 +388,7 @@ fn mock(vendor: &str, payload: &str, key: &str) -> Up {
     let (inp, out) = (payload.len() as i64, 12);
     let text = "Hello from the MasterKey mock vendor.";
     let last4: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
-    let mut v = if vendor == "openai" {
+    let mut v = if pricing::openai_shape(vendor) {
         json!({"id": "chatcmpl-mock", "object": "chat.completion", "created": 0, "model": model,
                "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
                "usage": {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": inp + out}})

@@ -25,3 +25,5 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #46a9
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 .native-proof{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(32px,7vw,100px);align-items:center;background:#f4f2eb;color:#14202a}.native-proof h2{font-size:clamp(36px,4.5vw,64px);line-height:1.08;letter-spacing:-.045em;margin:20px 0}.native-proof h2 em{font-family:Georgia,serif;font-weight:400}.native-proof p{max-width:520px;line-height:1.7}.native-proof .native-caption{font-size:13px;color:#52645e}.native-proof .text-link{color:#1c5148}.native-proof figure{margin:0;text-align:center}.native-proof img{display:block;width:100%;height:auto;box-shadow:0 24px 60px #132a3426;border-radius:18px}.native-proof figcaption{margin-top:12px;font-size:11px;color:#52645e}@media(max-width:640px){.native-proof{grid-template-columns:1fr}.native-proof figure{max-width:280px;justify-self:center}}
+
+.project-note{max-width:450px;line-height:1.7}.project-note a{color:var(--teal)}

@@ -29,6 +29,8 @@ impl Model {
 // Verified 2026-11-15 (standard tier, USD per 1M tokens, no cache/batch discounts):
 //   https://developers.openai.com/api/docs/pricing
 //   https://platform.claude.com/docs/en/about-claude/pricing
+// OpenRouter entries verified 2026-11-18 against https://openrouter.ai/api/v1/models (same per-token
+// prices as the providers). Only exact slugs: fallbacks (`models`), `provider` routing and plugins are rejected.
 // When adding a model, leave `verified: false` until its price is checked the same way.
 const fn m(vendor: &'static str, name: &'static str, i: i64, o: i64) -> Model {
     Model { vendor, name, in_price: i, out_price: o, default_max: 1024, max_cap: 4096, long_in: 0, long_out: 0, verified: true }
@@ -42,7 +44,20 @@ pub static MODELS: &[Model] = &[
     m("anthropic", "claude-sonnet-5-5", 2_000_000, 10_000_000),
     // Haiku 5.5 bills prompts over 100K tokens at $0.50 / $2.50.
     Model { long_in: 500_000, long_out: 2_500_000, ..m("anthropic", "claude-haiku-5-5", 100_000, 500_000) },
+    m("openrouter", "openai/gpt-4o", 2_500_000, 10_000_000),
+    m("openrouter", "openai/gpt-4o-mini", 150_000, 600_000),
+    m("openrouter", "openai/gpt-4.1", 2_000_000, 8_000_000),
+    m("openrouter", "openai/gpt-4.1-mini", 400_000, 1_600_000),
+    m("openrouter", "anthropic/claude-opus-5.5", 4_000_000, 20_000_000),
+    m("openrouter", "anthropic/claude-sonnet-5.5", 2_000_000, 10_000_000),
+    // long-prompt tier kept from Anthropic's pricing: conservative if OpenRouter passes it through
+    Model { long_in: 500_000, long_out: 2_500_000, ..m("openrouter", "anthropic/claude-haiku-5.5", 100_000, 500_000) },
 ];
+
+/// OpenRouter speaks the OpenAI chat-completions shape.
+pub fn openai_shape(vendor: &str) -> bool {
+    vendor != "anthropic"
+}
 
 pub fn lookup(vendor: &str, name: &str) -> Option<&'static Model> {
     MODELS.iter().find(|m| m.vendor == vendor && m.name == name)
@@ -116,7 +131,7 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
     if !matches!(obj.get("stream"), None | Some(Value::Null) | Some(Value::Bool(false))) {
         return Err(api(400, "streaming_unsupported", "stream:true is not supported in v1"));
     }
-    let allowed = if vendor == "openai" { OPENAI_KEYS } else { ANTHROPIC_KEYS };
+    let allowed = if openai_shape(vendor) { OPENAI_KEYS } else { ANTHROPIC_KEYS };
     if let Some(k) = obj.keys().find(|k| !allowed.contains(&k.as_str())) {
         return Err(unsupported_opt(k));
     }
@@ -139,7 +154,7 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
         }
     }
     // output cap
-    let keys: &[&str] = if vendor == "openai" { &["max_tokens", "max_completion_tokens"] } else { &["max_tokens"] };
+    let keys: &[&str] = if openai_shape(vendor) { &["max_tokens", "max_completion_tokens"] } else { &["max_tokens"] };
     let mut max_tokens: Option<i64> = None;
     for k in keys {
         match obj.get(*k) {
@@ -161,8 +176,8 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
         }
     };
     // messages
-    let roles: &[&str] = if vendor == "openai" { &["user", "assistant", "system", "developer"] } else { &["user", "assistant"] };
-    let msg_keys: &[&str] = if vendor == "openai" { &["role", "content", "name"] } else { &["role", "content"] };
+    let roles: &[&str] = if openai_shape(vendor) { &["user", "assistant", "system", "developer"] } else { &["user", "assistant"] };
+    let msg_keys: &[&str] = if openai_shape(vendor) { &["role", "content", "name"] } else { &["role", "content"] };
     let msgs = obj.get("messages").and_then(Value::as_array).filter(|a| !a.is_empty()).ok_or_else(|| api(400, "invalid_request", "messages must be a non-empty array"))?;
     for msg in msgs {
         let m = msg.as_object().ok_or_else(|| api(400, "invalid_request", "each message must be an object"))?;
@@ -191,7 +206,7 @@ pub fn validate(vendor: &str, body: &mut Value, allow_unpriced: bool) -> Result<
 /// Actual cost from the vendor `usage` block; None when usage is missing.
 pub fn actual_cost(vendor: &str, model: &Model, resp: &Value) -> Option<i64> {
     let u = resp.get("usage")?;
-    let (i, o) = if vendor == "openai" { ("prompt_tokens", "completion_tokens") } else { ("input_tokens", "output_tokens") };
+    let (i, o) = if openai_shape(vendor) { ("prompt_tokens", "completion_tokens") } else { ("input_tokens", "output_tokens") };
     let (it, ot) = (u.get(i)?.as_i64()?, u.get(o)?.as_i64()?);
     let (ip, op) = model.rates(it);
     Some(cost(it, ip) + cost(ot, op))
