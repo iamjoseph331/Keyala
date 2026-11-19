@@ -6,12 +6,12 @@ Owner decision 2026-11-18: free, invite-only TestFlight first; English, Traditio
 
 | Gate | Owner | Acceptance | State |
 |---|---|---|---|
-| Support/contact | Codex | Native support + privacy information and three-language website pages use the authorized email; no secrets in reports | implementing |
-| Three native languages | Codex | English/zh-Hant/ja, runtime errors and permissions; signed build and native visual checks | implementing |
-| Account deletion | Claude backend + Codex UI | Fresh identity confirmation, owner isolation, all associated data/access removed, Apple revocation handled; sending/uncertain cases safe | contract requested |
-| Lost-device controls | Claude backend + Codex UI | Revoke all sessions / stop app permissions, no automatic retry or new upstream sends after stop | contract requested |
+| Support/contact | Codex | Native support + privacy information and three-language website pages use the authorized email; no secrets in reports | implemented in source; local checks pass, visual/deployment checks pending |
+| Three native languages | Codex | English/zh-Hant/ja, runtime errors and permissions; signed build and native visual checks | implemented in source; local checks pass, visual/deployment checks pending |
+| Account deletion | Claude backend + Codex UI | Fresh identity confirmation, owner isolation, all associated data/access removed, Apple revocation handled; sending/uncertain cases safe | backend + native implemented; local lifecycle tests pass, deployment/live Apple checks pending |
+| Lost-device controls | Claude backend + Codex UI | Revoke all sessions / stop app permissions, no automatic retry or new upstream sends after stop | backend + native implemented; local lifecycle tests pass, deployment/live Apple checks pending |
 | Durable production | Claude | Reviewable config, cost, restore rehearsal, restart persistence, rollback; paid change and main promotion await final approval | prepare only |
-| Operations | Claude | Consistent SQLite backup, separate master-key handling, mock restore drill, health/incident/stop-forwarding runbook | requested |
+| Operations | Claude | Consistent SQLite backup, separate master-key handling, mock restore drill, health/incident/stop-forwarding runbook | backend implemented; local restore rehearsal recorded, hosted rollout pending |
 | Real provider success | Joseph + agents | One small request per provider, phone Allow, response, usage/cost evidence; quota/uncertain/retry checks | awaiting top-ups |
 | Device distribution | Codex + Joseph | TestFlight signing, production APNs, lock-screen privacy, notification tap, biometrics and language UI | remaining |
 | Reviewer route | Claude + Codex | Reviewers exercise full flow without their own paid key; isolated restricted review data/service, no public dev login | prepare |

@@ -338,17 +338,25 @@ import LocalAuthentication
         do { try await api.deleteKey(provider: key.provider); guard generation == contextGeneration else { return }; keys.removeAll { $0.id == key.id }; infoMessage = "Key removed." }
         catch { report(error) }
     }
-    func revoke(_ grant: GrantRecord) async {
-        if demoMode { grants.removeAll { $0.id == grant.id }; infoMessage = "Demo grant revoked on this device only."; return }
+    func revoke(_ grant: GrantRecord) async -> Bool {
+        if demoMode { grants.removeAll { $0.id == grant.id }; infoMessage = "Demo grant revoked on this device only."; return true }
         let generation = contextGeneration; let api = client
-        do { try await api.revoke(id: grant.id); guard generation == contextGeneration else { return }; grants.removeAll { $0.id == grant.id }; infoMessage = "Grant revoked." }
-        catch { report(error) }
+        do {
+            try await api.revoke(id: grant.id)
+            guard generation == contextGeneration else { return false }
+            grants.removeAll { $0.id == grant.id }; infoMessage = localized("App disconnected.")
+            return true
+        } catch { if generation == contextGeneration { report(error) }; return false }
     }
-    func update(_ grant: GrantRecord, policy: Policy) async {
-        if demoMode { infoMessage = "Demo policy changes are not sent to a server."; return }
+    func update(_ grant: GrantRecord, policy: Policy) async -> Bool {
+        if demoMode { infoMessage = "Demo policy changes are not sent to a server."; return false }
         let generation = contextGeneration; let api = client
-        do { _ = try await api.updatePolicy(id: grant.id, policy: policy); guard generation == contextGeneration else { return }; await refresh() }
-        catch { report(error) }
+        do {
+            let updated = try await api.updatePolicy(id: grant.id, policy: policy)
+            guard generation == contextGeneration else { return false }
+            grants = grants.map { $0.id == updated.id ? updated : $0 }
+            return true
+        } catch { if generation == contextGeneration { report(error) }; return false }
     }
     func connectPreview(code: String) async -> ConnectPreview? {
         if demoMode { return ConnectPreview(app: .init(name: "Sketchpad AI (DEMO)", homepage: nil), vendor: .openAI, suggestedPolicy: nil, origin: "https://example.invalid", requiresAsk: true) }

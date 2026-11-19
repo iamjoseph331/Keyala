@@ -298,6 +298,7 @@ struct ApprovalPolicyView: View {
     @State private var count = 5
     @State private var budget = 1.0
     @State private var alert = 0.5
+    var isApplying = false
     var actionTitle = "Apply access"
     var onApprove: (Policy) -> Void
     var body: some View {
@@ -312,6 +313,7 @@ struct ApprovalPolicyView: View {
                 Section { Text("You can change or remove app access any time. Estimates are not guaranteed final charges.").font(.footnote).foregroundStyle(MKStyle.muted) }
                 Section {
                     Button(actionTitle) { onApprove(Policy(mode: mode, remainingCount: mode == "count" ? count : nil, remainingUSD: mode == "budget" ? budget : nil, alertUSDPerDay: mode == "trust" ? alert : nil)) }
+                        .disabled(isApplying)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .buttonStyle(.borderedProminent)
@@ -394,6 +396,7 @@ private struct PasteKeyView: View {
     @State private var provider: Provider
     @State private var secret = ""
     @State private var saving = false
+    @State private var confirmReplacement = false
     init(provider: Provider) { _provider = State(initialValue: provider) }
     var body: some View {
         NavigationStack {
@@ -411,14 +414,8 @@ private struct PasteKeyView: View {
                 }
                 Section {
                     Button {
-                        let value = secret; let selected = provider; let generation = store.contextGeneration
-                        saving = true
-                        Task {
-                            defer { saving = false }
-                            if await store.addKey(provider: selected, value: value, label: selected.title), generation == store.contextGeneration {
-                                secret = ""; dismiss()
-                            }
-                        }
+                        if store.keys.contains(where: { $0.provider == provider }) { confirmReplacement = true }
+                        else { saveKey() }
                     } label: { HStack { if saving { ProgressView() }; Text(saving ? "Saving…" : "Save key").frame(maxWidth: .infinity) } }
                         .buttonStyle(.borderedProminent).foregroundStyle(MKStyle.buttonText)
                         .disabled(store.demoMode || saving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -426,11 +423,27 @@ private struct PasteKeyView: View {
                 }
             }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Paste provider key").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+                .confirmationDialog("Replace the saved key?", isPresented: $confirmReplacement, titleVisibility: .visible) {
+                    Button("Replace key", role: .destructive) { saveKey() }
+                    Button("Keep current key", role: .cancel) { }
+                } message: { Text("Connected apps will use the new key under their existing permissions. The previous key is not revoked at the provider.") }
                 .onChange(of: provider) { _, _ in secret = "" }
                 .onChange(of: store.contextGeneration) { _, _ in secret = ""; dismiss() }
                 .onDisappear { secret = "" }
         }
     }
+    private func saveKey() {
+        guard !saving, !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let value = secret; let selected = provider; let generation = store.contextGeneration
+        saving = true
+        Task {
+            defer { saving = false }
+            if await store.addKey(provider: selected, value: value, label: selected.title), generation == store.contextGeneration {
+                secret = ""; dismiss()
+            }
+        }
+    }
+
 }
 
 private struct ProviderKeyView: View {
@@ -503,14 +516,36 @@ struct GrantDetailView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var showPolicy = false
+    @State private var confirmDisconnect = false
+    @State private var updating = false
     let grant: GrantRecord
+    private var current: GrantRecord { store.grants.first(where: { $0.id == grant.id }) ?? grant }
     var body: some View {
-        NavigationStack { VStack(alignment: .leading, spacing: 18) {
-            GrantCard(grant: grant)
-            Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }
-            Button(role: .destructive) { Task { await store.revoke(grant); dismiss() } } label: { Label("Revoke grant", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }
-            Spacer()
-        }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }.sheet(isPresented: $showPolicy) { ApprovalPolicyView { policy in Task { await store.update(grant, policy: policy); showPolicy = false } } } }
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                GrantCard(grant: current)
+                InfoBanner()
+                Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }.disabled(updating)
+                Button(role: .destructive) { confirmDisconnect = true } label: { Label("Disconnect app", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }.disabled(updating)
+                if updating { ProgressView() }
+                Spacer()
+            }.padding(20).background(MKStyle.navy.ignoresSafeArea()).navigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+                .confirmationDialog("Disconnect this app?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+                    Button("Disconnect app", role: .destructive) {
+                        updating = true
+                        Task { defer { updating = false }; if await store.revoke(grant) { dismiss() } }
+                    }
+                } message: { Text("This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish.") }
+                .sheet(isPresented: $showPolicy) {
+                    ApprovalPolicyView(isApplying: updating) { policy in
+                        guard !updating else { return }
+                        updating = true
+                        Task { defer { updating = false }; if await store.update(grant, policy: policy) { showPolicy = false } }
+                    }
+                }
+                .onChange(of: store.contextGeneration) { _, _ in dismiss() }
+        }
     }
 }
 

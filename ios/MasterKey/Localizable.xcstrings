@@ -9062,6 +9062,167 @@
           }
         }
       }
+    },
+    "Replace the saved key?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace the saved key?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要替換已保存的金鑰嗎？"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのキーを置き換えますか？"
+          }
+        }
+      }
+    },
+    "Replace key": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace key"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替換金鑰"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーを置き換える"
+          }
+        }
+      }
+    },
+    "Connected apps will use the new key under their existing permissions. The previous key is not revoked at the provider.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected apps will use the new key under their existing permissions. The previous key is not revoked at the provider."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已連結 App 會依原授權使用新金鑰。舊金鑰不會在服務商端被撤銷。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続済みアプリは現在の許可の範囲で新しいキーを使います。古いキーはプロバイダー側では失効しません。"
+          }
+        }
+      }
+    },
+    "Disconnect app": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect app"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中斷 App 連結"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの接続を解除"
+          }
+        }
+      }
+    },
+    "Disconnect this app?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect this app?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要中斷這個 App 的連結嗎？"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリの接続を解除しますか？"
+          }
+        }
+      }
+    },
+    "This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 App 會失去使用這個模型服務的授權。已保存的金鑰與歷史會保留；已送出的請求仍可能完成。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリはプロバイダーを利用できなくなります。保存したキーと履歴は残り、送信済みの処理は完了する場合があります。"
+          }
+        }
+      }
+    },
+    "App disconnected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App disconnected."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已中斷 App 連結。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの接続を解除しました。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
