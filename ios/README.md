@@ -92,3 +92,34 @@ swiftc -module-cache-path /private/tmp/masterkey-swift-modules \
   ios/Tests/ContractTests.swift -o /private/tmp/masterkey-contract-tests
 /private/tmp/masterkey-contract-tests
 ```
+
+
+## First use and account controls
+
+A three-step first-use guide explains the personal experimental service, operator
+trust, provider credits, pairing and request review. Completion is stored on this
+device; reopen the guide in Settings > Getting started. Pairing and enrollment
+links remain available while signing in.
+
+Settings > Account separates ending this device’s server session, signing out
+other devices, stopping app permissions and deleting the account. Deletion needs
+an explicit DELETE confirmation and fresh Apple verification (identity token and
+authorization code), or the test account’s own password/dev identity. Apple
+verification is discarded if the account or server context changes. An old saved
+session without auth_provider needs a fresh sign-in before deletion is offered.
+These controls require the matching backend contract in docs/PLAN.md; an old
+deployment does not gain them merely by installing the new app.
+
+Run the native API client account checks against an isolated localhost mock with
+development login enabled (never a shared or real-key server):
+
+```sh
+swiftc -module-cache-path /private/tmp/masterkey-swift-modules \
+  ios/MasterKey/Models.swift ios/MasterKey/Networking.swift \
+  ios/Tests/AccountLifecycleChecks.swift -o /private/tmp/masterkey-account-checks
+/private/tmp/masterkey-account-checks http://127.0.0.1:8094
+```
+
+The check uses a unique fictional identity and covers other-session revocation,
+stop-all, logout, failed reauthentication, deletion and fresh account recreation.
+It does not prove live Apple token revocation or physical-device behavior.

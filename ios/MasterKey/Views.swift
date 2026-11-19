@@ -10,9 +10,9 @@ struct PageHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            if !eyebrow.isEmpty { Text(eyebrow).font(.subheadline.weight(.medium)).foregroundStyle(MKStyle.teal) }
-            Text(title).font(.system(size: 34, weight: .bold)).foregroundStyle(MKStyle.cream)
-            Text(subtitle).font(.subheadline).foregroundStyle(MKStyle.muted)
+            if !eyebrow.isEmpty { Text(LocalizedStringKey(eyebrow)).font(.subheadline.weight(.medium)).foregroundStyle(MKStyle.teal) }
+            Text(LocalizedStringKey(title)).font(.system(size: 34, weight: .bold)).foregroundStyle(MKStyle.cream)
+            Text(LocalizedStringKey(subtitle)).font(.subheadline).foregroundStyle(MKStyle.muted)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 10)
     }
 }
@@ -518,11 +518,15 @@ struct AccountView: View {
     @EnvironmentObject private var store: AppStore
     @State private var stagingUsername = ""
     @State private var stagingPassword = ""
+    @State private var confirmStop = false
+    @State private var confirmSessions = false
+    @State private var confirmSignOut = false
 
     var body: some View {
         Form {
             Section {
                 PageHeader(eyebrow: "MasterKey", title: "Account", subtitle: "Manage your sign-in.")
+                InfoBanner()
             }.listRowBackground(MKStyle.navy)
             Section("Profile") {
                 if store.demoMode {
@@ -534,10 +538,24 @@ struct AccountView: View {
                     }
                     LabeledContent("Account ID", value: account.id)
                     LabeledContent("Server", value: store.serverURL)
-                    Button("Sign out", role: .destructive) { store.signOut() }
+                    if account.authProvider == "apple" {
+                        Text("Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; MasterKey does not have a separate account password.").font(.footnote).foregroundStyle(MKStyle.muted)
+                    }
+                    Button("Sign out on this iPhone") { confirmSignOut = true }.disabled(store.busy)
                 } else {
                     AppleAuthenticationButton(mode: .signIn)
-                    NavigationLink("Sign up") { SignUpView() }
+                    Text("New here? Continuing creates your MasterKey account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+            }
+            if !store.demoMode, store.account != nil {
+                Section("Security & access") {
+                    Button("Sign out other devices") { confirmSessions = true }.disabled(store.busy)
+                    Button("Stop all app permissions", role: .destructive) { confirmStop = true }.disabled(store.busy)
+                    Text("Signing out devices does not revoke app permissions. Stop permissions separately if an app or token may be compromised.").font(.footnote).foregroundStyle(MKStyle.muted)
+                }
+                Section("Delete account") {
+                    NavigationLink("Delete MasterKey account") { DeleteAccountView() }.disabled(store.busy)
+                    Text("Permanently remove your MasterKey account, keys, permissions and history. Your provider accounts and subscriptions are separate.").font(.footnote).foregroundStyle(MKStyle.muted)
                 }
             }
             if !store.demoMode, store.account == nil, store.supportsStagingPassword {
@@ -565,33 +583,16 @@ struct AccountView: View {
                 }
             }
         }.scrollContentBackground(.hidden).background(MKStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
-    }
-}
+        .confirmationDialog("Sign out on this iPhone?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { Task { await store.signOutRemotely() } }
+        } message: { Text("This ends this device’s server session. Other devices and app permissions stay active.") }
+        .confirmationDialog("Sign out other devices?", isPresented: $confirmSessions, titleVisibility: .visible) {
+            Button("Sign out other devices", role: .destructive) { Task { await store.revokeOtherSessions() } }
+        } message: { Text("This iPhone stays signed in. App permissions stay active until you stop them separately.") }
+        .confirmationDialog("Stop all app permissions?", isPresented: $confirmStop, titleVisibility: .visible) {
+            Button("Stop permissions", role: .destructive) { Task { await store.stopAllPermissions() } }
+        } message: { Text("Every connected app will lose access. Unsent requests are denied. Already-sent requests may still finish; your keys stay stored.") }
 
-private struct SignUpView: View {
-    @EnvironmentObject private var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        Form {
-            Section {
-                AppleAuthenticationButton(mode: .signUp)
-            }
-            if store.supportsStagingPassword {
-                Section {
-                    Text("For password sign-in on staging, ask the server operator for a test account.")
-                        .font(.footnote).foregroundStyle(MKStyle.muted)
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(MKStyle.navy.ignoresSafeArea())
-        .navigationTitle("Sign up")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .onChange(of: store.account?.id) { _, accountID in
-            if accountID != nil { dismiss() }
-        }
     }
 }
 
@@ -638,7 +639,9 @@ struct WelcomeView: View {
                 Label("Review and approve requests", systemImage: "3.circle")
             }.font(.subheadline)
             AppleAuthenticationButton(mode: .continue)
-            Text("New here? Continuing creates your MasterKey account.").font(.footnote).foregroundStyle(MKStyle.muted)
+            Text("New here? Continuing creates your MasterKey account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(MKStyle.muted)
+            Text("An experimental personal project by Joseph Chen, built with care. Provider usage is billed separately.").font(.footnote).foregroundStyle(MKStyle.muted)
+            HStack { NavigationLink("Privacy & data") { PrivacyView() }; NavigationLink("Help & contact") { SupportView() } }.font(.footnote)
             if store.developerOptions { NavigationLink("Other sign-in options") { AccountView() } }
             InfoBanner()
         }.padding(24) }.background(MKStyle.navy.ignoresSafeArea())
@@ -664,6 +667,11 @@ struct SettingsView: View {
                 Text("Off by default. Only one-call approvals with an estimate of $0.05 or less can use this shortcut. Larger estimates open the review sheet.").font(.footnote).foregroundStyle(MKStyle.muted)
             }
             Section("Appearance") { AppearancePicker() }
+            Section("Help & privacy") {
+                NavigationLink("Getting started") { FirstUseGuideView() }
+                NavigationLink("Help & contact") { SupportView() }
+                NavigationLink("Privacy & data") { PrivacyView() }
+            }
             Section("Developer") { NavigationLink("Developer options") { DeveloperOptionsView() } }
             Section { InfoBanner() }
         }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Settings")
@@ -1072,5 +1080,157 @@ private extension String {
         guard let date = formatter.date(from: self) else { return self }
         let output = DateFormatter(); output.dateStyle = .medium; output.timeStyle = .short
         return output.string(from: date)
+    }
+}
+
+
+struct SupportView: View {
+    var body: some View {
+        Form {
+            Section("Contact") {
+                Link(destination: SupportContact.mailURL) { Label("Email support", systemImage: "envelope") }
+                Text(SupportContact.email).textSelection(.enabled)
+                Text("Include your app version and the steps that failed. Never send API keys, authorization headers, passwords or private prompts.").font(.footnote).foregroundStyle(MKStyle.muted)
+                LabeledContent("App version", value: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") + " (" + (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1") + ")")
+            }
+            Section("Provider credits") {
+                Text("MasterKey beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance.")
+                Text("If a provider reports insufficient credits, check the billing account or project that issued your key. Adding a key does not add credits.")
+            }
+            Section("Lost phone or leaked access") {
+                Text("On another iPhone, sign in to the same MasterKey account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from MasterKey does not revoke it there.")
+                ForEach(Provider.allCases) { provider in Link(provider.title, destination: provider.keysURL) }
+            }
+            Section("A request is uncertain") {
+                Text("The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. MasterKey does not automatically retry an uncertain model call.")
+            }
+            Section("Connecting and notifications") {
+                Text("Scan the connection QR on the app’s website and check its source before allowing access. If a code expires, start a new connection on that website.")
+                Text("If notifications are disabled, open Inbox to review waiting requests. Notification permission can be changed in iPhone Settings.")
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Help & contact").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct PrivacyView: View {
+    var body: some View {
+        Form {
+            Section("Who operates MasterKey") {
+                Text("MasterKey is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.")
+            }
+            Section("Your keys") {
+                Text("Provider keys are sent to your selected MasterKey server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted.")
+            }
+            Section("Requests and history") {
+                Text("MasterKey stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy.")
+                Text("Treat prompts and responses as account data. Avoid including information you do not want the selected provider or calling app to receive.")
+            }
+            Section("Control and support") {
+                Text("Remove a provider key in Keys or disconnect an app in Apps. Removing a key does not delete your provider account or cancel a provider subscription. Already-sent requests cannot be recalled.")
+                Text("Delete your MasterKey account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used.")
+                Text("The beta does not add advertising trackers or third-party analytics SDKs. Apple and hosting providers may process service and diagnostic data under their own policies.")
+                Link("Privacy questions", destination: SupportContact.mailURL)
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Privacy & data").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct FirstUseGuideView: View {
+    @Environment(\.dismiss) private var dismiss
+    var onFinish: (() -> Void)? = nil
+    @State private var step = 0
+    private let titles = ["Your keys, your decision", "Choose a provider account", "Connect, review, stay in control"]
+    private let symbols = ["hand.raised", "key.horizontal", "checkmark.shield"]
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Image("BrandMark").resizable().scaledToFit().frame(width: 64, height: 64).accessibilityHidden(true)
+                Text("Getting started").font(.subheadline).foregroundStyle(MKStyle.teal)
+                HStack { ForEach(0..<3) { index in Capsule().fill(index == step ? MKStyle.teal : MKStyle.line).frame(height: 4) } }.accessibilityHidden(true)
+                Image(systemName: symbols[step]).font(.system(size: 38)).foregroundStyle(MKStyle.teal).accessibilityHidden(true)
+                Text(LocalizedStringKey(titles[step])).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                if step == 0 {
+                    Text("An experimental personal project by Joseph Chen, built with care. The beta is free; provider usage is billed separately.")
+                    Text("Your selected MasterKey server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key.")
+                    NavigationLink("Read privacy & data") { PrivacyView() }
+                } else if step == 1 {
+                    Text("After signing in, open Keys. Connect OpenRouter with its authorization screen, or add an OpenAI or Anthropic API key from your phone or computer.")
+                    Text("OpenRouter has its own credits. ChatGPT and Claude subscriptions do not include OpenAI or Anthropic API credits. Adding a key does not add a balance.")
+                    Text("Start with a separate provider key and a small provider-side spending limit where available.")
+                } else {
+                    Text("Start connecting from a supported app’s website. Scan its QR, check the source, then review the actual request and estimated cost before allowing one call.")
+                    Text("Notifications are optional. Open Inbox to check waiting requests, Activity to inspect results, and Apps to revoke access. Settings > Account has account deletion and security controls.")
+                    Text("If a request is uncertain, check the original request and provider usage before starting another. It may already have run.")
+                }
+                HStack {
+                    if step > 0 { Button("Back") { step -= 1 }.buttonStyle(.bordered) }
+                    Spacer()
+                    Button {
+                        if step < 2 { step += 1 } else { if let onFinish { onFinish() } else { dismiss() } }
+                    } label: { Text(LocalizedStringKey(step == 2 ? "Get started" : "Next")) }.buttonStyle(.borderedProminent)
+                }.padding(.top, 12)
+            }.padding(24)
+        }.background(MKStyle.navy.ignoresSafeArea()).foregroundStyle(MKStyle.cream)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct DeleteAccountView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var confirmation = ""
+    @State private var password = ""
+    @State private var appleReauthGeneration: Int?
+    var body: some View {
+        Form {
+            Section("What will be deleted") {
+                Text("Your MasterKey account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server.")
+                Text("Provider accounts, subscriptions and data already received by providers or apps are separate. Backups can retain older copies until expiration; deletion records must be applied before a restore is served.")
+                Text("If a provider request is being sent, wait for it to finish and try deletion again. Deletion cannot recall a request already sent.")
+            }
+            Section("Confirm account deletion") {
+                TextField("Type DELETE to confirm", text: $confirmation).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                if store.account?.authProvider == "apple" {
+                    Text("Continue with Apple to verify the same account again. Completing verification deletes your MasterKey account.").font(.footnote)
+                    SignInWithAppleButton(.continue, onRequest: { request in
+                        appleReauthGeneration = store.contextGeneration
+                        request.requestedScopes = []
+                    }, onCompletion: deleteWithApple)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black).frame(height: 46)
+                        .disabled(confirmation != "DELETE" || store.busy)
+                } else if store.account?.authProvider == "password" {
+                    SecureField("Account password", text: $password).textContentType(.password)
+                    Button("Permanently delete account", role: .destructive) {
+                        let value = password; password = ""
+                        Task { await store.deleteAccount(AccountDeletionRequest(password: value)) }
+                    }.disabled(confirmation != "DELETE" || password.isEmpty || store.busy)
+                } else if store.account?.authProvider == "dev", store.developerOptions {
+                    Button("Permanently delete account", role: .destructive) {
+                        let email = store.account?.email
+                        Task { await store.deleteAccount(AccountDeletionRequest(email: email)) }
+                    }.disabled(confirmation != "DELETE" || store.busy)
+                } else {
+                    Text("Sign in again to confirm your account type before deleting it. If this server has not been updated, contact support.")
+                    Link("Contact support", destination: SupportContact.mailURL)
+                }
+                if store.busy { ProgressView("Verifying account…") }
+            }
+        }.scrollContentBackground(.hidden).background(MKStyle.navy).navigationTitle("Delete account").navigationBarTitleDisplayMode(.inline)
+            .onChange(of: store.account?.id) { _, id in if id == nil { dismiss() } }
+    }
+    private func deleteWithApple(_ result: Result<ASAuthorization, Error>) {
+        do {
+            let authorization = try result.get()
+            guard appleReauthGeneration == store.contextGeneration else { return }
+            appleReauthGeneration = nil
+            guard confirmation == "DELETE", let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let token = credential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else { throw APIError.invalidResponse }
+            let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+            Task { await store.deleteAccount(AccountDeletionRequest(idToken: token, authorizationCode: code)) }
+        } catch {
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            store.errorMessage = error.localizedDescription; store.showError = true
+        }
     }
 }

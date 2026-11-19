@@ -112,6 +112,65 @@ import LocalAuthentication
         keys = []
         grants = []
     }
+    func signOutRemotely() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.logout()
+            guard generation == contextGeneration else { return }
+            signOut()
+            infoMessage = localized("Signed out on this iPhone. Other devices and app permissions are unchanged.")
+        } catch {
+            guard generation == contextGeneration else { return }
+            if case APIError.unauthorized = error { signOut() }
+            else { report(error) }
+        }
+    }
+    func revokeOtherSessions() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.revokeOtherSessions()
+            guard generation == contextGeneration else { return }
+            infoMessage = localized("Other devices have been signed out. App permissions are unchanged.")
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func stopAllPermissions() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            let result = try await api.stopAll()
+            guard generation == contextGeneration else { return }
+            await refresh()
+            guard generation == contextGeneration else { return }
+            infoMessage = localized(result.requestsInFlight > 0
+                ? "All app permissions stopped. A request already sent to a provider may still finish. Check Activity and provider usage."
+                : "All app permissions stopped. Your keys are still stored. Connect again before using an app.")
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func deleteAccount(_ body: AccountDeletionRequest) async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            let result = try await api.deleteAccount(body)
+            guard generation == contextGeneration else { return }
+            guard result.deleted else { throw APIError.invalidResponse }
+            signOut()
+            pendingConnectCode = nil; pendingEnrollmentID = nil; pendingRequestID = nil; keySetupReturnCode = nil
+            linkGeneration += 1
+            infoMessage = localized(result.appleRevoked == false
+                ? "Account deleted. You can also remove MasterKey in iPhone Settings > Apple Account > Sign in with Apple."
+                : "Account deleted. Your provider accounts and subscriptions are unchanged.")
+        } catch { if generation == contextGeneration { report(error) } }
+    }
     func useServer(_ value: String) {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         do {

@@ -208,8 +208,34 @@ struct Policy: Encodable {
 struct AccountProfile: Codable {
     let id: String
     let email: String
+    var authProvider: String? = nil
+
+    enum CodingKeys: String, CodingKey { case id, email; case authProvider = "auth_provider" }
 
     var displayEmail: String? { email.hasSuffix("@apple.invalid") ? nil : email }
+}
+
+struct AccountDeletionRequest: Encodable {
+    let confirm = "DELETE"
+    var idToken: String? = nil
+    var authorizationCode: String? = nil
+    var password: String? = nil
+    var email: String? = nil
+    enum CodingKeys: String, CodingKey {
+        case confirm, password, email
+        case idToken = "id_token", authorizationCode = "authorization_code"
+    }
+}
+
+struct AccountDeletionResult: Decodable {
+    let deleted: Bool
+    let appleRevoked: Bool?
+    enum CodingKeys: String, CodingKey { case deleted; case appleRevoked = "apple_revoked" }
+}
+
+struct StopAllResult: Decodable {
+    let requestsInFlight: Int
+    enum CodingKeys: String, CodingKey { case requestsInFlight = "requests_in_flight" }
 }
 
 struct AuthenticatedSession: Codable {
@@ -409,3 +435,10 @@ extension RequestRecord {
         return messages
     }
 }
+
+enum SupportContact {
+    static let email = "josephchen637@gmail.com"
+    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=MasterKey%20support")!
+}
+
+func localized(_ key: String) -> String { NSLocalizedString(key, comment: "") }

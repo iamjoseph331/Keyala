@@ -89,6 +89,7 @@ struct AppearancePicker: View {
 
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
+    @AppStorage("firstUseGuideCompleted") private var firstUseGuideCompleted = false
     @State private var selection = 0
     @State private var activeSheet: RootSheet?
     private enum RootSheet: Identifiable {
@@ -106,7 +107,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if store.account == nil && !store.demoMode {
+            if !firstUseGuideCompleted && !store.demoMode {
+                NavigationStack { FirstUseGuideView { firstUseGuideCompleted = true } }
+            } else if store.account == nil && !store.demoMode {
                 NavigationStack { WelcomeView().toolbar { actions } }
             } else {
                 TabView(selection: $selection) {

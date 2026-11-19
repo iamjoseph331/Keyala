@@ -8,9 +8,10 @@ private final class RedirectBlocker: NSObject, URLSessionTaskDelegate {
 }
 
 enum APIError: LocalizedError {
-    case invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession
+    case reauthenticationFailed, invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession
     var errorDescription: String? {
         switch self {
+        case .reauthenticationFailed: NSLocalizedString("Identity verification failed. Verify the same account again; your account was not deleted.", comment: "")
         case .invalidURL: "Enter a valid server URL."
         case .insecureServer: "Live connections require HTTPS. Enable the separate localhost development option to use local HTTP."
         case .unauthorized: "Your session expired. Sign in again."
@@ -86,9 +87,17 @@ final class APIClient {
         let (data, result) = try await Self.session.data(for: request)
         guard let http = result as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
-            if http.statusCode == 401 { throw APIError.unauthorized }
-            let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
-                .flatMap { ($0["error"] as? [String: Any])?["message"] as? String } ?? "Request failed."
+            let error = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
+            if http.statusCode == 401 {
+                if error?["type"] as? String == "reauth_failed" { throw APIError.reauthenticationFailed }
+                throw APIError.unauthorized
+            }
+            let message: String
+            switch error?["type"] as? String {
+            case "request_in_flight": message = NSLocalizedString("A request is being sent. Wait for it to finish, then try account deletion again.", comment: "")
+            case "upstream_paused": message = NSLocalizedString("The operator has paused provider requests. Check support for the service status.", comment: "")
+            default: message = error?["message"] as? String ?? "Request failed."
+            }
             throw APIError.http(http.statusCode, message)
         }
         if T.self == EmptyResponse.self { return EmptyResponse() as! T }
@@ -147,6 +156,15 @@ final class APIClient {
         return try await send("/v1/me/keys/\(provider.rawValue)", method: "PUT", body: Body(apiKey: value))
     }
     func deleteKey(provider: Provider) async throws { let _: EmptyResponse = try await send("/v1/me/keys/\(provider.rawValue)", method: "DELETE") }
+    func logout() async throws { let _: EmptyResponse = try await send("/v1/me/logout", method: "POST") }
+    func revokeOtherSessions() async throws {
+        struct Body: Encodable { let keep_current = true }
+        let _: EmptyResponse = try await send("/v1/me/sessions/revoke-all", method: "POST", body: Body())
+    }
+    func stopAll() async throws -> StopAllResult { try await send("/v1/me/stop-all", method: "POST") }
+    func deleteAccount(_ body: AccountDeletionRequest) async throws -> AccountDeletionResult {
+        try await send("/v1/me/delete", method: "POST", body: body)
+    }
     func grants() async throws -> [GrantRecord] { try await send("/v1/me/grants") }
     func revoke(id: String) async throws { let _: EmptyResponse = try await send("/v1/me/grants/\(id)", method: "DELETE") }
     func updatePolicy(id: String, policy: Policy) async throws -> GrantRecord {
