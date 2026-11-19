@@ -24,10 +24,12 @@ limit where available. The beta is free; model usage is billed by your provider.
 [Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
-> tested against the Rust server with a mock provider. Hosted services currently
-> have different storage: staging keeps data on a persistent disk; production
-> still resets keys, grants and history on restart. Live OpenRouter consent,
-> provider billing and APNs delivery still require end-to-end verification.
+> tested against the Rust server with a mock provider. Production uses a persistent
+> disk; a pending connection survived deployment on 2026-11-19, and an automatic
+> SQLite backup passed a separate restore check. Daily backups retain seven copies
+> on the same disk; off-disk disaster recovery remains unverified. Staging compute
+> is suspended with its disk retained. Live OpenRouter consent, provider billing
+> and APNs delivery still require end-to-end verification.
 
 ## Start building
 

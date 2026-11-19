@@ -1,14 +1,26 @@
 # Durable production
 
-## Status (2026-11-19), three different things
-- **Owner decision (approved):** Joseph approved upgrading prod and resetting its existing data. Free-plan prod data (users, keys, grants, history) is NOT migrated and is NOT preserved: the owner explicitly accepted the reset. Nothing here treats it as disposable by assumption; it was an explicit choice.
-- **Actually done:** Joseph upgraded `masterkey-prod` (srv-dbsm5m0ae00c738euic0) compute himself in the dashboard; the Render API shows 0.5c-512mb (about $7/month, the `starter` plan).
-- **Pending (not confirmed):** the 1 GB disk at `/var/data` (about $0.25/month; Joseph is adding it in the dashboard), the env vars below set on the live service, and the deploy that uses them. Until the disk exists AND the deploy has happened, prod is still NOT persistent: do not tell users otherwise. `render.yaml` now declares the target state but changes nothing by itself.
+## Status: LIVE and persistent (verified 2026-11-19)
+- **Owner decision:** Joseph approved upgrading prod and resetting its old free-plan data. That data was NOT migrated and is gone by his explicit choice.
+- **Service:** `masterkey-prod` (srv-dbsm5m0ae00c738euic0) is Starter with disk `dsk-dbvggvl9el5s73bqe9k0` (name `disk`, 1 GB, mounted at `/var/data`). Existing `MK_MASTER_KEY` unchanged (never regenerated).
+- **Live env:** `MK_DATABASE_URL=sqlite:///var/data/masterkey.db?mode=rwc`, `MK_BACKUP_DIR=/var/data/backups`, `MK_BACKUP_KEEP=7`, `MK_BACKUP_INTERVAL_SECS=86400`. `MK_DEV_LOGIN` stays `0`; a valid-shaped dev login returns 404.
+- **Deploy:** PR 12 (dev -> staging, merge 15c5da) and PR 13 (staging -> main, merge a60c9b); live deploy `dep-dbvgnanf3r2c73fv463g` at 14:49:38Z. `/v1/status` reports `ok` and `db` true.
+- **Persistence check:** a pending connect row created BEFORE the deploy survived onto the new instance. This is real database persistence, not an app token being re-created from its sealed secret.
+- **Backup check:** the automatic backup exists (mode 600, 135168 bytes). It was restored into `/tmp/prod-restore-check.db`: `PRAGMA integrity_check` ok and users/requests/api_keys counts match the backup. No sensitive content was read.
+- **What the check proves:** a sidecar, non-destructive rehearsal. It is not a real rollback, not a deletion-log replay (`replay-deletions.sh`), and not an offsite disaster-recovery test.
 
-Staging is already `starter` + 1 GB disk and persists (verified 2026-11-18).
+### Staging (changed 2026-11-19, also verified)
+- Staging disk `dsk-dbuielgm7kps73cgk420` is preserved. A consistent `VACUUM INTO` copy `/var/data/backups/pre-prod-20261119T1443.db` survived a restart, restored sidecar, integrity ok, counts match.
+- Staging compute was manually SUSPENDED in the Dashboard (Render API `updatedAt` 2026-11-19T14:51:52Z) to prioritise prod cost. No disk deleted, no downgrade to free. Staging is unavailable until someone intentionally resumes it; `render.yaml` still says starter + disk, so it resumes safely. Do not point testers at staging while suspended.
 
-## Cost
-Prices above are the ones Joseph saw / the Render API reported for compute, and the quoted disk price on the Add Disk form; I could not verify them from Render's public pages. Verified from Render's docs: a disk attaches to exactly one service instance (so prod and staging cannot share one) and "You can't add a disk to a cron job service".
+## Remaining risks (unresolved)
+- Backups live on the SAME disk as the database: they protect against bad deploys and mistakes, not disk loss. No offsite copy or independently held master-key escrow was verified in this session, because Joseph's password manager was not inspected.
+- `MK_MASTER_KEY` escrow is unresolved (unverified, see above). Lose the key and every stored provider key is undecryptable (users re-add keys). Store a copy in a password manager.
+- A restore with deletion-log replay has not been rehearsed on prod.
+- Apple deletion revocation key (`MK_APPLE_SIGNIN_KEY_ID` / `_P8`) is still not set: deletion works and reports `apple_revoked:false`.
+
+## Cost (estimate, not an invoice)
+About $7.25/month for prod (Starter plus the 1 GB disk) plus about $0.25/month for the retained staging disk, so roughly $7.50/month baseline. Excludes overlap, bandwidth, build minutes and tax. The actual invoice has not been checked, so do not claim it as proven. Avoid duplicate paid resources. Verified from Render's docs: a disk attaches to exactly one service instance (prod and staging cannot share one) and cannot be added to a cron job.
 
 ## render.yaml diff for `masterkey-prod`
 ```diff
@@ -32,16 +44,16 @@ Prices above are the ones Joseph saw / the Render API reported for compute, and 
 +      - key: MK_BACKUP_INTERVAL_SECS
 +        value: "86400"
 ```
-This is now in `render.yaml` for prod only; staging is left untouched (no backup env) until backup and recovery are verified. `MK_MASTER_KEY` stays `generateValue: true`: Render keeps the existing value, it is not regenerated. `MK_DEV_LOGIN` stays `0`. Attaching a disk adds a recurring charge and a short downtime; the old free-plan data is dropped by the owner's decision.
+This is in `render.yaml` for prod and now matches the live service; staging has no backup env. `MK_MASTER_KEY` stays `generateValue: true` (Render keeps the existing value). `MK_DEV_LOGIN` stays `0`.
 
 ## Backups
 The disk belongs to one service, so no cron job or GitHub Action can read it. The server does it itself: `MK_BACKUP_DIR` writes `masterkey-<utc>.db` (`VACUUM INTO`, consistent, mode 600) once per 24 h, counted from the newest file so restarts neither duplicate nor evict backups, keeps the newest `MK_BACKUP_KEEP` (7). Logged: path only. These live on the same disk (protects against bad deploys and mistakes, not disk loss); for off-disk copies run `backup.sh` plus `scp`/`render ssh` from an operator machine now and then. Test: `in_process_backup_runs_prunes_and_is_a_database`.
 
-## Rollout (only after Joseph approves each step)
-1. Joseph confirms the disk exists on `masterkey-prod` (name, `/var/data`, 1 GB) and sets the env vars above on the service (or lets the Blueprint sync apply them). Verify the live service shows them before deploying.
-2. Promote staging -> main by PR. Wait for `/v1/status` ok, then check persistence: create a throwaway record, trigger a manual redeploy, confirm it survives (as done on staging 2026-11-18), and confirm `/var/data/backups` gets a file (or briefly set `MK_BACKUP_INTERVAL_SECS=60`).
-3. Keep `MK_DEV_LOGIN=0`; sign in with Apple needs `MK_APPLE_*` and (for deletion revocation) `MK_APPLE_SIGNIN_KEY_ID` + `MK_APPLE_SIGNIN_KEY_P8` set in the dashboard (sync: false). Not set yet; without them deletion still works and reports `apple_revoked:false`.
-4. Store `MK_MASTER_KEY` (generated by Render) in a password manager NOW; it cannot be recovered from the DB.
+## Rollout (done 2026-11-19; kept as the procedure for future changes)
+1. Disk and env vars confirmed on the live service before deploying.
+2. dev -> staging -> main by PR; wait for `/v1/status` ok; create a throwaway record, redeploy, confirm it survives; confirm `/var/data/backups` has a file.
+3. Keep `MK_DEV_LOGIN=0`. For deletion revocation set `MK_APPLE_SIGNIN_KEY_ID` + `MK_APPLE_SIGNIN_KEY_P8` in the dashboard (sync: false). Still open.
+4. Keep a copy of `MK_MASTER_KEY` in a password manager; it cannot be recovered from the DB. Still open.
 
 ## Rollback
-Redeploy the previous deploy in the dashboard. Data model changes are additive, so the old binary reads the new DB. Going back to free plan discards the disk data: take a backup first (`backup.sh`).
+Redeploy the previous deploy in the dashboard. Data model changes are additive, so the old binary reads the new DB. Going back to free plan discards the disk data: take a backup first (`backup.sh`). This rollback path has not been exercised on prod.
