@@ -112,16 +112,18 @@ pub async fn create_connect(State(s): State<AppState>, ConnectInfo(peer): Connec
 }
 
 pub async fn poll_connect(State(s): State<AppState>, headers: HeaderMap, Path(code): Path<String>) -> R<Json<Value>> {
-    let row: Option<(String, Option<String>, String)> = if let Some(cs) = bearer(&headers, "mk_cs_") {
-        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND secret_hash=?").bind(&code).bind(hash_token(cs)).fetch_optional(&s.db).await?
+    let row: Option<(String, Option<String>, String, Option<String>)> = if let Some(cs) = bearer(&headers, "mk_cs_") {
+        sqlx::query_as("SELECT status, grant_id, expires_at, seen FROM connect_codes WHERE code=? AND secret_hash=?").bind(&code).bind(hash_token(cs)).fetch_optional(&s.db).await?
     } else {
         let app_id = auth_app(&s, &headers).await?;
-        sqlx::query_as("SELECT status, grant_id, expires_at FROM connect_codes WHERE code=? AND app_id=?").bind(&code).bind(&app_id).fetch_optional(&s.db).await?
+        sqlx::query_as("SELECT status, grant_id, expires_at, seen FROM connect_codes WHERE code=? AND app_id=?").bind(&code).bind(&app_id).fetch_optional(&s.db).await?
     };
-    let (status, grant_id, exp) = row.ok_or_else(|| not_found("connect code"))?;
+    let (status, grant_id, exp, seen) = row.ok_or_else(|| not_found("connect code"))?;
     if status == "pending" {
-        let st = if exp.as_str() <= now().as_str() { "expired" } else { "pending" };
-        return Ok(Json(json!({"status": st})));
+        if exp.as_str() <= now().as_str() {
+            return Ok(Json(json!({"status": "expired"})));
+        }
+        return Ok(Json(json!({"status": "pending", "seen": seen})));
     }
     if let (true, Some(gid)) = (status == "approved", grant_id) {
         // The token is generated on first poll after approval and shown exactly once
@@ -140,17 +142,24 @@ pub fn connect_code_ok(code: &str) -> bool {
 }
 
 /// What a phone without the app sees after scanning; on a computer, the QR to scan.
-pub async fn connect_page(Path(code): Path<String>) -> Result<Html<String>, ApiError> {
+pub async fn connect_page(State(s): State<AppState>, Path(code): Path<String>) -> Result<Html<String>, ApiError> {
     if !connect_code_ok(&code) {
         return Err(not_found("connect code"));
     }
+    // Reached in a browser, so the app did not catch the link (usually: not installed). Tell the developer's pairing UI.
+    sqlx::query("UPDATE connect_codes SET seen='web' WHERE code=? AND seen IS NULL AND status='pending'").bind(&code).execute(&s.db).await?;
     Ok(Html(format!(
         "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>MasterKey</title>\
-         <body style='font-family:system-ui;text-align:center;margin:4rem 1rem'><h1>Connect with MasterKey</h1>\
-         <p>Scan with your iPhone camera</p><img src='/connect/{code}/qr.svg' width=240 height=240 alt='QR code for {code}'>\
-         <p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p><p style='color:#666'>or enter <b>{code}</b> in the app</p>{}", crate::enroll::TRUST_LINK
+         <body style='font-family:system-ui;text-align:center;margin:3rem 1rem;line-height:1.5'><h1>Connect with MasterKey</h1>\
+         <p><a href='masterkey://connect/{code}' style='font-size:1.3rem'>Open in the MasterKey app</a></p>\
+         <p>No app yet? <a href='{GET_APP_URL}'>Get MasterKey</a>, sign in, then come back and tap the link above again (the code is valid for 10 minutes).</p>\
+         <p style='color:#666'>Or enter <b>{code}</b> in the app.</p>\
+         <p style='color:#666;margin-top:2rem'>On a computer? Scan with your iPhone camera:</p><img src='/connect/{code}/qr.svg' width=200 height=200 alt='QR code for {code}'>{}", crate::enroll::TRUST_LINK
     )))
 }
+
+/// Where "Get MasterKey" points until there is an App Store listing.
+pub const GET_APP_URL: &str = "https://iamjoseph331.github.io/MasterKey/";
 
 // ---------- user: auth, keys, devices ----------
 
@@ -367,6 +376,7 @@ pub async fn preview_connect(State(s): State<AppState>, h: HeaderMap, Path(code)
     let sp: Value = serde_json::from_str(&c.suggested_policy).unwrap_or(Value::Null);
     let has_prior_grant: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
         .bind(&u).bind(&c.app_id).fetch_one(&s.db).await?;
+    sqlx::query("UPDATE connect_codes SET seen='app' WHERE code=?").bind(&code).execute(&s.db).await?;
     Ok(Json(json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin, "requires_ask": !has_prior_grant})))
 }
 

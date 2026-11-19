@@ -267,6 +267,7 @@ pub fn router(state: AppState) -> Router {
         .route("/connect/{code}", get(connect_page))
         .route("/.well-known/apple-app-site-association", get(enroll::aasa))
         .route("/add-key", get(enroll::add_key_page))
+        .route("/sdk/masterkey.js", get(enroll::sdk_js))
         .route("/about", get(enroll::trust_page))
         .route("/privacy", get(enroll::trust_page))
         .route("/v1/me/logout", post(ops::logout))

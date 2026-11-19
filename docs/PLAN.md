@@ -96,7 +96,8 @@ Key      { "vendor", "last4", "created_at" }
 |---|---|---|---|
 | POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?, allowed_origins?}` → `{app_id, app_secret}` |
 | POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, connect_qr_url, expires_at}` (10 min). `connect_url` = `{server}/connect/{code}` (universal link; a page with the QR on a computer), `connect_qr_url` = an SVG QR of it for the developer's page. Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
-| GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?}` |
+| GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?, seen?}`. While pending, `seen` is `null`, `"web"` (the `/connect/{code}` page was opened in a browser, so the app is probably not installed) or `"app"` (the app opened the review). A hint for the pairing UI only, never authority |
+| GET | `/sdk/masterkey.js` | none | the web SDK (`MasterKey.connect({app, vendor})` dialog and `<masterkey-connect>` button), served by each server and talking to the server it was loaded from; see sdk/web/README.md |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
 | POST | `/v1/openrouter/chat/completions` | grant | OpenAI-shaped body for vendor `openrouter`; exact slugs from the allowlist only (`openai/gpt-4o-mini`, `anthropic/claude-haiku-5.5`, ...); OpenRouter's `models` fallback, `provider` routing and `plugins` are rejected (`unsupported_option`) because they change the price |
