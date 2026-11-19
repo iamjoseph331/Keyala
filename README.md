@@ -13,6 +13,14 @@ key and records the response for both sides to inspect.
 
 **The developer gets a response. The user keeps control of their key.**
 
+MasterKey is an experimental personal project operated by **Joseph Chen**. I am
+actively developing it, testing the complete approval flow and documenting its
+limits. It is an early service with no uptime or immediate-support guarantee.
+Start with a separate, restricted provider key and a small provider-side spending
+limit where available. The beta is free; model usage is billed by your provider.
+
+[Privacy & data](https://iamjoseph331.github.io/MasterKey/privacy/) | [Help & contact](https://iamjoseph331.github.io/MasterKey/support/) | [Email Joseph](mailto:josephchen637@gmail.com)
+
 [Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
@@ -58,7 +66,11 @@ application.
 
 ## On the iPhone
 
-Fresh installs use the built-in production address. The app has Inbox, Apps, Keys
+Fresh installs show a three-step guide covering the operator trust boundary,
+provider billing, connection and request review. Reopen it from **Settings →
+Getting started**. Continuing with Apple creates an account for a new user and
+signs a returning user into the same account; no separate MasterKey password is
+needed. Fresh installs use the built-in production address. The app has Inbox, Apps, Keys
 and Settings tabs. Scan an app's connection QR, check the source, and review the
 prompt and estimated cost before allowing a call. Sample data and server overrides
 sit under Settings → Developer options.
@@ -161,6 +173,19 @@ Self-hosting makes that boundary yours to operate. Before putting real keys in
 any deployment, review authentication, key management, request visibility,
 retention, and the implementation's documented limitations. Use separate,
 restricted provider keys where available.
+
+The server stores prompts, responses, permissions and usage history for later
+inspection; there is no automatic history expiration. Allowed requests go to the
+selected provider, and the calling app receives the response and may keep a copy.
+Removing a provider key or app permission does not erase those external copies.
+
+**Settings → Account** separates signing out this device, signing out other
+devices, stopping all app permissions and deleting the account. Account deletion
+requires fresh identity verification and removes the live account, stored keys,
+permissions and history. It does not close provider accounts or cancel their
+subscriptions. Backups can contain older copies until expiration; operators must
+replay deletion records before serving a restored database. See the [operations
+runbook](docs/ops/RUNBOOK.md) for the configured backup and recovery procedure.
 
 Cost estimates are estimates, not a provider-enforced monetary guarantee.
 Reservations, token limits, pricing snapshots, and vendor-reported actual usage
