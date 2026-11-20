@@ -57,11 +57,11 @@ pub fn rate_limit(
 
 #[derive(Deserialize)]
 pub struct NewApp {
-    name: String,
-    homepage: Option<String>,
-    icon_url: Option<String>,
+    pub name: String,
+    pub homepage: Option<String>,
+    pub icon_url: Option<String>,
     /// browser (public) client: web origins allowed to start a connect with just the app id
-    allowed_origins: Option<Vec<String>>,
+    pub allowed_origins: Option<Vec<String>>,
 }
 
 pub async fn create_app(
@@ -71,6 +71,11 @@ pub async fn create_app(
     J(b): J<NewApp>,
 ) -> R<Json<Value>> {
     rate_limit(&s, peer, &headers, "apps", 10, 3600, "apps registered")?;
+    register_app(&s, b, None).await
+}
+
+/// Creates an app (optionally owned by an account) and returns its id and one-time secret.
+pub async fn register_app(s: &AppState, b: NewApp, owner: Option<&str>) -> R<Json<Value>> {
     let name = b.name.trim();
     if name.is_empty() || name.len() > 100 {
         return Err(bad("name is required (max 100 chars)"));
@@ -97,8 +102,8 @@ pub async fn create_app(
         gen: 0,
     };
     let (id, secret) = (rec.id.clone(), seal_app(&s.cfg.master_key, &rec));
-    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?,?)")
-        .bind(&id).bind(&rec.name).bind(&rec.homepage).bind(&rec.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now())
+    sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,created_at,owner_user_id) VALUES (?,?,?,?,?,?,?,?)")
+        .bind(&id).bind(&rec.name).bind(&rec.homepage).bind(&rec.icon_url).bind(hash_token(&secret)).bind(&origins).bind(now()).bind(owner)
         .execute(&s.db).await?;
     Ok(Json(json!({"app_id": id, "app_secret": secret})))
 }
@@ -297,63 +302,97 @@ pub struct PasswordLogin {
     password: String,
 }
 
-/// The operator's single password account (KEYALA_PASSWORD_LOGIN). Its identity is
-/// `{username}@password.invalid`, never linked to an Apple or real email account.
-/// ponytail: unsalted SHA-256 verifier, fine only because the password is random and high-entropy;
-/// use argon2 if user-chosen passwords are ever allowed.
+/// Two kinds of password sign-in, both answered with the same 401 so nothing says which part was wrong:
+/// 1. the operator's single account (KEYALA_PASSWORD_LOGIN, identity `{username}@password.invalid`, never
+///    linked to Apple or a real email): an app-scoped session, exactly as before;
+/// 2. a user's web password (set from the app with `PUT /v1/me/password`), username = account email:
+///    a web-scoped session (12 h, read-only plus grant revoke and developer apps).
+// ponytail: operator verifier is unsalted SHA-256, fine only because that password is random and high-entropy.
 pub async fn password_login(
     State(s): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     J(b): J<PasswordLogin>,
 ) -> R<Json<Value>> {
-    let Some((user, hash)) = &s.cfg.password_login else {
-        return Err(not_found("endpoint"));
-    };
     rate_limit(&s, peer, &headers, "password", 10, 600, "sign-in attempts")?;
     let name = b.username.trim().to_lowercase();
-    // compare both always, so timing reveals neither which part was wrong nor how much matched
-    let user_ok = ct_eq(
-        Sha256::digest(name.as_bytes()).as_slice(),
-        Sha256::digest(user.as_bytes()).as_slice(),
-    );
-    let pass_ok = ct_eq(Sha256::digest(b.password.as_bytes()).as_slice(), hash);
-    if !(user_ok & pass_ok) {
-        tracing::warn!("password sign-in rejected");
-        return Err(api(
-            401,
-            "invalid_credentials",
-            "wrong username or password",
-        ));
+    if let Some((user, hash)) = &s.cfg.password_login {
+        // compare both always, so timing reveals neither which part was wrong nor how much matched
+        let user_ok = ct_eq(
+            Sha256::digest(name.as_bytes()).as_slice(),
+            Sha256::digest(user.as_bytes()).as_slice(),
+        );
+        let pass_ok = ct_eq(Sha256::digest(b.password.as_bytes()).as_slice(), hash);
+        if user_ok & pass_ok {
+            tracing::info!("password sign-in verified");
+            let email = format!("{user}@password.invalid");
+            sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)")
+                .bind(new_id("usr"))
+                .bind(&email)
+                .bind(now())
+                .execute(&s.db)
+                .await?;
+            let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?")
+                .bind(&email)
+                .fetch_one(&s.db)
+                .await?;
+            return new_session(&s, &uid, &email, "password").await;
+        }
     }
-    tracing::info!("password sign-in verified");
-    let email = format!("{user}@password.invalid");
-    sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)")
-        .bind(new_id("usr"))
-        .bind(&email)
-        .bind(now())
-        .execute(&s.db)
-        .await?;
-    let uid: String = sqlx::query_scalar("SELECT id FROM users WHERE email=?")
-        .bind(&email)
-        .fetch_one(&s.db)
-        .await?;
-    new_session(&s, &uid, &email, "password").await
+    // always one argon2 verify, against a dummy hash for unknown accounts, so timing stays flat
+    let row: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT id, email, password_hash FROM users WHERE lower(email)=? AND password_hash IS NOT NULL",
+    )
+    .bind(&name)
+    .fetch_optional(&s.db)
+    .await?;
+    let stored = row.as_ref().and_then(|r| r.2.clone());
+    if crate::console::verify_password(b.password, stored).await {
+        if let Some((uid, email, _)) = row {
+            tracing::info!("web password sign-in verified");
+            return session_for(&s, &uid, &email, "password", true).await;
+        }
+    }
+    tracing::warn!("password sign-in rejected");
+    Err(api(
+        401,
+        "invalid_credentials",
+        "wrong username or password",
+    ))
 }
 
 /// `auth_provider` (apple | password | dev) is set by the login route that verified the identity, so
 /// clients need not guess from the email. Authorization never reads it.
 async fn new_session(s: &AppState, uid: &str, email: &str, provider: &str) -> R<Json<Value>> {
+    session_for(s, uid, email, provider, false).await
+}
+
+/// `web` sessions expire after 12 hours and are refused by every `ACT` handler (see `auth_level`).
+pub(crate) async fn session_for(
+    s: &AppState,
+    uid: &str,
+    email: &str,
+    provider: &str,
+    web: bool,
+) -> R<Json<Value>> {
     let tok = new_token("keyala_sess_");
-    sqlx::query("INSERT INTO sessions (token_hash,user_id,created_at) VALUES (?,?,?)")
-        .bind(hash_token(&tok))
-        .bind(uid)
-        .bind(now())
-        .execute(&s.db)
-        .await?;
-    Ok(Json(
-        json!({"session_token": tok, "user": {"id": uid, "email": email, "auth_provider": provider}}),
-    ))
+    let exp = web.then(|| after(WEB_TTL_SECS));
+    sqlx::query(
+        "INSERT INTO sessions (token_hash,user_id,created_at,scope,expires_at) VALUES (?,?,?,?,?)",
+    )
+    .bind(hash_token(&tok))
+    .bind(uid)
+    .bind(now())
+    .bind(if web { "web" } else { "app" })
+    .bind(&exp)
+    .execute(&s.db)
+    .await?;
+    let mut v = json!({"session_token": tok, "user": {"id": uid, "email": email, "auth_provider": provider}});
+    if let Some(e) = exp {
+        v["expires_at"] = e.into();
+        v["scope"] = "web".into();
+    }
+    Ok(Json(v))
 }
 
 #[derive(Deserialize)]
@@ -410,7 +449,7 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
 }
 
 pub async fn list_keys(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let rows: Vec<(String, String, String)> = sqlx::query_as(
         "SELECT vendor,last4,created_at FROM api_keys WHERE user_id=? ORDER BY vendor",
     )
@@ -435,7 +474,7 @@ pub async fn put_key(
     Path(vendor): Path<String>,
     J(b): J<PutKey>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     let (key, checked) = check_key(&s, &vendor, &b.api_key).await?;
     let mut c = s.db.acquire().await?;
     let mut k = store_key(&s, &mut c, &u, &vendor, &key).await?;
@@ -539,7 +578,7 @@ pub async fn delete_key(
     h: HeaderMap,
     Path(vendor): Path<String>,
 ) -> R<StatusCode> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     sqlx::query("DELETE FROM api_keys WHERE user_id=? AND vendor=?")
         .bind(u)
         .bind(vendor)
@@ -607,7 +646,7 @@ async fn prefs_json(s: &AppState, user: &str) -> R<Json<Value>> {
 }
 
 pub async fn get_prefs(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     prefs_json(&s, &u).await
 }
 
@@ -617,7 +656,7 @@ pub async fn patch_prefs(
     h: HeaderMap,
     J(b): J<PrefsIn>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     sqlx::query("UPDATE users SET openrouter_for_direct=? WHERE id=?")
         .bind(b.openrouter_for_direct_apis as i64)
         .bind(&u)
@@ -760,7 +799,7 @@ pub async fn deny_connect(
 }
 
 /// Country of the approving phone, from the operator's trusted edge header (KEYALA_COUNTRY_HEADER).
-fn country(s: &AppState, h: &HeaderMap) -> Option<String> {
+pub(crate) fn country(s: &AppState, h: &HeaderMap) -> Option<String> {
     let c = h.get(s.cfg.country_header.as_deref()?)?.to_str().ok()?;
     (c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphanumeric()) && c != "XX")
         .then(|| c.to_ascii_uppercase())
@@ -790,6 +829,10 @@ pub async fn get_app(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> 
 
 pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     let id = auth_app(&s, &h).await?;
+    rotate_app_secret(&s, &id).await
+}
+
+pub async fn rotate_app_secret(s: &AppState, id: &str) -> R<Json<Value>> {
     let (name, homepage, icon_url, origins, gen): (
         String,
         Option<String>,
@@ -799,11 +842,11 @@ pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Va
     ) = sqlx::query_as(
         "SELECT name, homepage, icon_url, allowed_origins, secret_gen FROM apps WHERE id=?",
     )
-    .bind(&id)
+    .bind(id)
     .fetch_one(&s.db)
     .await?;
     let rec = AppRecord {
-        id: id.clone(),
+        id: id.to_string(),
         name,
         homepage,
         icon_url,
@@ -814,7 +857,7 @@ pub async fn rotate_secret(State(s): State<AppState>, h: HeaderMap) -> R<Json<Va
     sqlx::query("UPDATE apps SET secret_hash=?, secret_gen=? WHERE id=?")
         .bind(hash_token(&secret))
         .bind(rec.gen)
-        .bind(&id)
+        .bind(id)
         .execute(&s.db)
         .await?;
     Ok(Json(json!({"app_secret": secret})))
@@ -826,6 +869,10 @@ pub async fn app_report(
     Query(q): Query<HashMap<String, String>>,
 ) -> R<Json<Value>> {
     let id = auth_app(&s, &h).await?;
+    report_json(&s, &id, &q).await
+}
+
+pub async fn report_json(s: &AppState, id: &str, q: &HashMap<String, String>) -> R<Json<Value>> {
     let days: i64 = q
         .get("days")
         .map(|d| d.parse().map_err(|_| bad("days must be 1-365")))
@@ -864,12 +911,12 @@ pub async fn app_report(
          COALESCE(SUM(CASE WHEN r.decided_at IS NOT NULL AND r.status NOT IN ('denied','expired') THEN r.estimated_micro END),0), \
          COALESCE(SUM(r.status='completed' AND r.actual_micro IS NULL),0), COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0), COUNT(DISTINCT r.user_id) {base}",
         n("completed"), n("denied"), n("expired"), n("failed"), n("uncertain"), n("pending")))
-        .bind(&id).bind(&since).fetch_one(&s.db).await?;
+        .bind(id).bind(&since).fetch_one(&s.db).await?;
     let new_users: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT user_id) FROM grants WHERE app_id=? AND created_at>=? AND user_id NOT IN (SELECT user_id FROM grants WHERE app_id=? AND created_at<?)")
-        .bind(&id).bind(&since).bind(&id).bind(&since).fetch_one(&s.db).await?;
+        .bind(id).bind(&since).bind(id).bind(&since).fetch_one(&s.db).await?;
     let cost = "COALESCE(SUM(CASE WHEN r.status='completed' THEN r.actual_micro END),0)";
     let by_day: Vec<(String, i64, i64, i64)> = sqlx::query_as(&format!("SELECT substr(r.created_at,1,10) d, COUNT(*), SUM(r.status='completed'), {cost} {base} GROUP BY d"))
-        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+        .bind(id).bind(&since).fetch_all(&s.db).await?;
     let by_day: HashMap<String, (i64, i64, i64)> = by_day
         .into_iter()
         .map(|(d, a, b, c)| (d, (a, b, c)))
@@ -883,14 +930,14 @@ pub async fn app_report(
         .collect();
     let models: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
         "SELECT r.vendor, r.model, COUNT(*), SUM(r.status='completed'), {cost}, COALESCE(SUM({TOK}),0), COALESCE(SUM({OUT}),0) {base} GROUP BY r.vendor, r.model ORDER BY 5 DESC, 3 DESC"))
-        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+        .bind(id).bind(&since).fetch_all(&s.db).await?;
     let countries: Vec<(Option<String>, i64, i64, i64)> = sqlx::query_as(&format!(
         "SELECT g.country, COUNT(DISTINCT r.user_id), COUNT(*), {cost} {base} GROUP BY g.country ORDER BY 3 DESC, 4 DESC"))
-        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+        .bind(id).bind(&since).fetch_all(&s.db).await?;
     // when calls happen: requests per UTC weekday (0 = Sunday, SQLite %w) x hour; the console shifts it to the viewer's zone
     let cells: Vec<(i64, i64, i64)> = sqlx::query_as(&format!(
         "SELECT CAST(strftime('%w', r.created_at) AS INTEGER), CAST(substr(r.created_at,12,2) AS INTEGER), COUNT(*) {base} GROUP BY 1, 2"))
-        .bind(&id).bind(&since).fetch_all(&s.db).await?;
+        .bind(id).bind(&since).fetch_all(&s.db).await?;
     let mut hours = [[0i64; 24]; 7];
     for (w, h, n) in cells {
         if let (Some(row), true) = (hours.get_mut(w as usize), (0..24).contains(&h)) {
@@ -923,7 +970,7 @@ async fn grant_for_user(s: &AppState, user: &str, id: &str) -> R<GrantRow> {
 }
 
 pub async fn list_grants(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let rows: Vec<GrantRow> = sqlx::query_as(&format!(
         "{GRANT_SELECT} WHERE g.user_id=? AND g.revoked_at IS NULL ORDER BY g.created_at DESC"
     ))
@@ -944,7 +991,7 @@ pub async fn patch_grant(
     Path(id): Path<String>,
     J(b): J<PatchGrant>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     grant_for_user(&s, &u, &id).await?;
     let p = b.policy.parse()?;
     set_policy(&mut *s.db.acquire().await?, &id, &p).await?;
@@ -958,7 +1005,7 @@ pub async fn revoke_grant(
     h: HeaderMap,
     Path(id): Path<String>,
 ) -> R<StatusCode> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let mut tx = s.db.begin().await?;
     let r = sqlx::query(
         "UPDATE grants SET revoked_at=? WHERE id=? AND user_id=? AND revoked_at IS NULL",
@@ -989,7 +1036,7 @@ pub async fn list_requests(
     h: HeaderMap,
     Query(q): Query<HashMap<String, String>>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let status = q.get("status").cloned().unwrap_or_default();
     let limit = q
         .get("limit")
@@ -1019,7 +1066,7 @@ pub async fn get_request(
     h: HeaderMap,
     Path(id): Path<String>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let r = request_row(&s, &id)
         .await?
         .filter(|r| r.user_id == u)
@@ -1031,7 +1078,7 @@ pub async fn events(
     State(s): State<AppState>,
     h: HeaderMap,
 ) -> R<Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, READ).await?;
     let stream = BroadcastStream::new(s.events.subscribe()).filter_map(move |m| match m {
         Ok((user, name, data)) if user == u => Some(Ok(Event::default().event(name).data(data))),
         _ => None, // other users' events, or lagged (client re-syncs via GET)

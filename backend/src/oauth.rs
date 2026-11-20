@@ -20,7 +20,7 @@ pub struct Start {
 }
 
 pub async fn start(State(s): State<AppState>, h: HeaderMap, J(b): J<Start>) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     if b.limit_usd
         .is_some_and(|l| !(l.is_finite() && l > 0.0 && l <= 10_000.0))
     {

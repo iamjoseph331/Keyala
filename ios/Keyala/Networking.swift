@@ -126,6 +126,16 @@ final class APIClient {
             throw APIError.passwordLoginUnavailable
         }
     }
+    func webLoginPreview(id: String) async throws -> WebLoginPreview {
+        try await send("/v1/me/web-login/\(id)")
+    }
+    func decideWebLogin(id: String, approve: Bool) async throws {
+        let _: EmptyResponse = try await send("/v1/me/web-login/\(id)/\(approve ? "approve" : "deny")", method: "POST")
+    }
+    func setWebPassword(_ password: String?) async throws {
+        struct Body: Encodable { let password: String }
+        let _: EmptyResponse = try await send("/v1/me/password", method: password == nil ? "DELETE" : "PUT", body: password.map { Body(password: $0) })
+    }
     func requests(status: String? = nil, limit: Int = 100, beforeID: String? = nil) async throws -> [RequestRecord] {
         return try await send(Self.requestListPath(status: status, limit: limit, beforeID: beforeID), response: [RequestRecord].self)
     }

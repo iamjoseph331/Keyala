@@ -1,6 +1,7 @@
 //! Keyala server: lets users lend an API key to apps, approving calls from their phone.
 mod apns;
 mod apple;
+mod console;
 mod enroll;
 mod oauth;
 mod ops;
@@ -273,6 +274,7 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         tokio::spawn(send_request(state.clone(), id));
     }
     tokio::spawn(proxy::sweeper(state.clone()));
+    tokio::spawn(console::janitor(state.clone()));
     if state.cfg.backup_dir.is_some() {
         tokio::spawn(ops::backup_loop(state.clone()));
     }
@@ -361,6 +363,30 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/auth/password", post(password_login))
+        .route("/v1/me", get(console::me))
+        .route(
+            "/v1/me/password",
+            axum::routing::put(console::set_password).delete(console::delete_password),
+        )
+        .route("/v1/web/login", post(console::web_login_start))
+        .route("/v1/web/login/{id}", get(console::web_login_poll))
+        .route("/v1/me/web-login/{id}", get(console::web_login_preview))
+        .route(
+            "/v1/me/web-login/{id}/approve",
+            post(console::web_login_approve),
+        )
+        .route("/v1/me/web-login/{id}/deny", post(console::web_login_deny))
+        .route("/login/{id}", get(console::login_page))
+        .route("/login/{id}/qr.svg", get(console::login_qr))
+        .route("/console", get(console::page))
+        .route("/console.js", get(console::script))
+        .route(
+            "/v1/me/apps",
+            get(console::apps_list).post(console::apps_create),
+        )
+        .route("/v1/me/apps/claim", post(console::apps_claim))
+        .route("/v1/me/apps/{id}/report", get(console::apps_report))
+        .route("/v1/me/apps/{id}/secret", post(console::apps_rotate))
         .route("/v1/me/preferences", get(get_prefs).patch(patch_prefs))
         .route("/v1/me/keys", get(list_keys))
         .route("/v1/me/keys/{vendor}", put(put_key).delete(delete_key))
@@ -608,13 +634,35 @@ pub(crate) fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
 fn unauthorized() -> ApiError {
     api(401, "unauthorized", "missing or invalid bearer token")
 }
-pub async fn auth_session(s: &AppState, h: &HeaderMap) -> R<String> {
+/// What a session may do. `READ` = allowed for web-scoped sessions (the explicit allowlist is the set of
+/// handlers that say `READ`); `ACT` = app sessions only. `auth_session` is `ACT`, so a handler that does
+/// nothing special is closed to web sessions (fail closed).
+pub type Level = u8;
+pub const READ: Level = 0;
+pub const ACT: Level = 1;
+pub const WEB_TTL_SECS: i64 = 12 * 3600;
+
+pub async fn auth_level(s: &AppState, h: &HeaderMap, level: Level) -> R<String> {
     let t = bearer(h, "keyala_sess_").ok_or_else(unauthorized)?;
-    sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?")
-        .bind(hash_token(t))
-        .fetch_optional(&s.db)
-        .await?
-        .ok_or_else(unauthorized)
+    let (uid, scope): (String, String) = sqlx::query_as(
+        "SELECT user_id, scope FROM sessions WHERE token_hash=? AND (expires_at IS NULL OR expires_at>?)",
+    )
+    .bind(hash_token(t))
+    .bind(now())
+    .fetch_optional(&s.db)
+    .await?
+    .ok_or_else(unauthorized)?;
+    if level == ACT && scope == "web" {
+        return Err(api(
+            403,
+            "web_session_not_allowed",
+            "this needs the Keyala app on your phone; a web session cannot do it",
+        ));
+    }
+    Ok(uid)
+}
+pub async fn auth_session(s: &AppState, h: &HeaderMap) -> R<String> {
+    auth_level(s, h, ACT).await
 }
 /// What an app secret carries: the app record, sealed (AES-GCM) with the master key.
 #[derive(Serialize, Deserialize)]
@@ -651,7 +699,9 @@ fn open_app(master: &[u8; 32], t: &str) -> Option<AppRecord> {
 /// plan), so re-create the app from the token. A rotated secret (higher gen) supersedes older ones;
 /// an older one is refused once a newer one has been seen since the reset.
 pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
-    let t = bearer(h, "keyala_app_").ok_or_else(unauthorized)?;
+    auth_app_token(s, bearer(h, "keyala_app_").ok_or_else(unauthorized)?).await
+}
+pub async fn auth_app_token(s: &AppState, t: &str) -> R<String> {
     if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?")
         .bind(hash_token(t))
         .fetch_optional(&s.db)

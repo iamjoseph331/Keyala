@@ -28,6 +28,8 @@ import LocalAuthentication
     @Published var errorMessage = ""
     @Published var infoMessage: String?
     @Published var pendingConnectCode: String?
+    @Published var pendingWebLoginID: String?
+    private var pendingWebLoginOrigin: String?
     @Published var pendingEnrollmentID: String?
     @Published private(set) var keySetupReturnCode: String?
     @Published private(set) var linkGeneration = 0
@@ -38,8 +40,7 @@ import LocalAuthentication
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
     var supportsStagingPassword: Bool {
-        (try? client.resolvedURL(for: "/v1/auth/password").absoluteString)
-            == "https://masterkey-staging-vkgm.onrender.com/v1/auth/password"
+        AppPreferences.builtInURL(for: serverURL) == AppPreferences.stagingURL
     }
     private var demoLoaded = false
     @Published private(set) var contextGeneration = 0
@@ -397,11 +398,12 @@ import LocalAuthentication
     }
     @discardableResult func acceptPairing(_ value: String) -> Bool {
         guard let code = PairingLink.code(from: value) else { return false }
-        if let server = PairingLink.serverURL(from: value), server != origin {
+        if !PairingLink.matchesServer(value, activeServer: origin) {
             errorMessage = "This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false
         }
+        pendingWebLoginID = nil
         pendingEnrollmentID = nil
         keySetupReturnCode = nil
         pendingConnectCode = code
@@ -415,17 +417,19 @@ import LocalAuthentication
             showError = true
             return false
         }
-        if let server = PairingLink.serverURL(from: value), server != origin {
+        if !PairingLink.matchesServer(value, activeServer: origin) {
             errorMessage = "This key setup belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false
         }
+        pendingWebLoginID = nil
         if keySetupReturnCode == nil { pendingConnectCode = nil }
         pendingEnrollmentID = id
         linkGeneration += 1
         return true
     }
     @discardableResult func handleOpenURL(_ url: URL) -> Bool {
+        if WebLoginLink.id(from: url.absoluteString) != nil { return acceptWebLogin(url.absoluteString) }
         if EnrollmentLink.id(from: url.absoluteString) != nil { return acceptEnrollment(url.absoluteString) }
         if PairingLink.code(from: url.absoluteString) != nil { return acceptPairing(url.absoluteString) }
         guard url.scheme?.lowercased() == "keyala", url.user == nil, url.password == nil, url.port == nil,
@@ -436,6 +440,57 @@ import LocalAuthentication
         pendingRequestID = id
         Task { await refresh() }
         return false
+    }
+
+    @discardableResult func acceptWebLogin(_ value: String) -> Bool {
+        guard let id = WebLoginLink.id(from: value) else { return false }
+        guard !demoMode, PairingLink.matchesServer(value, activeServer: origin) else {
+            report(APIError.http(0, "Use the matching Keyala server with sample data turned off before reviewing a web sign-in."))
+            return false
+        }
+        pendingConnectCode = nil; pendingEnrollmentID = nil; keySetupReturnCode = nil
+        pendingWebLoginID = id
+        pendingWebLoginOrigin = origin
+        linkGeneration += 1
+        return true
+    }
+    func webLoginPreview(id: String) async throws -> WebLoginPreview {
+        guard pendingWebLoginID == id, pendingWebLoginOrigin == origin, !demoMode, account != nil else { throw APIError.missingSession }
+        let generation = contextGeneration; let api = client
+        let preview = try await api.webLoginPreview(id: id)
+        guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
+        return preview
+    }
+    private func verifyWebAccess(reason: String, generation: Int) async throws {
+        guard UserDefaults.standard.bool(forKey: "requireDeviceAuthentication") else { return }
+        guard approvalAuthentication == nil else { throw CancellationError() }
+        let context = LAContext(); approvalAuthentication = context
+        defer { if approvalAuthentication === context { approvalAuthentication = nil } }
+        let allowed = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
+        guard allowed, generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
+    }
+    func decideWebLogin(id: String, approve: Bool) async throws {
+        guard !demoMode, account != nil, pendingWebLoginID == id, pendingWebLoginOrigin == origin else { throw APIError.missingSession }
+        let generation = contextGeneration; let api = client
+        if approve { try await verifyWebAccess(reason: localized("Approve this browser to sign in to Keyala."), generation: generation) }
+        guard generation == contextGeneration, pendingWebLoginID == id, !Task.isCancelled else { throw CancellationError() }
+        if approve {
+            let preview = try await api.webLoginPreview(id: id)
+            guard preview.canApprove else { throw APIError.http(409, "This sign-in is no longer pending. Start again in your browser.") }
+        }
+        guard generation == contextGeneration, pendingWebLoginID == id, !Task.isCancelled else { throw CancellationError() }
+        try await api.decideWebLogin(id: id, approve: approve)
+        guard generation == contextGeneration, pendingWebLoginID == id else { throw CancellationError() }
+        pendingWebLoginID = nil
+    }
+    func setWebPassword(_ password: String?) async throws {
+        guard !demoMode, account != nil else { throw APIError.missingSession }
+        if let password, !(12...200).contains(password.unicodeScalars.count) { throw APIError.http(400, "Use 12 to 200 characters for your web password.") }
+        let generation = contextGeneration; let api = client
+        try await verifyWebAccess(reason: localized("Confirm this change to your Keyala web password."), generation: generation)
+        guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
+        try await api.setWebPassword(password)
+        guard generation == contextGeneration else { throw CancellationError() }
     }
 
     func beginComputerKeySetup(returnTo code: String?) {

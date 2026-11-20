@@ -581,7 +581,7 @@ struct AccountView: View {
                     LabeledContent("Account ID", value: account.id)
                     LabeledContent("Server", value: store.serverURL)
                     if account.authProvider == "apple" {
-                        Text("Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; Keyala does not have a separate account password.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                        Text("Apple manages your sign-in identity. Change your email or Apple Account settings with Apple. You can set a separate web password in Settings > Web password.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
                     }
                     Button("Sign out on this iPhone") { confirmSignOut = true }.disabled(store.busy)
                 } else {
@@ -699,7 +699,13 @@ struct SettingsView: View {
     @State private var canAuthenticate = true
     var body: some View {
         Form {
-            Section("Account") { NavigationLink { AccountView() } label: { Label(store.account == nil ? "Sign in" : "Account", systemImage: "person.crop.circle") } }
+            Section("Account") {
+                NavigationLink { AccountView() } label: { Label(store.account == nil ? "Sign in" : "Account", systemImage: "person.crop.circle") }
+                if store.account != nil && !store.demoMode {
+                    NavigationLink("Web password") { WebPasswordView() }
+                    NavigationLink("Sign in on the web") { WebSignInHelpView() }
+                }
+            }
             Section("Requests") {
                 Button { Task { await store.requestNotifications() } } label: { Label("Notification permission", systemImage: "bell") }
                 Toggle("Verify approvals on this device", isOn: $requireDeviceAuthentication).disabled(!canAuthenticate && !requireDeviceAuthentication)
@@ -819,6 +825,9 @@ struct ConnectAppView: View {
                     } else { Section("Can’t scan? Enter the code") {
                         TextField("KY-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled().disabled(deciding)
                         if loading { ProgressView("Loading connection…") }
+                        else if enteredCode != nil && !PairingLink.matchesServer(code, activeServer: store.serverURL) {
+                            Text("This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.").font(.footnote).foregroundStyle(KeyalaStyle.warning)
+                        }
                         else if !code.isEmpty && enteredCode == nil { Text("Enter the KY- code shown by the app.").font(.footnote).foregroundStyle(KeyalaStyle.muted) }
                     } }
                     if let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration {
@@ -876,6 +885,7 @@ struct ConnectAppView: View {
         pairing = nil
         loading = false
         guard let value = enteredCode, store.account != nil || store.demoMode else { return }
+        guard PairingLink.matchesServer(code, activeServer: store.serverURL) else { return }
         let generation = store.contextGeneration
         loading = true
         defer { if generation == store.contextGeneration { loading = false } }
@@ -901,10 +911,11 @@ struct ConnectAppView: View {
         guard let value = scannedValue, scannerGeneration == store.contextGeneration, scannerLinkGeneration == store.linkGeneration else { return }
         scannedValue = nil
         code = ""; pairing = nil
-        if EnrollmentLink.id(from: value) != nil { _ = store.acceptEnrollment(value) }
+        if WebLoginLink.id(from: value) != nil { _ = store.acceptWebLogin(value) }
+        else if EnrollmentLink.id(from: value) != nil { _ = store.acceptEnrollment(value) }
         else if PairingLink.code(from: value) != nil {
             if store.acceptPairing(value), let scanned = store.pendingConnectCode { code = scanned }
-        } else { scannerError = "This isn’t a Keyala QR. Scan the connection or key setup QR shown by Keyala." }
+        } else { scannerError = "This isn’t a Keyala QR. Scan the connection, web sign-in or key setup QR shown by Keyala." }
     }
 
     private func openScanner() async {
@@ -1182,7 +1193,7 @@ struct PrivacyView: View {
     var body: some View {
         Form {
             Section("Who operates Keyala") {
-                Text("Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.")
+                Text("Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact support@keyala.io with questions.")
             }
             Section("Your keys") {
                 Text("Provider keys are sent to your selected Keyala server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted.")
@@ -1207,16 +1218,16 @@ struct FirstUseGuideView: View {
     var onFinish: (() -> Void)? = nil
     @State private var step = 0
     private let titles = ["Your keys, your decision", "Choose a provider account", "Connect, review, stay in control"]
-    private let symbols = ["hand.raised", "key.horizontal", "checkmark.shield"]
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                LanguagePicker()
-                Image("BrandMark").resizable().scaledToFit().frame(width: 64, height: 64).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 16) {
+                    Image("BrandMark").resizable().scaledToFit().frame(width: 44, height: 44).accessibilityHidden(true)
+                    LanguagePicker()
+                }
                 Text("Getting started").font(.subheadline).foregroundStyle(KeyalaStyle.teal)
                 HStack { ForEach(0..<3) { index in Capsule().fill(index == step ? KeyalaStyle.teal : KeyalaStyle.line).frame(height: 4) } }.accessibilityHidden(true)
-                Image(systemName: symbols[step]).font(.system(size: 38)).foregroundStyle(KeyalaStyle.teal).accessibilityHidden(true)
-                Text(LocalizedStringKey(titles[step])).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                Text(LocalizedStringKey(titles[step])).font(.title.bold()).fixedSize(horizontal: false, vertical: true)
                 if step == 0 {
                     Text("An experimental personal project by Joseph Chen, built with care. The beta is free; provider usage is billed separately.")
                     Text("Your selected Keyala server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key.")
@@ -1237,8 +1248,8 @@ struct FirstUseGuideView: View {
                         if step < 2 { step += 1 } else { if let onFinish { onFinish() } else { dismiss() } }
                     } label: { Text(LocalizedStringKey(step == 2 ? "Get started" : "Next")) }.buttonStyle(.borderedProminent)
                 }.padding(.top, 12)
-            }.padding(24)
-        }.background(KeyalaStyle.navy.ignoresSafeArea()).foregroundStyle(KeyalaStyle.cream)
+            }.padding(20)
+        }.id(step).background(KeyalaStyle.navy.ignoresSafeArea()).foregroundStyle(KeyalaStyle.cream)
             .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -1300,5 +1311,127 @@ struct DeleteAccountView: View {
             if (error as? ASAuthorizationError)?.code == .canceled { return }
             store.errorMessage = error.localizedDescription; store.showError = true
         }
+    }
+}
+
+
+struct WebLoginApprovalView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    let id: String
+    @State private var preview: WebLoginPreview?
+    @State private var error: String?
+    @State private var deciding = false
+    @State private var action: Task<Void, Never>?
+    @State private var now = Date()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    var body: some View {
+        Group {
+            if store.account == nil { AccountView() }
+            else {
+                Form {
+                    Section {
+                        Label("Sign in on the web", systemImage: "desktopcomputer").font(.title2.bold())
+                        Text("Only approve if you just opened Keyala in your own browser and scanned its sign-in QR. A QR sent by someone else can sign them into your account.")
+                        LabeledContent("Keyala server", value: store.serverHost)
+                    }
+                    if let preview {
+                        Section("Review browser") {
+                            LabeledContent("Browser", value: preview.browser ?? "Unknown")
+                            LabeledContent("Country", value: preview.country ?? "Unknown")
+                            LabeledContent("Created", value: preview.createdAt)
+                            LabeledContent("Expires", value: preview.expiresAt)
+                            Text("Browser details are hints, not verified identity.").font(.footnote)
+                            Text("The web console can view your keys’ last four characters, connected apps and request history, and manage your developer apps. Key changes and spending approvals stay on your phone.").font(.footnote)
+                            if preview.isPending(at: now) {
+                                Button("Approve web sign-in") { decide(true) }.disabled(deciding)
+                                Button("Deny web sign-in", role: .destructive) { decide(false) }.disabled(deciding)
+                            } else { Text("This sign-in is no longer pending. Start again in your browser.") }
+                        }
+                    } else if error == nil { ProgressView("Loading sign-in…") }
+                    if deciding { ProgressView() }
+                    if let error { Section { Text(error).foregroundStyle(KeyalaStyle.warning); Button("Refresh") { preview = nil; self.error = nil; load() }.disabled(deciding) } }
+                }.scrollContentBackground(.hidden)
+            }
+        }.background(KeyalaStyle.navy).localizedNavigationTitle("Web sign-in")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(deciding) } }
+            .task(id: "\(store.contextGeneration):\(store.account?.id ?? "")") { preview = nil; error = nil; load() }
+            .onReceive(timer) { now = $0 }
+            .onDisappear { action?.cancel() }
+    }
+    private func load() {
+        action?.cancel()
+        action = Task {
+            do { let value = try await store.webLoginPreview(id: id); guard !Task.isCancelled else { return }; preview = value }
+            catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        }
+    }
+    private func decide(_ approve: Bool) {
+        deciding = true; error = nil
+        action = Task {
+            defer { deciding = false }
+            do { try await store.decideWebLogin(id: id, approve: approve); guard !Task.isCancelled else { return }; dismiss() }
+            catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        }
+    }
+}
+
+struct WebPasswordView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var password = ""
+    @State private var confirmation = ""
+    @State private var busy = false
+    @State private var remove = false
+    @State private var message: String?
+    @State private var action: Task<Void, Never>?
+    var body: some View {
+        Form {
+            Section {
+                Text("Sign in to the web console with your account email and a separate password. Your Apple Account password stays with Apple.")
+                LabeledContent("Username", value: store.account?.email ?? "")
+                Text("Use at least 12 characters. Scan the web sign-in QR instead if you prefer not to set a password.").font(.footnote)
+            }
+            Section("Web password") {
+                SecureField("New web password", text: $password).textContentType(.newPassword)
+                SecureField("Confirm web password", text: $confirmation).textContentType(.newPassword)
+                Button("Save web password") { update(password) }.disabled(busy || !(12...200).contains(password.unicodeScalars.count) || password != confirmation)
+                Button("Remove web password", role: .destructive) { remove = true }.disabled(busy)
+                if busy { ProgressView() }
+                if let message { Text(message).font(.footnote) }
+            }.disabled(store.account == nil || store.demoMode)
+        }.scrollContentBackground(.hidden).background(KeyalaStyle.navy).localizedNavigationTitle("Web password")
+            .confirmationDialog("Remove web password?", isPresented: $remove) {
+                Button("Remove web password", role: .destructive) { update(nil) }
+            } message: { Text("You can still sign in by scanning the web sign-in QR with Keyala.") }
+            .onChange(of: store.contextGeneration) { _, _ in action?.cancel(); password = ""; confirmation = ""; message = nil }
+            .onDisappear { action?.cancel(); password = ""; confirmation = "" }
+    }
+    private func update(_ value: String?) {
+        busy = true; message = nil; password = ""; confirmation = ""
+        action = Task {
+            defer { busy = false }
+            do { try await store.setWebPassword(value); guard !Task.isCancelled else { return }; message = localized(value == nil ? "Web password removed." : "Web password saved.") }
+            catch { if !Task.isCancelled { message = error.localizedDescription } }
+        }
+    }
+}
+
+struct WebSignInHelpView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var link = ""
+    var body: some View {
+        Form {
+            Section("On your computer") {
+                if let url = URL(string: store.serverURL)?.appendingPathComponent("console") {
+                    Text(url.absoluteString).textSelection(.enabled)
+                    ShareLink(item: url) { Text("Send console link") }
+                }
+                Text("Choose phone sign-in. Scan the QR using your iPhone Camera or Keyala’s QR scanner, then review and approve the browser.")
+            }
+            Section("Can’t scan? Paste the sign-in link") {
+                TextField("https://app.keyala.io/login/…", text: $link).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                Button("Review web sign-in") { _ = store.acceptWebLogin(link) }.disabled(WebLoginLink.id(from: link) == nil)
+            }
+        }.scrollContentBackground(.hidden).background(KeyalaStyle.navy).localizedNavigationTitle("Web sign-in")
     }
 }

@@ -2259,7 +2259,7 @@ async fn app_secret_survives_database_reset_and_rotation_wins() {
 #[tokio::test]
 async fn password_login_single_operator_account() {
     use sha2::{Digest, Sha256};
-    // unconfigured: the endpoint does not exist
+    // no operator account configured: user web passwords still work, so it answers 401 rather than 404
     let (base, c, _) = server().await;
     let r = c
         .post(format!("{base}/v1/auth/password"))
@@ -2267,7 +2267,7 @@ async fn password_login_single_operator_account() {
         .send()
         .await
         .unwrap();
-    assert_eq!(r.status(), 404);
+    assert_eq!(r.status(), 401);
 
     let pw = "correct-horse-battery-staple-9f3a";
     let (base, c, _) = serve(Config {
@@ -4376,4 +4376,807 @@ async fn deleted_account_leaves_no_content_in_the_database_file() {
         "request content left in free pages"
     );
     assert!(!has(&key_ct[..16]), "API key ciphertext left in free pages");
+}
+
+// ---------- web console ----------
+
+async fn call(
+    t: &T,
+    m: reqwest::Method,
+    path: &str,
+    tok: Option<&str>,
+    body: Option<Value>,
+) -> Response {
+    let mut r = t.c.request(m, format!("{}{path}", t.base));
+    if let Some(k) = tok {
+        r = r.bearer_auth(k);
+    }
+    if let Some(b) = body {
+        r = r.json(&b);
+    }
+    r.send().await.unwrap()
+}
+use reqwest::Method as M;
+
+/// phone sign-in for the web: returns the web session token
+async fn web_via_phone(t: &T) -> String {
+    let s = json_of(call(t, M::POST, "/v1/web/login", None, None).await).await;
+    let (id, sec) = (
+        s["login_id"].as_str().unwrap(),
+        s["login_secret"].as_str().unwrap(),
+    );
+    let r = call(
+        t,
+        M::POST,
+        &format!("/v1/me/web-login/{id}/approve"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    let p = json_of(call(t, M::GET, &format!("/v1/web/login/{id}"), Some(sec), None).await).await;
+    p["session_token"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn web_login_phone_flow_deny_expiry_and_secret() {
+    let t = T::new().await;
+    let s = json_of(
+        t.c.post(format!("{}/v1/web/login", t.base))
+            .header("user-agent", "Browser/1 ".repeat(40))
+            .header("cf-ipcountry", "jp")
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    let (id, sec) = (
+        s["login_id"].as_str().unwrap().to_string(),
+        s["login_secret"].as_str().unwrap().to_string(),
+    );
+    assert!(id.starts_with("wl_") && id.len() == 25);
+    assert_eq!(s["url"], format!("http://mk.test/login/{id}"));
+    assert_eq!(s["qr_url"], format!("http://mk.test/login/{id}/qr.svg"));
+    let poll = |tok: String, id: String| {
+        let (c, b) = (t.c.clone(), t.base.clone());
+        async move {
+            c.get(format!("{b}/v1/web/login/{id}"))
+                .bearer_auth(tok)
+                .send()
+                .await
+                .unwrap()
+        }
+    };
+    assert_eq!(
+        json_of(poll(sec.clone(), id.clone()).await).await["status"],
+        "pending"
+    );
+    // wrong or missing secret, and an unknown id, are all 401
+    assert_eq!(
+        poll("keyala_wl_nope".into(), id.clone()).await.status(),
+        401
+    );
+    assert_eq!(
+        poll(sec.clone(), "wl_AAAAAAAAAAAAAAAAAAAAAA".into())
+            .await
+            .status(),
+        401
+    );
+    assert_eq!(
+        call(&t, M::GET, &format!("/v1/web/login/{id}"), None, None)
+            .await
+            .status(),
+        401
+    );
+    // the phone sees what it is approving; a web login cannot be previewed without an app session
+    let v = json_of(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/me/web-login/{id}"),
+            Some(&t.sess),
+            None,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        (v["id"].as_str(), v["status"].as_str()),
+        (Some(id.as_str()), Some("pending"))
+    );
+    assert_eq!(v["user_agent"].as_str().unwrap().chars().count(), 200);
+    assert_eq!(v["country"], "JP");
+    assert!(v["expires_at"].is_string() && v["created_at"].is_string());
+    assert_eq!(
+        call(&t, M::GET, &format!("/v1/me/web-login/{id}"), None, None)
+            .await
+            .status(),
+        401
+    );
+    let r = call(
+        &t,
+        M::POST,
+        &format!("/v1/me/web-login/{id}/approve"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    assert_eq!(json_of(r).await["status"], "approved");
+    // second decision loses
+    let r = call(
+        &t,
+        M::POST,
+        &format!("/v1/me/web-login/{id}/deny"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    assert_eq!(r.status(), 409);
+    let a = json_of(poll(sec.clone(), id.clone()).await).await;
+    assert_eq!(a["status"], "approved");
+    let web = a["session_token"].as_str().unwrap().to_string();
+    assert!(a["expires_at"].is_string());
+    // the token is handed out once
+    let b = json_of(poll(sec.clone(), id.clone()).await).await;
+    assert_eq!(b["status"], "used");
+    assert!(b.get("session_token").is_none());
+    let me = json_of(call(&t, M::GET, "/v1/me", Some(&web), None).await).await;
+    assert_eq!(
+        (me["email"].as_str(), me["has_password"].as_bool()),
+        (Some("a@b.co"), Some(false))
+    );
+
+    // deny
+    let s = json_of(call(&t, M::POST, "/v1/web/login", None, None).await).await;
+    let (id, sec) = (
+        s["login_id"].as_str().unwrap().to_string(),
+        s["login_secret"].as_str().unwrap().to_string(),
+    );
+    call(
+        &t,
+        M::POST,
+        &format!("/v1/me/web-login/{id}/deny"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    let d = json_of(poll(sec.clone(), id.clone()).await).await;
+    assert_eq!(d["status"], "denied");
+    assert!(d.get("session_token").is_none());
+
+    // expiry: neither approve nor an already approved row can be used past 5 minutes
+    let s = json_of(call(&t, M::POST, "/v1/web/login", None, None).await).await;
+    let (id, sec) = (
+        s["login_id"].as_str().unwrap().to_string(),
+        s["login_secret"].as_str().unwrap().to_string(),
+    );
+    sqlx_exec(
+        &t,
+        &format!("UPDATE web_logins SET expires_at='2000-01-01T00:00:00.000Z' WHERE id='{id}'"),
+    )
+    .await;
+    let r = call(
+        &t,
+        M::POST,
+        &format!("/v1/me/web-login/{id}/approve"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    assert_eq!(r.status(), 409);
+    assert_eq!(
+        json_of(poll(sec, id.clone()).await).await["status"],
+        "expired"
+    );
+    // pages
+    let r = call(&t, M::GET, &format!("/login/{id}"), None, None).await;
+    assert!(r
+        .text()
+        .await
+        .unwrap()
+        .contains(&format!("keyala://login/{id}")));
+    let r = call(&t, M::GET, &format!("/login/{id}/qr.svg"), None, None).await;
+    assert_eq!(r.headers()["content-type"], "image/svg+xml");
+    assert_eq!(
+        call(&t, M::GET, "/login/bad", None, None).await.status(),
+        404
+    );
+    // universal links
+    let aasa = call(
+        &t,
+        M::GET,
+        "/.well-known/apple-app-site-association",
+        None,
+        None,
+    )
+    .await
+    .text()
+    .await
+    .unwrap();
+    assert!(aasa.contains("/login/*"));
+}
+
+#[tokio::test]
+async fn web_session_is_limited_and_expires() {
+    let t = T::new().await;
+    let gtok = t.grant("openai", json!({"mode": "ask"})).await;
+    let rid = json_of(t.chat(&gtok, 0, msg()).await).await["request_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let gid = t.user_get("/v1/me/grants").await[0]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let web = web_via_phone(&t).await;
+    // allowed: reads
+    for p in [
+        "/v1/me",
+        "/v1/me/keys",
+        "/v1/me/grants",
+        "/v1/me/requests",
+        "/v1/me/preferences",
+        "/v1/me/apps",
+    ] {
+        assert_eq!(
+            call(&t, M::GET, p, Some(&web), None).await.status(),
+            200,
+            "{p}"
+        );
+    }
+    let d = call(
+        &t,
+        M::GET,
+        &format!("/v1/me/requests/{rid}"),
+        Some(&web),
+        None,
+    )
+    .await;
+    assert_eq!(d.status(), 200);
+    // blocked: everything that spends, changes keys or policy, or touches the account
+    let blocked: Vec<(M, String, Option<Value>)> = vec![
+        (
+            M::POST,
+            format!("/v1/me/requests/{rid}/approve"),
+            Some(json!({})),
+        ),
+        (M::POST, format!("/v1/me/requests/{rid}/deny"), None),
+        (
+            M::PUT,
+            "/v1/me/keys/openai".into(),
+            Some(json!({"api_key": "sk-test-XXXXXXXX1234"})),
+        ),
+        (M::DELETE, "/v1/me/keys/openai".into(), None),
+        (
+            M::PATCH,
+            format!("/v1/me/grants/{gid}"),
+            Some(json!({"policy": {"mode": "ask"}})),
+        ),
+        (
+            M::PATCH,
+            "/v1/me/preferences".into(),
+            Some(json!({"openrouter_for_direct_apis": true})),
+        ),
+        (
+            M::POST,
+            "/v1/me/devices".into(),
+            Some(json!({"apns_token": "ab"})),
+        ),
+        (M::POST, "/v1/me/oauth/openrouter".into(), Some(json!({}))),
+        (
+            M::PUT,
+            "/v1/me/password".into(),
+            Some(json!({"password": "a-long-enough-password"})),
+        ),
+        (M::DELETE, "/v1/me/password".into(), None),
+        (
+            M::POST,
+            "/v1/me/web-login/wl_AAAAAAAAAAAAAAAAAAAAAA/approve".into(),
+            None,
+        ),
+        (
+            M::GET,
+            "/v1/me/web-login/wl_AAAAAAAAAAAAAAAAAAAAAA".into(),
+            None,
+        ),
+        (M::POST, "/v1/me/stop-all".into(), None),
+        (
+            M::POST,
+            "/v1/me/sessions/revoke-all".into(),
+            Some(json!({})),
+        ),
+        (
+            M::POST,
+            "/v1/me/delete".into(),
+            Some(json!({"confirm": "DELETE", "email": "a@b.co"})),
+        ),
+    ];
+    for (m, p, b) in blocked {
+        let r = call(&t, m.clone(), &p, Some(&web), b).await;
+        let st = r.status();
+        let j = json_of(r).await;
+        assert_eq!(
+            (st.as_u16(), j["error"]["type"].as_str()),
+            (403, Some("web_session_not_allowed")),
+            "{m} {p}"
+        );
+    }
+    // nothing above changed anything
+    assert_eq!(
+        t.user_get(&format!("/v1/me/requests/{rid}")).await["status"],
+        "pending"
+    );
+    assert_eq!(t.user_get("/v1/me/keys").await.as_array().unwrap().len(), 1);
+    // revoking a grant is allowed, and denies its pending request
+    assert_eq!(
+        call(
+            &t,
+            M::DELETE,
+            &format!("/v1/me/grants/{gid}"),
+            Some(&web),
+            None
+        )
+        .await
+        .status(),
+        204
+    );
+    assert_eq!(
+        t.user_get(&format!("/v1/me/requests/{rid}")).await["status"],
+        "denied"
+    );
+    // logout works and ends only this session
+    assert_eq!(
+        call(&t, M::POST, "/v1/me/logout", Some(&web), None)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(
+        call(&t, M::GET, "/v1/me", Some(&web), None).await.status(),
+        401
+    );
+    assert_eq!(
+        call(&t, M::GET, "/v1/me", Some(&t.sess), None)
+            .await
+            .status(),
+        200
+    );
+    // expiry
+    let web2 = web_via_phone(&t).await;
+    assert_eq!(
+        call(&t, M::GET, "/v1/me", Some(&web2), None).await.status(),
+        200
+    );
+    sqlx_exec(
+        &t,
+        "UPDATE sessions SET expires_at='2000-01-01T00:00:00.000Z' WHERE scope='web'",
+    )
+    .await;
+    assert_eq!(
+        call(&t, M::GET, "/v1/me", Some(&web2), None).await.status(),
+        401
+    );
+    // the app session is untouched by any of this and never expires
+    let n: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sessions WHERE scope='app' AND expires_at IS NULL",
+    )
+    .fetch_one(&t.state.db)
+    .await
+    .unwrap();
+    assert!(n >= 1);
+}
+
+#[tokio::test]
+async fn web_password_set_login_and_operator_account_unchanged() {
+    use sha2::{Digest, Sha256};
+    let (base, c, state) = serve(Config {
+        password_login: Some(("qa-user".into(), Sha256::digest("pw-long-random").into())),
+        ..test_cfg()
+    })
+    .await;
+    let t = T {
+        sess: dev_session(&c, &base, "Pw@b.co").await,
+        base,
+        c,
+        state,
+    };
+    let login = |u: &str, p: &str| {
+        call(
+            &t,
+            M::POST,
+            "/v1/auth/password",
+            None,
+            Some(json!({"username": u, "password": p})),
+        )
+    };
+    // not set yet
+    assert_eq!(login("pw@b.co", "a-very-long-password").await.status(), 401);
+    // validation, then set (app session only)
+    for bad in ["short", &"x".repeat(201)] {
+        assert_eq!(
+            call(
+                &t,
+                M::PUT,
+                "/v1/me/password",
+                Some(&t.sess),
+                Some(json!({"password": bad}))
+            )
+            .await
+            .status(),
+            400
+        );
+    }
+    assert_eq!(
+        call(
+            &t,
+            M::PUT,
+            "/v1/me/password",
+            None,
+            Some(json!({"password": "a-very-long-password"}))
+        )
+        .await
+        .status(),
+        401
+    );
+    let r = call(
+        &t,
+        M::PUT,
+        "/v1/me/password",
+        Some(&t.sess),
+        Some(json!({"password": "a-very-long-password"})),
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(t.user_get("/v1/me").await["has_password"], true);
+    let stored: String =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE email='pw@b.co'")
+            .fetch_one(&t.state.db)
+            .await
+            .unwrap();
+    assert!(stored.starts_with("$argon2id$") && !stored.contains("a-very-long"));
+    // same 401 for a wrong password and an unknown user
+    for (u, p) in [
+        ("pw@b.co", "wrong-password-here"),
+        ("nobody@b.co", "a-very-long-password"),
+    ] {
+        let r = login(u, p).await;
+        assert_eq!(r.status(), 401);
+        assert_eq!(json_of(r).await["error"]["type"], "invalid_credentials");
+    }
+    let r = json_of(login("PW@b.co", "a-very-long-password").await).await;
+    assert_eq!(
+        (r["scope"].as_str(), r["user"]["email"].as_str()),
+        (Some("web"), Some("pw@b.co"))
+    );
+    let web = r["session_token"].as_str().unwrap();
+    assert_eq!(
+        call(&t, M::GET, "/v1/me/grants", Some(web), None)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(
+        call(&t, M::POST, "/v1/me/stop-all", Some(web), None)
+            .await
+            .status(),
+        403
+    );
+    // operator account: app-scoped session exactly as before
+    let op = json_of(login("qa-user", "pw-long-random").await).await;
+    assert_eq!(op["user"]["email"], "qa-user@password.invalid");
+    assert!(op.get("scope").is_none());
+    let op_tok = op["session_token"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            "/v1/me/sessions/revoke-all",
+            Some(op_tok),
+            Some(json!({}))
+        )
+        .await
+        .status(),
+        200
+    );
+    // removing the password closes the door again
+    assert_eq!(
+        call(&t, M::DELETE, "/v1/me/password", Some(&t.sess), None)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(login("pw@b.co", "a-very-long-password").await.status(), 401);
+}
+
+#[tokio::test]
+async fn console_apps_create_list_claim_report_rotate_and_isolation() {
+    let t = T::new().await;
+    let web = web_via_phone(&t).await;
+    let other = dev_session(&t.c, &t.base, "other@b.co").await;
+    // create (web session allowed): the secret is shown once and works as a normal app secret
+    let r = call(
+        &t,
+        M::POST,
+        "/v1/me/apps",
+        Some(&web),
+        Some(json!({"name": "Mine", "allowed_origins": ["https://x.dev"]})),
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    let a = json_of(r).await;
+    let (id, secret) = (
+        a["app_id"].as_str().unwrap().to_string(),
+        a["app_secret"].as_str().unwrap().to_string(),
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            "/v1/me/apps",
+            Some(&web),
+            Some(json!({"name": ""}))
+        )
+        .await
+        .status(),
+        400
+    );
+    assert_eq!(
+        call(&t, M::GET, "/v1/app", Some(&secret), None)
+            .await
+            .status(),
+        200
+    );
+    let l = json_of(call(&t, M::GET, "/v1/me/apps", Some(&web), None).await).await;
+    assert_eq!(l.as_array().unwrap().len(), 1);
+    assert_eq!(
+        (
+            l[0]["id"].as_str(),
+            l[0]["name"].as_str(),
+            l[0]["requests_7d"].as_i64()
+        ),
+        (Some(id.as_str()), Some("Mine"), Some(0))
+    );
+    assert_eq!(l[0]["allowed_origins"][0], "https://x.dev");
+    // some traffic: a grant for this app, one call
+    let conn = json_of(
+        call(
+            &t,
+            M::POST,
+            "/v1/connect",
+            Some(&secret),
+            Some(json!({"vendor": "openai"})),
+        )
+        .await,
+    )
+    .await;
+    let code = conn["connect_code"].as_str().unwrap().to_string();
+    call(
+        &t,
+        M::POST,
+        &format!("/v1/me/connect/{code}/approve"),
+        Some(&t.sess),
+        Some(json!({"policy": {"mode": "ask"}})),
+    )
+    .await;
+    let g = json_of(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/connect/{code}"),
+            Some(&secret),
+            None,
+        )
+        .await,
+    )
+    .await;
+    let gt = g["grant_token"].as_str().unwrap().to_string();
+    t.chat(&gt, 0, msg()).await;
+    let rid = t.pending().await;
+    call(
+        &t,
+        M::POST,
+        &format!("/v1/me/requests/{rid}/approve"),
+        Some(&t.sess),
+        Some(json!({})),
+    )
+    .await;
+    t.wait_status(&rid, "completed").await;
+    // report = exactly the /v1/app/report shape
+    let mine = json_of(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/me/apps/{id}/report?days=7"),
+            Some(&web),
+            None,
+        )
+        .await,
+    )
+    .await;
+    let direct =
+        json_of(call(&t, M::GET, "/v1/app/report?days=7", Some(&secret), None).await).await;
+    assert_eq!(mine, direct);
+    assert_eq!(mine["totals"]["completed"], 1);
+    assert_eq!(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/me/apps/{id}/report?days=0"),
+            Some(&web),
+            None
+        )
+        .await
+        .status(),
+        400
+    );
+    let l = json_of(call(&t, M::GET, "/v1/me/apps", Some(&web), None).await).await;
+    assert_eq!(l[0]["requests_7d"], 1);
+    assert!(l[0]["cost_usd_7d"].as_f64().unwrap() > 0.0);
+    // another account sees nothing and cannot touch it
+    assert_eq!(
+        json_of(call(&t, M::GET, "/v1/me/apps", Some(&other), None).await)
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/me/apps/{id}/report"),
+            Some(&other),
+            None
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            &format!("/v1/me/apps/{id}/secret"),
+            Some(&other),
+            None
+        )
+        .await
+        .status(),
+        404
+    );
+    let r = call(
+        &t,
+        M::POST,
+        "/v1/me/apps/claim",
+        Some(&other),
+        Some(json!({"app_secret": secret})),
+    )
+    .await;
+    assert_eq!(r.status(), 409);
+    assert_eq!(json_of(r).await["error"]["type"], "already_owned");
+    // rotate: the old secret dies at once
+    let n = json_of(
+        call(
+            &t,
+            M::POST,
+            &format!("/v1/me/apps/{id}/secret"),
+            Some(&web),
+            None,
+        )
+        .await,
+    )
+    .await;
+    let secret2 = n["app_secret"].as_str().unwrap().to_string();
+    assert_ne!(secret, secret2);
+    assert_eq!(
+        call(&t, M::GET, "/v1/app", Some(&secret), None)
+            .await
+            .status(),
+        401
+    );
+    assert_eq!(
+        call(&t, M::GET, "/v1/app", Some(&secret2), None)
+            .await
+            .status(),
+        200
+    );
+    // claim an unowned app by its secret; a bad secret is 401
+    let free = json_of(
+        call(
+            &t,
+            M::POST,
+            "/v1/apps",
+            None,
+            Some(json!({"name": "Old one"})),
+        )
+        .await,
+    )
+    .await;
+    let fsec = free["app_secret"].as_str().unwrap();
+    let r = call(
+        &t,
+        M::POST,
+        "/v1/me/apps/claim",
+        Some(&web),
+        Some(json!({"app_secret": fsec})),
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(json_of(r).await["name"], "Old one");
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            "/v1/me/apps/claim",
+            Some(&web),
+            Some(json!({"app_secret": fsec}))
+        )
+        .await
+        .status(),
+        200
+    ); // idempotent for the owner
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            "/v1/me/apps/claim",
+            Some(&web),
+            Some(json!({"app_secret": "keyala_app_nope"}))
+        )
+        .await
+        .status(),
+        401
+    );
+    assert_eq!(
+        json_of(call(&t, M::GET, "/v1/me/apps", Some(&web), None).await)
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    // deleting the account detaches the apps; they keep working with their secret
+    let r = call(
+        &t,
+        M::POST,
+        "/v1/me/delete",
+        Some(&t.sess),
+        Some(json!({"confirm": "DELETE", "email": "a@b.co"})),
+    )
+    .await;
+    assert_eq!(r.status(), 200, "{}", r.text().await.unwrap());
+    let owner: Option<String> = sqlx::query_scalar("SELECT owner_user_id FROM apps WHERE id=?")
+        .bind(&id)
+        .fetch_one(&t.state.db)
+        .await
+        .unwrap();
+    assert!(owner.is_none());
+    assert_eq!(
+        call(&t, M::GET, "/v1/app", Some(&secret2), None)
+            .await
+            .status(),
+        200
+    );
+}
+
+#[tokio::test]
+async fn console_page_is_served_with_strict_csp() {
+    let t = T::new().await;
+    let r = call(&t, M::GET, "/console", None, None).await;
+    assert_eq!(r.status(), 200);
+    let csp = r.headers()["content-security-policy"]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        csp.contains("default-src 'self'")
+            && csp.contains("frame-ancestors 'none'")
+            && csp.contains("connect-src 'self'")
+    );
+    assert!(!csp.contains("script-src 'unsafe-inline'"));
+    assert!(r.text().await.unwrap().contains("/console.js"));
+    let r = call(&t, M::GET, "/console.js", None, None).await;
+    assert_eq!(r.status(), 200);
+    assert!(r.text().await.unwrap().contains("textContent"));
 }

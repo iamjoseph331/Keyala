@@ -1,205 +1,215 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101c28">
-  <meta name="description" content="Let people bring their own model API key and approve each AI request from their phone. Your key. Your call.">
-  <meta property="og:title" content="Keyala — Your key. Your call.">
-  <meta property="og:description" content="A user-controlled way to bring model API keys to AI apps.">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="https://keyala.io/social.svg">
-  <title>Keyala — Your key. Your call.</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
-  <script src="./script.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyala: bring your own AI key, without handing it over</title>
+<meta name="description" content="Keyala lets people use their own OpenAI, Anthropic or OpenRouter key in AI apps without giving the key away. Approve each request on your iPhone. Free for developers.">
+<meta property="og:title" content="Keyala: bring your own AI key, without handing it over">
+<meta property="og:description" content="The app asks, you approve on your iPhone, the call runs on your key.">
+<meta property="og:image" content="https://keyala.io/social.svg">
+<meta name="theme-color" content="#3D7A57">
+<link rel="icon" href="brand/koala.svg">
+<link rel="canonical" href="https://keyala.io/">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="home.css">
+<script>
+window.KEYALA_STRINGS = {
+en: {
+  _title: 'Keyala: bring your own AI key, without handing it over',
+  'nav.dev': 'Developers', 'nav.users': 'Users', 'nav.console': 'Console',
+  'hero.h1': 'Bring your own AI key. Keep it to yourself.',
+  'hero.lead': 'AI apps need a model API key, and nobody knows who should provide it. With Keyala the app asks, you approve on your iPhone, and the call runs on your key. The app never sees it.',
+  'hero.dev': 'I build AI apps', 'hero.usr': 'I use AI apps',
+  'hero.note': 'Free beta. iPhone app in invite-only TestFlight.',
+  'ph.ex': 'Example screen, not real data',
+  'ph.app': 'Paperplane', 'ph.sub': 'wants to use your OpenAI key',
+  'ph.cost': 'about $0.002', 'ph.est': 'estimated',
+  'ph.prompt': '"Help me write a thank-you note to my landlord."',
+  'ph.deny': 'Deny', 'ph.allow': 'Allow',
+  'how.h': 'How it works',
+  'how.1h': 'The app asks', 'how.1p': 'The app sends its request to Keyala instead of the provider.',
+  'how.2h': 'You approve', 'how.2p': 'You see the exact prompt and estimated cost on your iPhone, then allow or deny.',
+  'how.3h': 'It runs on your key', 'how.3p': 'Keyala forwards the call with your key and returns the answer to the app.',
+  'dev.h': 'For developers',
+  'dev.1': 'Change one line: the base URL. Official OpenAI and Anthropic SDKs work as they are.',
+  'dev.2': 'Pair users with one script tag: QR, link or code.',
+  'dev.3': 'Built-in dashboard: calls, cost, models, countries, busiest hours.',
+  'dev.4': 'No keys to store, no bill to carry. Free.',
+  'dev.link': 'Read the developer docs',
+  'usr.h': 'For users',
+  'usr.1': 'See the exact prompt and the response, every time.',
+  'usr.2': 'You set the limit: ask each time, a number of calls, a budget, or trust.',
+  'usr.3': 'Your key stays in Keyala. Apps never get it.',
+  'usr.4': 'Revoke any app at any time.',
+  'usr.link': 'Read the user guide',
+  'tr.h': 'Trust, in plain words',
+  'tr.1h': 'Keys are never shared', 'tr.1p': 'Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.',
+  'tr.2h': 'Your content is private', 'tr.2p': 'Prompts and responses are encrypted per user and deleted after 30 days.',
+  'see.h': 'See it in the app', 'see.cap': 'Native app demo with a local mock provider. Fictional data; no real provider charge.', 'see.a1': 'Request review: app, estimated cost, the exact prompt', 'see.a2': 'Completed request with its response and cost',
+  'tr.3h': 'You stay in charge', 'tr.3p': 'First connections always ask each time. Before a call you see an estimate; afterwards, the cost from the usage the provider reported.',
+  'tr.4h': 'Honest about the limits', 'tr.4p': 'Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.',
+  'tr.link': 'Read the privacy details',
+  'end.h': 'Stop asking who pays. Let people bring their own key.',
+  'end.note': 'Want the iPhone app? Write to support@keyala.io to join the invite-only TestFlight.',
+  'ft.priv': 'Privacy', 'ft.sup': 'Support', 'ft.by': 'Experimental personal project by Joseph Chen'
+},
+'zh-Hant': {
+  _title: 'Keyala：用自己的 AI 金鑰，不必交出去',
+  'nav.dev': '開發者', 'nav.users': '使用者', 'nav.console': '控制台',
+  'hero.h1': '用自己的 AI 金鑰，但不必交給別人。',
+  'hero.lead': 'AI 應用程式需要模型 API 金鑰，卻沒人說得清該由誰提供。用 Keyala，應用程式提出請求，你在 iPhone 上核准，呼叫就用你的金鑰執行，應用程式完全看不到金鑰。',
+  'hero.dev': '我開發 AI 應用', 'hero.usr': '我使用 AI 應用',
+  'hero.note': '免費測試版。iPhone App 目前為邀請制 TestFlight。',
+  'ph.ex': '範例畫面，非真實資料',
+  'ph.app': 'Paperplane', 'ph.sub': '想使用你的 OpenAI 金鑰',
+  'ph.cost': '約 $0.002', 'ph.est': '預估',
+  'ph.prompt': '「幫我寫一張給房東的感謝卡。」',
+  'ph.deny': '拒絕', 'ph.allow': '允許',
+  'how.h': '運作方式',
+  'how.1h': '應用程式提出請求', 'how.1p': '應用程式把請求送給 Keyala，而不是直接送給模型供應商。',
+  'how.2h': '你來核准', 'how.2p': '在 iPhone 上看到完整的提示詞與預估費用，再決定允許或拒絕。',
+  'how.3h': '用你的金鑰執行', 'how.3p': 'Keyala 用你的金鑰轉送呼叫，並把回答交還給應用程式。',
+  'dev.h': '給開發者',
+  'dev.1': '只改一行：base URL。官方 OpenAI 與 Anthropic SDK 照常使用。',
+  'dev.2': '一個 script 標籤就能配對使用者：QR code、連結或代碼。',
+  'dev.3': '內建儀表板：呼叫次數、費用、模型、國家、最忙時段。',
+  'dev.4': '不用保管金鑰，也不用負擔帳單。免費。',
+  'dev.link': '閱讀開發者文件',
+  'usr.h': '給使用者',
+  'usr.1': '每次都能看到完整的提示詞與回應。',
+  'usr.2': '額度由你決定：每次詢問、限定次數、預算上限，或完全信任。',
+  'usr.3': '金鑰留在 Keyala，應用程式拿不到。',
+  'usr.4': '隨時可以撤銷任何應用程式的權限。',
+  'usr.link': '閱讀使用指南',
+  'tr.h': '用白話說明信任',
+  'tr.1h': '金鑰不會外流', 'tr.1p': '金鑰以加密方式儲存，絕不會傳給開發者，畫面上只會顯示最後 4 碼。',
+  'tr.2h': '內容保持私密', 'tr.2p': '提示詞與回應依使用者分別加密，30 天後刪除。',
+  'see.h': '實際的 App 畫面', 'see.cap': 'iOS App 實機畫面，使用本機模擬服務商。內容皆為虛構，未產生任何實際費用。', 'see.a1': '請求審核：App、預估費用、完整提示詞', 'see.a2': '已完成的請求，含回應與費用',
+  'tr.3h': '決定權在你', 'tr.3p': '第一次連線一律每次詢問。核准前看到的是預估費用；完成後顯示的是依服務商回報用量計算的費用。',
+  'tr.4h': '坦白說明限制', 'tr.4p': 'Keyala 是實驗性的個人專案。伺服器會解密你的金鑰來轉送你核准的呼叫，所以你需要信任營運者。',
+  'tr.link': '閱讀隱私權說明',
+  'end.h': '別再爭論誰出錢，讓大家帶自己的金鑰。',
+  'end.note': '想用 iPhone App？寫信到 support@keyala.io 申請加入邀請制 TestFlight。',
+  'ft.priv': '隱私權', 'ft.sup': '支援', 'ft.by': 'Joseph Chen 的實驗性個人專案'
+},
+ja: {
+  _title: 'Keyala：自分のAIキーを、渡さずに使う',
+  'nav.dev': '開発者', 'nav.users': 'ユーザー', 'nav.console': 'コンソール',
+  'hero.h1': '自分のAIキーを、渡さずに使う。',
+  'hero.lead': 'AIアプリにはモデルのAPIキーが必要ですが、誰が用意するのかは決まっていません。Keyalaなら、アプリがリクエストし、あなたがiPhoneで承認すると、あなたのキーで呼び出しが実行されます。アプリがキーを目にすることはありません。',
+  'hero.dev': 'AIアプリを作る', 'hero.usr': 'AIアプリを使う',
+  'hero.note': '無料ベータ。iPhoneアプリは招待制TestFlightです。',
+  'ph.ex': 'イメージ画面です。実際のデータではありません',
+  'ph.app': 'Paperplane', 'ph.sub': 'があなたのOpenAIキーを使おうとしています',
+  'ph.cost': '約 $0.002', 'ph.est': '概算',
+  'ph.prompt': '「大家さんへのお礼の手紙を書いて。」',
+  'ph.deny': '拒否', 'ph.allow': '許可',
+  'how.h': 'しくみ',
+  'how.1h': 'アプリがリクエスト', 'how.1p': 'アプリはプロバイダではなく、Keyalaにリクエストを送ります。',
+  'how.2h': 'あなたが承認', 'how.2p': 'iPhoneでプロンプトそのものと概算費用を確認して、許可か拒否を選びます。',
+  'how.3h': 'あなたのキーで実行', 'how.3p': 'Keyalaがあなたのキーで呼び出しを転送し、答えをアプリに返します。',
+  'dev.h': '開発者向け',
+  'dev.1': '変えるのはbase URLの1行だけ。公式のOpenAI、Anthropic SDKがそのまま使えます。',
+  'dev.2': 'scriptタグ1つで、QR、リンク、コードによるペアリング。',
+  'dev.3': 'ダッシュボード標準搭載：呼び出し数、費用、モデル、国、混む時間帯。',
+  'dev.4': 'キーの保管も、請求の負担も不要。無料です。',
+  'dev.link': '開発者ドキュメントを読む',
+  'usr.h': 'ユーザー向け',
+  'usr.1': '毎回、プロンプトとレスポンスをそのまま確認できます。',
+  'usr.2': '上限はあなたが決めます：毎回確認、回数、予算、または信頼。',
+  'usr.3': 'キーはKeyalaの中にあり、アプリには渡りません。',
+  'usr.4': 'どのアプリも、いつでも取り消せます。',
+  'usr.link': 'ユーザーガイドを読む',
+  'tr.h': '信頼について、率直に',
+  'tr.1h': 'キーは共有されません', 'tr.1p': 'キーは暗号化して保存され、開発者には送られません。表示されるのは末尾4文字だけです。',
+  'tr.2h': '内容はプライベート', 'tr.2p': 'プロンプトとレスポンスはユーザーごとに暗号化され、30日後に削除されます。',
+  'see.h': 'アプリの実際の画面', 'see.cap': 'ローカルの模擬プロバイダーで動かした iOS アプリの実画面です。内容は架空で、実際の課金はありません。', 'see.a1': 'リクエストの確認：アプリ、見積もり費用、プロンプト全文', 'see.a2': '完了したリクエストと応答、費用',
+  'tr.3h': '決めるのはあなた', 'tr.3p': '最初の接続は必ず毎回確認します。承認前に見えるのは見積もりで、完了後はプロバイダーが報告した使用量にもとづく費用が表示されます。',
+  'tr.4h': '限界も正直に', 'tr.4p': 'Keyalaは実験的な個人プロジェクトです。承認された呼び出しを転送するため、サーバーはキーを復号します。運営者を信頼していただく前提です。',
+  'tr.link': 'プライバシーの詳細を読む',
+  'end.h': '誰が払うかで悩むのは終わり。みんな自分のキーを持ち込めます。',
+  'end.note': 'iPhoneアプリをお試しですか？ support@keyala.io に連絡すると、招待制TestFlightに参加できます。',
+  'ft.priv': 'プライバシー', 'ft.sup': 'サポート', 'ft.by': 'Joseph Chen による実験的な個人プロジェクト'
+}};
+</script>
+<script src="i18n.js" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <a class="wordmark" href="#top" aria-label="Keyala home">
-      <span class="brand-mark" aria-hidden="true"><img src="./keyala-koala.svg" width="32" height="32" alt=""></span>
-      <span>keyala</span>
-    </a>
-    <nav class="main-nav" aria-label="Main navigation">
-      <a href="#how">How it works</a>
-      <a href="#try">Try the flow</a>
-      <a href="./tutorials/">Tutorials</a>
-      <a href="./developers/">Developer console</a>
-    </nav>
-    <a class="header-link" href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
-  </header>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap"><a class="brand" href="./"><img src="brand/koala.svg" alt=""> Keyala</a><a class="link" href="docs/" data-i18n="nav.dev">Developers</a><a class="link" href="guide/" data-i18n="nav.users">Users</a><a class="link" href="https://app.keyala.io/console" data-i18n="nav.console">Console</a><select id="language" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select></div></header>
+<main id="main">
+<section class="hero"><div class="wrap">
+  <div>
+    <img class="mascot" src="brand/koala.svg" alt="">
+    <h1 data-i18n="hero.h1">Bring your own AI key. Keep it to yourself.</h1>
+    <p class="lead" data-i18n="hero.lead">AI apps need a model API key, and nobody knows who should provide it. With Keyala the app asks, you approve on your iPhone, and the call runs on your key. The app never sees it.</p>
+    <div class="cta"><a class="btn primary" href="docs/" data-i18n="hero.dev">I build AI apps</a><a class="btn" href="guide/" data-i18n="hero.usr">I use AI apps</a></div>
+    <p class="muted" style="font-size:14px" data-i18n="hero.note">Free beta. iPhone app in invite-only TestFlight.</p>
+  </div>
+  <div class="phone" role="img" aria-label="Example approval screen">
+    <span class="ex" data-i18n="ph.ex">Example screen, not real data</span>
+    <p class="app"><span data-i18n="ph.app">Paperplane</span></p>
+    <p class="sub" data-i18n="ph.sub">wants to use your OpenAI key</p>
+    <p class="cost"><span data-i18n="ph.cost">about $0.002</span> <small data-i18n="ph.est">estimated</small></p>
+    <div class="prompt" data-i18n="ph.prompt">"Help me write a thank-you note to my landlord."</div>
+    <div class="row"><span data-i18n="ph.deny">Deny</span><span class="go" data-i18n="ph.allow">Allow</span></div>
+  </div>
+</div></section>
 
-  <main id="main">
-    <section class="hero" id="top" aria-labelledby="hero-title">
-      <div class="hero-grain" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <p class="eyebrow"><span class="eyebrow-dot"></span> User-approved AI requests</p>
-        <h1 id="hero-title">Your key.<br><em>Your call.</em></h1>
-        <p class="hero-dek">Let people bring their own model API key and decide what an app can spend. You keep your product flow. They keep the final say.</p>
-        <div class="hero-actions">
-          <a class="button button-bright" href="#try">Try the approval flow <span aria-hidden="true">↓</span></a>
-          <a class="text-link" href="./developers/">Get an app token <span aria-hidden="true">→</span></a>
-        </div>
-        <p class="hero-note project-note">An experimental personal project by Joseph Chen, actively developed and tested. <a href="#trust">Understand the trust model</a> before adding a real key.</p>
-        <p class="hero-note"><span aria-hidden="true">◎</span> Your users connect their own OpenAI, Anthropic or OpenRouter account.</p>
-      </div>
-      <div class="hero-art" aria-label="Illustration of a pending model request awaiting approval on a phone">
-        <div class="orb orb-one" aria-hidden="true"></div><div class="orb orb-two" aria-hidden="true"></div>
-        <div class="request-tag"><span class="pulse"></span> REQUEST NEEDS YOU</div>
-        <div class="phone">
-          <div class="phone-island"></div>
-          <div class="phone-top"><span>9:41</span><span class="phone-status">◉ &nbsp; ▮</span></div>
-          <div class="phone-app"><img class="mini-mark" src="./keyala-koala.svg" width="24" height="24" alt=""><span>Keyala</span><span class="avatar">J</span></div>
-          <div class="phone-content">
-            <p class="phone-kicker">APP REQUEST</p>
-            <h2>Paperplane<br>Assistant</h2>
-            <p class="phone-sub">wants to use your OpenAI key</p>
-            <div class="phone-rule"></div>
-            <div class="phone-meta"><span>MODEL</span><strong>gpt-4.1-mini</strong></div>
-            <div class="phone-meta"><span>ESTIMATED COST</span><strong class="mint">~$0.004</strong></div>
-            <div class="phone-payload"><span>MESSAGE PREVIEW</span><p>“Summarize these meeting notes and list the next steps…”</p><span class="payload-more">View full request <b>↗</b></span></div>
-            <div class="phone-approval"><span class="approval-check">✓</span><div><strong>Approve this request?</strong><small>Choose how much access to grant.</small></div></div>
-            <div class="phone-buttons"><span>Once</span><span>Allow 5</span><span class="phone-selected">Approve <b>✓</b></span></div>
-          </div>
-          <div class="phone-home"></div>
-        </div>
-        <div class="floating-note"><span class="note-icon">↗</span><span><strong>Full request, first.</strong><small>They can inspect before deciding.</small></span></div>
-        <svg class="hero-arc" viewBox="0 0 460 400" aria-hidden="true"><path d="M17 300C108 42 281 13 442 95" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 8"/><circle cx="442" cy="95" r="5" fill="currentColor"/></svg>
-      </div>
-      <div class="hero-bottom"><span>OPEN SOURCE / SELF-HOSTABLE</span><span>BUILT FOR OPENAI & ANTHROPIC APIS <b>↘</b></span></div>
-    </section>
+<section><div class="wrap">
+  <h2 data-i18n="how.h">How it works</h2>
+  <ol class="steps">
+    <li><h3 data-i18n="how.1h">The app asks</h3><p data-i18n="how.1p">The app sends its request to Keyala instead of the provider.</p></li>
+    <li><h3 data-i18n="how.2h">You approve</h3><p data-i18n="how.2p">You see the exact prompt and estimated cost on your iPhone, then allow or deny.</p></li>
+    <li><h3 data-i18n="how.3h">It runs on your key</h3><p data-i18n="how.3p">Keyala forwards the call with your key and returns the answer to the app.</p></li>
+  </ol>
+</div></section>
 
-    <section class="intro section-pad" id="how" aria-labelledby="intro-title">
-      <p class="eyebrow eyebrow-dark">A different way to pay for AI</p>
-      <div class="intro-grid">
-        <h2 id="intro-title">Your app brings the request.<br><em>The user brings the key.</em></h2>
-        <p>Keyala sits between your app and a model provider. The user connects their own key, sees what the app wants to send, and approves the request on their phone. Your server gets a grant token, never their provider key.</p>
-      </div>
-      <div class="flow-line" aria-label="Request flow: developer app to Keyala server to model provider, with approval by the user's phone">
-        <div class="flow-node"><span class="flow-number">01</span><span class="flow-symbol flow-code">{ }</span><strong>Your app</strong><small>Sends a model request</small></div>
-        <span class="flow-connector"><i></i><b>grant token</b></span>
-        <div class="flow-node flow-server"><span class="flow-number">02</span><span class="flow-symbol"><svg viewBox="0 0 36 36"><path d="M7 9h22v18H7zM12 14h12M12 19h12M12 24h6"/></svg></span><strong>Keyala</strong><small>Checks the user's policy</small></div>
-        <span class="flow-connector flow-connector-right"><i></i><b>approved request</b></span>
-        <div class="flow-node"><span class="flow-number">03</span><span class="flow-symbol flow-spark">✳</span><strong>Model provider</strong><small>Returns the response</small></div>
-        <div class="flow-phone-callout"><span class="callout-stem"></span><span class="callout-dot">↗</span><div><strong>The user decides</strong><small>Full payload + cost estimate<br>before the key is used</small></div></div>
-      </div>
-      <p class="flow-caption"><span class="legend-dot"></span> If the current grant allows it, the request goes through. Otherwise it waits for approval.</p>
-    </section>
+<section class="see"><div class="wrap">
+  <h2 data-i18n="see.h">See it in the app</h2>
+  <div class="see-row">
+    <figure class="demo"><img src="media/keyala-request-review.jpg" alt="" data-i18n-alt="see.a1" width="720" height="1565" loading="lazy"></figure>
+    <figure class="demo"><video src="media/keyala-review-demo.mp4" poster="media/keyala-request-review.jpg" controls muted playsinline preload="none" aria-label="Keyala demo"></video></figure>
+    <figure class="demo"><img src="media/keyala-request-completed.jpg" alt="" data-i18n-alt="see.a2" width="720" height="1565" loading="lazy"></figure>
+  </div>
+  <p class="muted see-cap" data-i18n="see.cap">Native app demo with a local mock provider.</p>
+</div></section>
 
-    <section class="demo-section section-pad" id="try" aria-labelledby="demo-title">
-      <div class="section-heading">
-        <div><p class="eyebrow">A browser-only simulation</p><h2 id="demo-title">See the moment<br><em>before the call.</em></h2></div>
-        <p>This demo is illustrative. No request is sent, no key is used, and nothing is saved.</p>
-      </div>
-      <div class="demo-shell">
-        <div class="demo-main">
-          <div class="demo-topline"><span class="demo-label"><span class="pulse"></span> INCOMING REQUEST</span><span class="demo-id">KEYALA / SIMULATED</span></div>
-          <div class="demo-request-head"><div class="app-avatar">P</div><div><h3>Paperplane Assistant</h3><p>requests access to your OpenAI key</p></div><span class="provider-chip">OPENAI</span></div>
-          <div class="request-summary"><div><span class="summary-label">MODEL</span><strong>gpt-4.1-mini</strong></div><div><span class="summary-label">ESTIMATED COST</span><strong class="cost">~$0.004 <small>USD</small></strong></div><div><span class="summary-label">ACCESS</span><strong id="scope-summary">This request only</strong></div></div>
-          <div class="payload-wrap"><div class="payload-heading"><span>REQUEST PAYLOAD</span><span>POST /chat/completions</span></div><pre class="payload-code"><code id="payload-code">{
-  "model": "gpt-4.1-mini",
-  "messages": [
-    {"role": "system", "content": "You are a concise assistant."},
-    {"role": "user", "content": "Summarize these meeting notes and list the next steps: ..."}
-  ],
-  "max_tokens": 300
-}</code></pre><button class="inspect-button" id="inspect-toggle" type="button" aria-expanded="false" aria-controls="response-panel">Inspect the full payload <span aria-hidden="true">＋</span></button></div>
-          <div class="response-panel" id="response-panel" hidden><div class="payload-heading"><span id="response-heading">REQUEST + SIMULATED RESPONSE</span><span id="response-status">SIMULATION DATA</span></div><pre class="payload-code response-code"><code id="full-data"></code></pre></div>
-          <div class="demo-feedback" id="demo-feedback" role="status" aria-live="polite"><span class="feedback-icon">i</span><span id="feedback-copy">Review the payload, choose an access scope, then make your call.</span></div>
-          <div class="demo-actions"><button class="button button-approve" id="approve-button" type="button"><span>Approve request</span><span aria-hidden="true">↗</span></button><button class="button button-deny" id="deny-button" type="button">Deny</button><button class="button button-reset" id="reset-button" type="button" hidden>Reset simulation <span aria-hidden="true">↺</span></button></div>
-          <p class="demo-fineprint">The $0.004 figure is fictional and only illustrates where an estimate would appear.</p>
-        </div>
-        <aside class="scope-panel" aria-labelledby="scope-title">
-          <p class="eyebrow">Approval scope</p><h3 id="scope-title">Your call, each time.</h3><p class="scope-intro">A user can approve once or create a grant with more room to act.</p>
-          <fieldset class="scope-options"><legend class="visually-hidden">Choose an approval scope</legend>
-            <label class="scope-option selected"><input type="radio" name="scope" value="once" checked><span class="radio-mark"></span><span class="scope-text"><strong>Once</strong><small>Only this request</small></span><span class="scope-tag">DEFAULT</span></label>
-            <label class="scope-option"><input type="radio" name="scope" value="count"><span class="radio-mark"></span><span class="scope-text"><strong>Next 5 calls</strong><small>Approve a limited run</small></span></label>
-            <label class="scope-option"><input type="radio" name="scope" value="budget"><span class="radio-mark"></span><span class="scope-text"><strong>Up to $2.00</strong><small>Pause when the budget ends</small></span></label>
-            <label class="scope-option"><input type="radio" name="scope" value="trust"><span class="radio-mark"></span><span class="scope-text"><strong>Trust this app</strong><small>With a $1/day alert</small></span></label>
-          </fieldset>
-          <div class="scope-footnote"><span class="shield-icon">⌑</span><p><strong>Nothing happens silently.</strong><br>Users can review or revoke an app's access later.</p></div>
-        </aside>
-      </div>
-    </section>
+<section class="band"><div class="wrap lanes">
+  <div class="card">
+    <h2 data-i18n="dev.h">For developers</h2>
+    <ul><li data-i18n="dev.1">Change one line: the base URL. Official OpenAI and Anthropic SDKs work as they are.</li><li data-i18n="dev.2">Pair users with one script tag: QR, link or code.</li><li data-i18n="dev.3">Built-in dashboard: calls, cost, models, countries, busiest hours.</li><li data-i18n="dev.4">No keys to store, no bill to carry. Free.</li></ul>
+    <pre><code>client = OpenAI(
+  base_url="https://app.keyala.io/v1/openai",
+  api_key=grant_token,
+  max_retries=0)</code></pre>
+    <a href="docs/" data-i18n="dev.link">Read the developer docs</a>
+  </div>
+  <div class="card">
+    <h2 data-i18n="usr.h">For users</h2>
+    <ul><li data-i18n="usr.1">See the exact prompt and the response, every time.</li><li data-i18n="usr.2">You set the limit: ask each time, a number of calls, a budget, or trust.</li><li data-i18n="usr.3">Your key stays in Keyala. Apps never get it.</li><li data-i18n="usr.4">Revoke any app at any time.</li></ul>
+    <a href="guide/" data-i18n="usr.link">Read the user guide</a>
+  </div>
+</div></section>
 
-    <section class="native-proof section-pad" aria-labelledby="native-title">
-      <div>
-        <p class="eyebrow eyebrow-dark">From a running native build</p>
-        <h2 id="native-title">A real app.<br><em>A visible request.</em></h2>
-        <p>This is the SwiftUI app talking to the local Rust server. Pairing, exact payload inspection, approval, and the returned response have been tested together using a mock provider.</p>
-        <p class="native-caption">iPhone 16 Pro simulator, iOS 18.4. Test prompt and fake key. No real provider credits.</p>
-        <a class="text-link" href="https://github.com/iamjoseph331/Keyala/blob/main/ios/README.md">Run the native app <span aria-hidden="true">↗</span></a>
-      </div>
-      <figure>
-        <img src="./media/ios-request.jpg" width="864" height="1848" loading="lazy" alt="Historical native prototype showing the multilingual test payload and its estimated reservation before approval">
-        <figcaption>Historical prototype capture, before the Keyala rename. Mock provider.</figcaption>
-      </figure>
-    </section>
+<section><div class="wrap">
+  <h2 data-i18n="tr.h">Trust, in plain words</h2>
+  <div class="trust">
+    <p><strong data-i18n="tr.1h">Keys are never shared</strong><span class="muted" data-i18n="tr.1p">Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.</span></p>
+    <p><strong data-i18n="tr.2h">Your content is private</strong><span class="muted" data-i18n="tr.2p">Prompts and responses are encrypted per user and deleted after 30 days.</span></p>
+    <p><strong data-i18n="tr.3h">You stay in charge</strong><span class="muted" data-i18n="tr.3p">First connections always ask each time. Before a call you see an estimate; afterwards, the cost from the usage the provider reported.</span></p>
+    <p><strong data-i18n="tr.4h">Honest about the limits</strong><span class="muted" data-i18n="tr.4p">Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.</span></p>
+  </div>
+  <a href="privacy/" data-i18n="tr.link">Read the privacy details</a>
+</div></section>
 
-    <section class="code-section section-pad" aria-labelledby="code-title">
-      <div class="code-heading"><div><p class="eyebrow eyebrow-dark">A familiar request shape</p><h2 id="code-title">Point the call at Keyala.<br><em>Keep building.</em></h2></div><p>The OpenAI SDK can point at the v1 route. The Anthropic example uses the current route and Bearer auth directly. A grant token stands in for the provider key. These examples show the immediate-response path.</p></div>
-      <div class="code-card">
-        <div class="code-tabs" role="tablist" aria-label="SDK examples">
-          <button class="code-tab active" id="tab-openai" type="button" role="tab" aria-selected="true" aria-controls="code-openai" data-tab="openai">OpenAI / Python</button>
-          <button class="code-tab" id="tab-anthropic" type="button" role="tab" aria-selected="false" aria-controls="code-anthropic" data-tab="anthropic" tabindex="-1">Anthropic / HTTP</button>
-          <span class="tab-note">IMMEDIATE RESPONSE PATH</span>
-        </div>
-        <div class="code-example" id="code-openai" role="tabpanel" aria-labelledby="tab-openai"><pre><code><span class="code-muted"># Your app receives this grant after the user connects.</span>
-<span class="code-key">from</span> openai <span class="code-key">import</span> OpenAI
-<span class="code-key">import</span> os
-
-client = OpenAI(
-    base_url=<span class="code-string">"https://YOUR-KEYALA-SERVER/v1/openai"</span>,
-    api_key=os.environ[<span class="code-string">"KEYALA_GRANT_TOKEN"</span>],
-    max_retries=<span class="code-number">0</span>,
-)
-
-reply = client.chat.completions.create(
-    model=<span class="code-string">"gpt-4.1-mini"</span>,
-    messages=[{<span class="code-string">"role"</span>: <span class="code-string">"user"</span>, <span class="code-string">"content"</span>: <span class="code-string">"Hello!"</span>}],
-    max_tokens=<span class="code-number">120</span>,
-)</code></pre></div>
-        <div class="code-example" id="code-anthropic" role="tabpanel" aria-labelledby="tab-anthropic" hidden><pre><code><span class="code-muted"># Standard-library HTTP example for the current v1 route and Bearer auth.</span>
-<span class="code-key">import</span> json
-import os
-from urllib.request import Request, urlopen
-
-request = Request(
-    <span class="code-string">"https://YOUR-KEYALA-SERVER/v1/anthropic/messages"</span>,
-    data=json.dumps({
-        <span class="code-string">"model"</span>: <span class="code-string">"MODEL_FROM_SERVER_ALLOWLIST"</span>,
-        <span class="code-string">"max_tokens"</span>: <span class="code-number">120</span>,
-        <span class="code-string">"messages"</span>: [{<span class="code-string">"role"</span>: <span class="code-string">"user"</span>, <span class="code-string">"content"</span>: <span class="code-string">"Hello!"</span>}],
-    }).encode(),
-    headers={
-        <span class="code-string">"Authorization"</span>: <span class="code-string">f"Bearer {os.environ['KEYALA_GRANT_TOKEN']}"</span>,
-        <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span>,
-    },
-    method=<span class="code-string">"POST"</span>,
-)
-with urlopen(request) as response:
-    result = json.load(response)</code></pre></div>
-        <div class="code-card-bottom"><span><i class="check-dot"></i> No provider key in your app</span><a href="https://github.com/iamjoseph331/Keyala/blob/main/docs/PLAN.md#contract-v1--source-of-truth-for-backend-and-ios" target="_blank" rel="noreferrer">Read the v1 contract <b aria-hidden="true">↗</b></a></div>
-      </div>
-      <div class="pending-note"><span class="pending-icon">↗</span><p><strong>When approval is needed, allow for a pause.</strong> Keyala can hold the call briefly. If it returns <code>202 pending</code>, your app needs to poll <code>GET /v1/requests/{id}</code> and handle the completed response. Streaming is not supported in v1.</p></div>
-    </section>
-
-    <section class="trust-section section-pad" id="trust" aria-labelledby="trust-title">
-      <div class="trust-copy"><p class="eyebrow">Trust, stated plainly</p><h2 id="trust-title">The key stays with<br>the <em>user's account.</em></h2><p>I’m Joseph Chen. Keyala is my experimental personal project. I take its security and reliability seriously, and I’m building and testing it in public. It is still evolving; uninterrupted availability and immediate support are not guaranteed.</p><p>Keyala is designed so an app developer does not receive the user's provider key. The service stores it encrypted, then uses it to forward an approved request. The person or organization running that service is part of the trust boundary.</p><a class="text-link" href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">Read the source and decide for yourself <span aria-hidden="true">↗</span></a></div>
-      <div class="trust-ledger"><p>Keys are encrypted on the selected server, then decrypted there for approved calls. Prompts and responses are stored for your history. The operator must be trusted. Provider usage is billed separately from this free beta.</p><p><a href="./privacy/">Privacy, retention & account deletion</a> / <a href="./support/">Help & contact Joseph</a></p>
-        <div class="ledger-row"><span class="ledger-index">01</span><div><strong>Developer gets a grant token</strong><p>It authorizes requests under the user's policy. It is not their provider key.</p></div><span class="ledger-symbol">↗</span></div>
-        <div class="ledger-row"><span class="ledger-index">02</span><div><strong>Keyala server uses the key</strong><p>The server operator can decrypt stored keys to forward approved calls. Self-hosting lets you choose who operates it.</p></div><span class="ledger-symbol">⌑</span></div>
-        <div class="ledger-row"><span class="ledger-index">03</span><div><strong>User can inspect and revoke</strong><p>Requests and grants are designed to be visible in the user's app.</p></div><span class="ledger-symbol">◎</span></div>
-        <div class="ledger-foot">OPEN SOURCE <span>/</span> SELF-HOSTABLE <span>/</span> V1 IN DEVELOPMENT</div>
-      </div>
-    </section>
-
-    <section class="closing section-pad" aria-labelledby="closing-title">
-      <div class="closing-stamp" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="M30 47a18 18 0 1 1 13.6-6.2L71 68l-5.5 5.5-8.3-8.3-4.8 4.8-7.2-7.2 4.8-4.8-7.5-7.5A18 18 0 0 1 30 47Zm0-8.5a9.5 9.5 0 1 0 0-19 9.5 9.5 0 0 0 0 19Z"/></svg></div>
-      <p class="eyebrow">Keyala / open source</p><h2 id="closing-title">Make room for<br><em>user choice.</em></h2><div class="closing-actions"><a class="button button-bright" href="./developers/">Open developer console <span aria-hidden="true">→</span></a><a class="text-link" href="./tutorials/">Read the tutorials <span aria-hidden="true">→</span></a></div>
-    </section>
-  </main>
-  <footer class="site-footer"><a class="wordmark footer-mark" href="#top"><span class="brand-mark" aria-hidden="true"><img src="./keyala-koala.svg" width="32" height="32" alt=""></span><span>keyala</span></a><span>© 2026 Keyala / Your key. Your call.</span><a href="https://github.com/iamjoseph331/Keyala/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a><a href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a><nav aria-label="Support"><a href="./support/">Help & contact</a> <a href="./privacy/">Privacy</a></nav></footer>
+<section class="closing"><div class="wrap">
+  <h2 data-i18n="end.h">Stop asking who pays. Let people bring their own key.</h2>
+  <div class="cta"><a class="btn primary" href="docs/" data-i18n="hero.dev">I build AI apps</a><a class="btn" href="guide/" data-i18n="hero.usr">I use AI apps</a></div>
+  <p class="muted" data-i18n="end.note">Want the iPhone app? Write to support@keyala.io to join the invite-only TestFlight.</p>
+</div></section>
+</main>
+<footer class="footer"><div class="wrap"><a href="privacy/" data-i18n="ft.priv">Privacy</a><a href="support/" data-i18n="ft.sup">Support</a><a href="https://github.com/iamjoseph331/Keyala">GitHub</a><a href="mailto:support@keyala.io">support@keyala.io</a><span data-i18n="ft.by">Experimental personal project by Joseph Chen</span></div></footer>
 </body>
 </html>
