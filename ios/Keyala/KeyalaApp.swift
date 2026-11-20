@@ -96,13 +96,14 @@ struct RootView: View {
     @State private var activeSheet: RootSheet?
     private enum RootSheet: Identifiable {
         case settings, connect, computer
-        case enroll(String)
+        case enroll(String), webLogin(String)
         var id: String {
             switch self {
             case .settings: "settings"
             case .connect: "connect"
             case .computer: "computer"
             case .enroll(let id): "enroll:" + id
+            case .webLogin(let id): "login:" + id
             }
         }
     }
@@ -140,6 +141,7 @@ struct RootView: View {
                 case .connect: ConnectAppView()
                 case .computer: ComputerKeySetupView()
                 case .enroll(let id): EnrollmentView(id: id).id(id)
+                case .webLogin(let id): WebLoginApprovalView(id: id).id(id)
                 }
             }
         }
@@ -160,7 +162,8 @@ struct RootView: View {
     }
 
     private func presentPendingLink() {
-        if let id = store.pendingEnrollmentID { activeSheet = .enroll(id) }
+        if let id = store.pendingWebLoginID { activeSheet = .webLogin(id) }
+        else if let id = store.pendingEnrollmentID { activeSheet = .enroll(id) }
         else if store.pendingConnectCode != nil { activeSheet = .connect }
     }
 

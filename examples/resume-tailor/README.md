@@ -17,10 +17,8 @@ The flow is connect-first: step 1 picks the provider and pairs with the Keyala a
 the page shows the per-job cost ceiling computed exactly as the server reserves it (request bytes +
 16 per message + 64, plus `max_tokens` of output), so it matches the estimate on the phone. The UI
 is in English, Traditional Chinese and Japanese (browser language, or the picker; remembered).
-The "Get Keyala" QR (`keyala-qr.svg`) should point to `https://keyala.io/` until there is an App
-Store listing; swap the file then. The current file encodes `https://iamjoseph331.github.io/Keyala/`, which redirects to keyala.io;
-regenerate it for the shorter URL when convenient:
-`cd examples/resume-tailor && npx --yes qrcode -t svg -o keyala-qr.svg --margin 1 https://keyala.io/`
+The "Get Keyala" QR (`keyala-qr.svg`) encodes `https://keyala.io/` until there is an App
+Store listing; swap the file then.
 (or `python3 -m pip install qrcode[pil] && qr --factory=svg-path https://keyala.io/ > keyala-qr.svg`), then scan it to confirm.
 The page icon (`keyala-icon.svg`) is the repo-owned koala from `site/keyala-koala.svg`.
 

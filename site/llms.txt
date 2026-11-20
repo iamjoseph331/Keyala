@@ -1,0 +1,19 @@
+# Keyala
+
+> Keyala lets an app use a person's own OpenAI, Anthropic or OpenRouter API key without receiving it: the user approves on their phone, your app calls the official SDK with a scoped grant token and a different base URL. Experimental beta, free.
+
+The full developer documentation is one Markdown file:
+
+- [Keyala developer docs](https://keyala.io/docs/keyala.md): what it is, 5-minute quickstart (register an app, connect a user, call OpenAI, Anthropic or OpenRouter, handle pending approval), grants and policies, supported models, error table, usage dashboard and report API, endpoint reference, self-hosting, limits.
+
+## Sections
+
+- Quickstart: POST /v1/apps, POST /v1/connect, web SDK https://app.keyala.io/sdk/keyala.js, base_url https://app.keyala.io/v1/openai or /v1/anthropic
+- Errors: JSON {"error":{"type","message"}} with the code table
+- Dashboard: GET /v1/app/report (totals, daily, models, countries, hours_utc)
+
+## Optional
+
+- [Docs as a web page](https://keyala.io/docs/)
+- [User guide](https://keyala.io/guide/)
+- [Source](https://github.com/iamjoseph331/Keyala)

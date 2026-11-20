@@ -258,8 +258,23 @@ struct AuthenticatedSession: Codable {
 
 
 struct AppPreferences {
-    static let productionURL = "https://masterkey-prod-vkgm.onrender.com"
-    static let stagingURL = "https://masterkey-staging-vkgm.onrender.com"
+    static let productionURL = "https://app.keyala.io"
+    static let legacyProductionURL = "https://masterkey-prod-vkgm.onrender.com"
+    static let stagingURL = "https://staging.keyala.io"
+    static let legacyStagingURL = "https://masterkey-staging-vkgm.onrender.com"
+
+    // Keep exact same-service aliases for the first custom-domain release only.
+    static func builtInURL(for value: String) -> String? {
+        guard let url = URLComponents(string: value), url.scheme?.lowercased() == "https",
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil, url.path.isEmpty || url.path == "/",
+              let host = url.host?.lowercased() else { return nil }
+        switch "https://" + host {
+        case productionURL, legacyProductionURL: return productionURL
+        case stagingURL, legacyStagingURL: return stagingURL
+        default: return nil
+        }
+    }
     let serverURL: String
     let sampleData: Bool
     let developerOptions: Bool
@@ -273,7 +288,8 @@ struct AppPreferences {
                   url.scheme?.lowercased() == "https" || (url.scheme?.lowercased() == "http" && ["localhost", "127.0.0.1", "::1"].contains(host.lowercased())) else { return nil }
             return value
         }
-        let server = usable ?? productionURL
+        let server = usable.map { builtInURL(for: $0) ?? $0 } ?? productionURL
+        if let usable, usable != server { defaults.set(server, forKey: "serverURL") }
         // The old demoMode default was on; only the new explicit setting enables sample data.
         let sample = defaults.bool(forKey: "developerSampleData")
         return AppPreferences(serverURL: server, sampleData: sample,
@@ -300,11 +316,16 @@ enum PairingLink {
         return String(path.dropFirst()).uppercased()
     }
 
+    static func matchesServer(_ text: String, activeServer: String) -> Bool {
+        guard let server = serverURL(from: text) else { return true }
+        return server == (AppPreferences.builtInURL(for: activeServer) ?? activeServer)
+    }
+
     static func serverURL(from text: String) -> String? {
         guard let url = URLComponents(string: text), url.scheme?.lowercased() == "https",
               url.user == nil, url.password == nil, url.port == nil, let host = url.host?.lowercased() else { return nil }
         let server = "https://" + host
-        return [AppPreferences.productionURL, AppPreferences.stagingURL].contains(server) ? server : nil
+        return AppPreferences.builtInURL(for: server)
     }
 }
 
@@ -448,8 +469,8 @@ extension RequestRecord {
 }
 
 enum SupportContact {
-    static let email = "josephchen637@gmail.com"
-    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=Keyala%20support")!
+    static let email = "support@keyala.io"
+    static let mailURL = URL(string: "mailto:support@keyala.io?subject=Keyala%20support")!
 }
 
 enum AppLanguage: String, CaseIterable, Identifiable {
@@ -484,4 +505,42 @@ func localized(_ key: String, locale: Locale) -> String {
     let language = Bundle.preferredLocalizations(from: ["en", "zh-Hant", "ja"], forPreferences: [locale.identifier]).first ?? "en"
     guard let path = Bundle.main.path(forResource: language, ofType: "lproj"), let bundle = Bundle(path: path) else { return key }
     return bundle.localizedString(forKey: key, value: key, table: nil)
+}
+
+
+struct WebLoginPreview: Decodable {
+    let browser: String?
+    let country: String?
+    let createdAt: String
+    let expiresAt: String
+    let status: String
+    enum CodingKeys: String, CodingKey {
+        case country, status
+        case browser = "user_agent"
+        case createdAt = "created_at", expiresAt = "expires_at"
+    }
+    var canApprove: Bool { isPending(at: Date()) }
+    func isPending(at now: Date) -> Bool {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fractional = parser.date(from: expiresAt)
+        parser.formatOptions = [.withInternetDateTime]
+        guard let expires = fractional ?? parser.date(from: expiresAt) else { return false }
+        return status == "pending" && expires > now
+    }
+}
+
+enum WebLoginLink {
+    static func id(from text: String) -> String? {
+        guard let url = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil, url.percentEncodedPath == url.path else { return nil }
+        let path: String
+        if url.scheme?.lowercased() == "keyala", url.host?.lowercased() == "login" { path = url.path }
+        else if PairingLink.serverURL(from: text) != nil, url.path.hasPrefix("/login/") {
+            path = String(url.path.dropFirst("/login".count))
+        } else { return nil }
+        guard path.range(of: "^/wl_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst())
+    }
 }

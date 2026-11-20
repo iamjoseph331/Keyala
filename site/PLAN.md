@@ -1,43 +1,47 @@
-# Keyala developer site plan
+# keyala.io website plan (2026-11-20, Joseph's brief)
 
-## Purpose
+Owner decisions: site matches the app (paper #FAF7F2, ink #1F1B16, green #3D7A57, koala mascot); home + user guide in
+English, 繁體中文, 日本語 (browser language by default, picker, remembered); developer docs in English; developer portal and
+user web view are ONE console; web sign-in = scan with the phone OR account + password.
 
-Help developers understand the Keyala approval flow, evaluate its trust boundary,
-and try the developer experience without connecting to a server or sending a request.
+## Map
 
-## Visitor path
+| URL | What | Built from |
+|---|---|---|
+| `keyala.io/` | #1 Home: the idea in one screen, then two lanes (developers / users) | `site/index.html` |
+| `keyala.io/docs/` | #2 Developer docs, quickstart to dashboard, API reference | `site/docs/keyala.md` (single source) rendered in the page |
+| `keyala.io/docs/keyala.md` | the same docs as one Markdown file (download / paste into an AI assistant) | same file |
+| `keyala.io/llms.txt` | pointer for AI tools to the Markdown docs | static |
+| `keyala.io/guide/` | #3 User guide: install, sign in, add a key, pair an app, approve, OpenRouter for OpenAI/Anthropic apps, limits, revoke; video slots | `site/guide/index.html` |
+| `app.keyala.io/console` | #4 + #5 Console: My apps (developer) and My account (keys, connected apps, history) | served by the backend (same origin as `/v1/me`, which has no CORS on purpose) |
+| `keyala.io/privacy/`, `/support/` | kept, restyled to the shared base | |
+| `keyala.io/developers/`, `/tutorials/` | old pages; redirect to `/docs/` and the console once the console ships | |
 
-1. The hero introduces the product and shows the user approval moment on a phone.
-2. The flow explains where the developer, Keyala server, phone, and model provider
-   sit in one request.
-3. A browser-only approval simulator shows the request payload, fictional estimate,
-   choice of approval scope, and inspectable simulated response.
-4. OpenAI and Anthropic examples show the one-line base URL change and explain how a
-   pending approval differs from the immediate response path.
-5. The trust section states that developers never receive user keys, while server
-   operators can decrypt them to forward approved requests.
-6. Quickstart and repository links give developers a next step and current source.
+Shared: `site/base.css` (tokens, light + dark, nav, footer, type), `site/i18n.js` (data-i18n strings, picker),
+`site/brand/koala.svg` (placeholder until Jolene's mascot). Plain HTML/CSS/JS, no build step, relative paths.
 
-## Implementation constraints
+## Messages
 
-- Plain HTML, CSS, and JavaScript with no build step or runtime dependencies. The console makes explicit API requests to the server the developer selects.
-- All assets use relative paths so the site works at GitHub Pages `/Keyala/`.
-- The demo is explicitly simulated and stores nothing. It uses no credentials and makes
-  no network requests.
-- Code examples use placeholder environment variables and the documented v1 routes.
-- The page makes no production readiness, customer, or security guarantee claims.
-- Responsive layout, keyboard operation, visible focus, and reduced-motion support.
+Problem: an AI app has to decide who pays for the model. Keyala lets the user bring their own key without handing it over.
+- Developers: change one line (base URL), official OpenAI/Anthropic SDKs, pairing in one script tag, built-in usage
+  dashboard (calls, cost, models, countries, hours), free during the beta.
+- Users: approve on your phone, see the exact prompt and response, set per-app limits, the key never leaves Keyala,
+  revoke any time.
+Honesty rules: experimental personal project; the operator can decrypt keys to forward approved calls; estimates are
+estimates; no claims about features that are not live.
 
-## Developer console and tutorials
+## Console (#4 + #5) contract proposal
 
-- `developers/` creates a server or browser app and shows the app token once. The token stays in memory and is sent only as a bearer to the selected API origin for reports.
-- App reports cover request volume, known model cost, missing usage, status, and country. The sample report is labeled and loaded only on request.
-- `tutorials/` documents local mock development, pairing, OpenAI and Anthropic calls, polling, and static browser integration.
-
-## Acceptance checks
-
-- Open `index.html` directly and from a `/Keyala/` project site path.
-- Verify simulator approve, deny, inspect, scope changes, and reset work without network
-  activity or a key.
-- Check narrow viewport layout, keyboard focus, and reduced-motion styling.
-- Confirm local links stay within the project site and external links point to the repo.
+Web sign-in, two ways, both ending in a web-scoped session:
+1. Phone: `POST /v1/web/login` -> `{login_id, login_secret, qr_url, expires_at}`; the page shows the QR of
+   `https://app.keyala.io/login/{id}` (universal link) and polls `GET /v1/web/login/{id}` with `login_secret`.
+   Phone: `GET /v1/me/web-login/{id}` (preview: browser, country, created) and `POST .../approve` | `.../deny`.
+   Approved poll returns `{session_token}` once. 5 minutes, single use.
+2. Password: the phone sets it, `PUT /v1/me/password {password}` (12+ chars, argon2id) / `DELETE /v1/me/password`;
+   web signs in with `POST /v1/auth/password {username: account email, password}` (the operator account still works).
+Web sessions expire after 12 hours and are limited (fail closed, allowlist): read me/keys(last4)/grants/requests,
+revoke a grant, log out, and the developer endpoints below. They can NOT approve or deny requests or connects, add or
+replace keys, widen a policy, set a password, approve another web login, or delete the account.
+Developer apps owned by accounts: `GET/POST /v1/me/apps`, `POST /v1/me/apps/claim {app_secret}`,
+`GET /v1/me/apps/{id}/report?days=` (same shape as `/v1/app/report`), `POST /v1/me/apps/{id}/secret`.
+iOS (Codex): approve-web-login screen via `/login/*` universal link and in-app scanner; "Web password" in Settings.
