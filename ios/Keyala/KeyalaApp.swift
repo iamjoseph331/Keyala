@@ -81,7 +81,7 @@ struct AppearancePicker: View {
     var body: some View {
         Picker("Appearance", selection: $appearance) {
             ForEach(AppearancePreference.allCases) { option in
-                Text(option.title).tag(option.rawValue)
+                Text(LocalizedStringKey(option.title)).tag(option.rawValue)
             }
         }
         .pickerStyle(.segmented)

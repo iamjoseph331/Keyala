@@ -173,7 +173,7 @@ struct RequestCard: View {
 struct StatusPill: View {
     let status: String
     var color: Color { status == "pending" ? KeyalaStyle.warning : (["completed", "approved"].contains(status) ? KeyalaStyle.teal : KeyalaStyle.muted) }
-    var body: some View { Text(status == "pending" ? "Needs review" : status.capitalized).font(.caption2.weight(.semibold)).foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 4).background(color.opacity(0.10), in: Capsule()) }
+    var body: some View { Text(LocalizedStringKey(status == "pending" ? "Needs review" : status.capitalized)).font(.caption2.weight(.semibold)).foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 4).background(color.opacity(0.10), in: Capsule()) }
 }
 
 struct RequestDetailView: View {
@@ -248,7 +248,7 @@ struct RequestDetailView: View {
                     if current.status == "pending" {
                         Card {
                             Button { showPolicy = true } label: {
-                                HStack { Text("Allow").foregroundStyle(KeyalaStyle.muted); Spacer(); Text(accessTitle); Image(systemName: "chevron.down").font(.caption) }
+                                HStack { Text("Allow").foregroundStyle(KeyalaStyle.muted); Spacer(); Text(LocalizedStringKey(accessTitle)); Image(systemName: "chevron.down").font(.caption) }
                             }.buttonStyle(.plain).disabled(deciding)
                         }
 
