@@ -35,7 +35,7 @@ function selectedScope() {
 function renderInspection() {
   const simulatedResponse = decision === "approved"
     ? {
-        id: "sim_chatcmpl_masterkey_demo",
+        id: "sim_chatcmpl_keyala_demo",
         object: "chat.completion",
         model: requestPayload.model,
         choices: [{ index: 0, message: { role: "assistant", content: "The notes cover the project update. Next steps: confirm owners, share the revised timeline, and schedule a follow-up." }, finish_reason: "stop" }],
@@ -43,7 +43,7 @@ function renderInspection() {
         _demo: "Simulated response only. No provider was contacted."
       }
     : decision === "denied"
-      ? { error: { type: "masterkey_denied", message: "The simulated user denied this request." }, _demo: "Simulated response only. No server was contacted." }
+      ? { error: { type: "keyala_denied", message: "The simulated user denied this request." }, _demo: "Simulated response only. No server was contacted." }
       : null;
 
   fullData.textContent = JSON.stringify({ request: requestPayload, simulated_response: simulatedResponse }, null, 2);

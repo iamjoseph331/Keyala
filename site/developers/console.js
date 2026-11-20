@@ -22,7 +22,7 @@ const dateLabel = new Intl.DateTimeFormat("en-US", {
   month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
 });
 const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]);
-const isToken = (value) => /^mk_app_[A-Za-z0-9_-]+$/.test(value);
+const isToken = (value) => /^keyala_app_[A-Za-z0-9_-]+$/.test(value);
 
 let created = null;
 let activeReport = null;
@@ -91,7 +91,7 @@ async function call(origin, path, options) {
     });
   } catch (error) {
     if (error.name === "AbortError") throw error;
-    throw new Error("Could not reach the MasterKey API from this page. Check the server URL and console access. The tutorials include a terminal quickstart.");
+    throw new Error("Could not reach the Keyala API from this page. Check the server URL and console access. The tutorials include a terminal quickstart.");
   }
   const body = await response.json().catch(() => null);
   if (!response.ok) {
@@ -99,7 +99,7 @@ async function call(origin, path, options) {
       throw new Error("This server does not expose developer reports yet. Check the server version.");
     }
     if (response.status === 401) throw new Error("The app token was rejected. Check that it belongs to this server.");
-    throw new Error(typeof body?.error?.message === "string" ? body.error.message : `MasterKey returned HTTP ${response.status}.`);
+    throw new Error(typeof body?.error?.message === "string" ? body.error.message : `Keyala returned HTTP ${response.status}.`);
   }
   if (!body || typeof body !== "object") throw new Error("The server returned an unreadable response.");
   return body;
@@ -274,7 +274,7 @@ async function loadReport() {
   try {
     const origin = serverOrigin();
     const token = tokenInput.value.trim();
-    if (!isToken(token)) throw new Error("Enter a MasterKey app token beginning with mk_app_.");
+    if (!isToken(token)) throw new Error("Enter a Keyala app token beginning with keyala_app_.");
     const options = { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal };
     const [app, data] = await Promise.all([
       call(origin, "/v1/app", options),

@@ -28,11 +28,18 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+struct RoutingPreferences: Codable {
+    var openRouterForDirectAPIs = false
+    enum CodingKeys: String, CodingKey { case openRouterForDirectAPIs = "openrouter_for_direct_apis" }
+}
+
 struct RequestRecord: Codable, Identifiable {
     var id: String
     var appID: String
     var appName: String
     var provider: Provider
+    var billingVendor: Provider? = nil
+    var upstreamModel: String? = nil
     var model: String
     var status: String
     var createdAt: String
@@ -46,7 +53,7 @@ struct RequestRecord: Codable, Identifiable {
     var actualUSD: String { actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" }
     var estimatedUSD: String { String(format: "$%.6f", Double(estimatedCostMicrousd) / 1_000_000) }
 
-    enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error; case grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
+    enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
     init(id: String, appID: String, appName: String, provider: Provider, model: String, status: String, createdAt: String, expiresAt: String?, payload: JSONValue?, payloadSHA256: String? = nil, estimatedCostMicrousd: Int64, reservedCostMicrousd: Int64 = 0, actualCostMicrousd: Int64?, response: JSONValue?, error: String?, isDemo: Bool = false) {
         self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.status = status; self.createdAt = createdAt; self.expiresAt = expiresAt; self.payload = payload; self.estimatedCostMicrousd = estimatedCostMicrousd; self.actualCostMicrousd = actualCostMicrousd; self.response = response; self.error = error; self.isDemo = isDemo
     }
@@ -55,6 +62,7 @@ struct RequestRecord: Codable, Identifiable {
         let app = try c.decodeIfPresent(WireApp.self, forKey: .app)
         id = try c.decode(String.self, forKey: .id); appID = try app?.id ?? c.decodeIfPresent(String.self, forKey: .grantID) ?? ""
         appName = app?.name ?? "App"; provider = try c.decodeIfPresent(Provider.self, forKey: .vendor) ?? c.decode(Provider.self, forKey: .provider)
+        billingVendor = try c.decodeIfPresent(Provider.self, forKey: .billingVendor); upstreamModel = try c.decodeIfPresent(String.self, forKey: .upstreamModel)
         model = try c.decode(String.self, forKey: .model); status = try c.decode(String.self, forKey: .status); createdAt = try c.decode(String.self, forKey: .createdAt)
         expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt); payload = try c.decodeIfPresent(JSONValue.self, forKey: .payload)
         estimatedCostMicrousd = try microUSD(c.decodeIfPresent(Double.self, forKey: .estimatedUSD), decoder: decoder) ?? 0
@@ -129,6 +137,8 @@ struct GrantRecord: Codable, Identifiable {
     var appID: String
     var appName: String
     var provider: Provider
+    var billingVendor: Provider? = nil
+    var upstreamModel: String? = nil
     var model: String
     var maxRequests: Int?
     var usedRequests: Int
@@ -139,13 +149,14 @@ struct GrantRecord: Codable, Identifiable {
     var trust: Bool
     var alertThresholdMicrousd: Int64?
     var spentUSD: String { String(format: "$%.2f", Double(spentMicrousd) / 1_000_000) }
-    enum CodingKeys: String, CodingKey { case id, app, vendor, policy, createdAt = "created_at", lastUsedAt = "last_used_at", spentUSD = "spent_usd", requestCount = "request_count" }
+    enum CodingKeys: String, CodingKey { case id, app, vendor, policy; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", createdAt = "created_at", lastUsedAt = "last_used_at", spentUSD = "spent_usd", requestCount = "request_count" }
     init(id: String, appID: String, appName: String, provider: Provider, model: String, maxRequests: Int?, usedRequests: Int, budgetMicrousd: Int64?, spentMicrousd: Int64, reservedMicrousd: Int64, expiresAt: String, trust: Bool, alertThresholdMicrousd: Int64?) {
         self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.maxRequests = maxRequests; self.usedRequests = usedRequests; self.budgetMicrousd = budgetMicrousd; self.spentMicrousd = spentMicrousd; self.reservedMicrousd = reservedMicrousd; self.expiresAt = expiresAt; self.trust = trust; self.alertThresholdMicrousd = alertThresholdMicrousd
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self); let app = try c.decode(WireApp.self, forKey: .app); let policy = try c.decode(WirePolicy.self, forKey: .policy)
         id = try c.decode(String.self, forKey: .id); appID = app.id ?? ""; appName = app.name; provider = try c.decode(Provider.self, forKey: .vendor); model = ""
+        billingVendor = try c.decodeIfPresent(Provider.self, forKey: .billingVendor)
         trust = policy.mode == "trust"; maxRequests = policy.remainingCount; usedRequests = try c.decodeIfPresent(Int.self, forKey: .requestCount) ?? 0
         budgetMicrousd = try microUSD(policy.remainingUSD, decoder: decoder); spentMicrousd = try microUSD(c.decodeIfPresent(Double.self, forKey: .spentUSD), decoder: decoder) ?? 0
         reservedMicrousd = 0; expiresAt = policy.expiresAt ?? ""; alertThresholdMicrousd = try microUSD(policy.alertUSDPerDay, decoder: decoder)
@@ -274,18 +285,18 @@ enum PairingLink {
     static func code(from text: String) -> String? {
         let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = input.uppercased()
-        if normalized.range(of: "^MK-[A-Z0-9]{4}$", options: .regularExpression) != nil { return normalized }
+        if normalized.range(of: "^KY-[A-Z0-9]{4}$", options: .regularExpression) != nil { return normalized }
         guard let components = URLComponents(string: input),
               components.user == nil, components.password == nil, components.port == nil,
               components.query == nil, components.fragment == nil,
               components.percentEncodedPath == components.path else { return nil }
         let path: String
-        if components.scheme?.lowercased() == "masterkey", components.host?.lowercased() == "connect" {
+        if components.scheme?.lowercased() == "keyala", components.host?.lowercased() == "connect" {
             path = components.path
         } else if serverURL(from: input) != nil, components.path.hasPrefix("/connect/") {
             path = String(components.path.dropFirst("/connect".count))
         } else { return nil }
-        guard path.uppercased().range(of: "^/MK-[A-Z0-9]{4}$", options: .regularExpression) != nil else { return nil }
+        guard path.uppercased().range(of: "^/KY-[A-Z0-9]{4}$", options: .regularExpression) != nil else { return nil }
         return String(path.dropFirst()).uppercased()
     }
 
@@ -330,7 +341,7 @@ enum EnrollmentLink {
               url.user == nil, url.password == nil, url.port == nil, url.query == nil, url.fragment == nil,
               url.percentEncodedPath == url.path else { return nil }
         let path: String
-        if url.scheme?.lowercased() == "masterkey", url.host?.lowercased() == "enroll" {
+        if url.scheme?.lowercased() == "keyala", url.host?.lowercased() == "enroll" {
             path = url.path
         } else if PairingLink.serverURL(from: text) != nil, url.path.hasPrefix("/enroll/") {
             path = String(url.path.dropFirst("/enroll".count))
@@ -386,7 +397,7 @@ struct OpenRouterFlow: Decodable {
 enum OpenRouterCallback {
     static func validate(_ url: URL, expectedFlowID: String) throws {
         guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              parts.scheme == "masterkey", parts.host == "oauth", parts.path == "/openrouter",
+              parts.scheme == "keyala", parts.host == "oauth", parts.path == "/openrouter",
               parts.percentEncodedPath == parts.path, parts.user == nil, parts.password == nil,
               parts.port == nil, parts.fragment == nil, let items = parts.queryItems,
               items.allSatisfy({ $0.value != nil }), Set(items.map(\.name)).count == items.count else { throw APIError.invalidResponse }
@@ -438,7 +449,39 @@ extension RequestRecord {
 
 enum SupportContact {
     static let email = "josephchen637@gmail.com"
-    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=MasterKey%20support")!
+    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=Keyala%20support")!
 }
 
-func localized(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system, english = "en", traditionalChinese = "zh-Hant", japanese = "ja"
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: localized("Follow system")
+        case .english: "English"
+        case .traditionalChinese: "繁體中文"
+        case .japanese: "日本語"
+        }
+    }
+    static var selected: Self {
+        Self(rawValue: UserDefaults.standard.string(forKey: "appLanguage") ?? "system") ?? .system
+    }
+    var localization: String {
+        self == .system
+            ? Bundle.preferredLocalizations(from: ["en", "zh-Hant", "ja"], forPreferences: Locale.preferredLanguages).first ?? "en"
+            : rawValue
+    }
+    var locale: Locale { self == .system ? .current : Locale(identifier: rawValue) }
+}
+
+func localized(_ key: String) -> String {
+    guard let path = Bundle.main.path(forResource: AppLanguage.selected.localization, ofType: "lproj"),
+          let bundle = Bundle(path: path) else { return key }
+    return bundle.localizedString(forKey: key, value: key, table: nil)
+}
+
+func localized(_ key: String, locale: Locale) -> String {
+    let language = Bundle.preferredLocalizations(from: ["en", "zh-Hant", "ja"], forPreferences: [locale.identifier]).first ?? "en"
+    guard let path = Bundle.main.path(forResource: language, ofType: "lproj"), let bundle = Bundle(path: path) else { return key }
+    return bundle.localizedString(forKey: key, value: key, table: nil)
+}

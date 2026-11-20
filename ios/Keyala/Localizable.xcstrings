@@ -898,24 +898,24 @@
       },
       "extractionState": "manual"
     },
-    "Choose a provider. The page will show a QR code; no MasterKey password is needed on the computer.": {
+    "Choose a provider. The page will show a QR code; no Keyala password is needed on the computer.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇服務商後，網頁會顯示 QR code。電腦不需要輸入 MasterKey 密碼。"
+            "value": "選擇服務商後，網頁會顯示 QR code。電腦不需要輸入 Keyala 密碼。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プロバイダーを選ぶと QR コードが表示されます。パソコンで MasterKey のパスワードを入力する必要はありません。"
+            "value": "プロバイダーを選ぶと QR コードが表示されます。パソコンで Keyala のパスワードを入力する必要はありません。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose a provider. The page will show a QR code; no MasterKey password is needed on the computer."
+            "value": "Choose a provider. The page will show a QR code; no Keyala password is needed on the computer."
           }
         }
       },
@@ -1335,24 +1335,24 @@
       },
       "extractionState": "manual"
     },
-    "Create or copy your key in the provider’s console, then paste it on the computer’s MasterKey page. Keep this screen open.": {
+    "Create or copy your key in the provider’s console, then paste it on the computer’s Keyala page. Keep this screen open.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在服務商控制台建立或複製 key，然後貼到電腦上的 MasterKey 網頁。請保持這個畫面開啟。"
+            "value": "在服務商控制台建立或複製 key，然後貼到電腦上的 Keyala 網頁。請保持這個畫面開啟。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プロバイダーの管理画面でキーを作成またはコピーし、パソコンの MasterKey ページに貼り付けてください。この画面は開いたままにしてください。"
+            "value": "プロバイダーの管理画面でキーを作成またはコピーし、パソコンの Keyala ページに貼り付けてください。この画面は開いたままにしてください。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create or copy your key in the provider’s console, then paste it on the computer’s MasterKey page. Keep this screen open."
+            "value": "Create or copy your key in the provider’s console, then paste it on the computer’s Keyala page. Keep this screen open."
           }
         }
       },
@@ -1680,24 +1680,24 @@
       },
       "extractionState": "manual"
     },
-    "Enter the MK- code shown by the app.": {
+    "Enter the KY- code shown by the app.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入 App 顯示的 MK- 代碼。"
+            "value": "輸入 App 顯示的 KY- 代碼。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリに表示されている MK- コードを入力してください。"
+            "value": "アプリに表示されている KY- コードを入力してください。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter the MK- code shown by the app."
+            "value": "Enter the KY- code shown by the app."
           }
         }
       },
@@ -1795,24 +1795,24 @@
       },
       "extractionState": "manual"
     },
-    "For building and testing integrations. Normal use connects to MasterKey automatically.": {
+    "For building and testing integrations. Normal use connects to Keyala automatically.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "供開發與測試整合使用。一般使用時，App 會自動連上 MasterKey。"
+            "value": "供開發與測試整合使用。一般使用時，App 會自動連上 Keyala。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開発と連携テスト用です。通常の利用では MasterKey に自動で接続します。"
+            "value": "開発と連携テスト用です。通常の利用では Keyala に自動で接続します。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "For building and testing integrations. Normal use connects to MasterKey automatically."
+            "value": "For building and testing integrations. Normal use connects to Keyala automatically."
           }
         }
       },
@@ -2232,70 +2232,70 @@
       },
       "extractionState": "manual"
     },
-    "MK-4F7Q": {
+    "KY-4F7Q": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MK-4F7Q"
+            "value": "KY-4F7Q"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MK-4F7Q"
+            "value": "KY-4F7Q"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MK-4F7Q"
+            "value": "KY-4F7Q"
           }
         }
       },
       "extractionState": "manual"
     },
-    "MasterKey": {
+    "Keyala": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey"
+            "value": "Keyala"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey"
+            "value": "Keyala"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey"
+            "value": "Keyala"
           }
         }
       },
       "extractionState": "manual"
     },
-    "New here? Continuing creates your MasterKey account.": {
+    "New here? Continuing creates your Keyala account.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "第一次使用？繼續操作即會建立你的 MasterKey 帳號。"
+            "value": "第一次使用？繼續操作即會建立你的 Keyala 帳號。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "初めての方は、続けると MasterKey アカウントが作成されます。"
+            "value": "初めての方は、続けると Keyala アカウントが作成されます。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New here? Continuing creates your MasterKey account."
+            "value": "New here? Continuing creates your Keyala account."
           }
         }
       },
@@ -2508,24 +2508,24 @@
       },
       "extractionState": "manual"
     },
-    "On the app’s website, choose Connect with MasterKey. Scan its QR code here, or tap its link on this phone.": {
+    "On the app’s website, choose Connect with Keyala. Scan its QR code here, or tap its link on this phone.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 App 網站上選擇「Connect with MasterKey」，然後在這裡掃描 QR code，或在這台手機上點選連結。"
+            "value": "在 App 網站上選擇「Connect with Keyala」，然後在這裡掃描 QR code，或在這台手機上點選連結。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリのウェブサイトで「Connect with MasterKey」を選び、ここで QR コードをスキャンするか、この iPhone でリンクをタップしてください。"
+            "value": "アプリのウェブサイトで「Connect with Keyala」を選び、ここで QR コードをスキャンするか、この iPhone でリンクをタップしてください。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the app’s website, choose Connect with MasterKey. Scan its QR code here, or tap its link on this phone."
+            "value": "On the app’s website, choose Connect with Keyala. Scan its QR code here, or tap its link on this phone."
           }
         }
       },
@@ -3428,24 +3428,24 @@
       },
       "extractionState": "manual"
     },
-    "Scan MasterKey QR": {
+    "Scan Keyala QR": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "掃描 MasterKey QR code"
+            "value": "掃描 Keyala QR code"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey の QR コードをスキャン"
+            "value": "Keyala の QR コードをスキャン"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan MasterKey QR"
+            "value": "Scan Keyala QR"
           }
         }
       },
@@ -3658,24 +3658,24 @@
       },
       "extractionState": "manual"
     },
-    "Sent to your MasterKey server over HTTPS and encrypted there. Saving does not make a billable model call.": {
+    "Sent to your Keyala server over HTTPS and encrypted there. Saving does not make a billable model call.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Key 會透過 HTTPS 傳送至你的 MasterKey 伺服器，並加密儲存。儲存時不會進行付費的模型呼叫。"
+            "value": "Key 會透過 HTTPS 傳送至你的 Keyala 伺服器，並加密儲存。儲存時不會進行付費的模型呼叫。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "キーは HTTPS で MasterKey サーバーに送信され、暗号化して保存されます。保存時に課金対象のモデル呼び出しは行いません。"
+            "value": "キーは HTTPS で Keyala サーバーに送信され、暗号化して保存されます。保存時に課金対象のモデル呼び出しは行いません。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sent to your MasterKey server over HTTPS and encrypted there. Saving does not make a billable model call."
+            "value": "Sent to your Keyala server over HTTPS and encrypted there. Saving does not make a billable model call."
           }
         }
       },
@@ -4233,24 +4233,24 @@
       },
       "extractionState": "manual"
     },
-    "To test a real integration without provider charges, run a private backend with MK_VENDOR_MOCK=1 and fake keys. This switch cannot change a server’s mock setting.": {
+    "To test a real integration without provider charges, run a private backend with KEYALA_VENDOR_MOCK=1 and fake keys. This switch cannot change a server’s mock setting.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "若要在不產生服務商費用的情況下測試真實整合，請使用設定為 MK_VENDOR_MOCK=1 的私人後端與假 key。這個開關無法變更伺服器的 mock 設定。"
+            "value": "若要在不產生服務商費用的情況下測試真實整合，請使用設定為 KEYALA_VENDOR_MOCK=1 的私人後端與假 key。這個開關無法變更伺服器的 mock 設定。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プロバイダーの課金なしで実際の連携を試すには、MK_VENDOR_MOCK=1 を設定した非公開バックエンドと架空のキーを使ってください。このスイッチでは、サーバーのモック設定は変更できません。"
+            "value": "プロバイダーの課金なしで実際の連携を試すには、KEYALA_VENDOR_MOCK=1 を設定した非公開バックエンドと架空のキーを使ってください。このスイッチでは、サーバーのモック設定は変更できません。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "To test a real integration without provider charges, run a private backend with MK_VENDOR_MOCK=1 and fake keys. This switch cannot change a server’s mock setting."
+            "value": "To test a real integration without provider charges, run a private backend with KEYALA_VENDOR_MOCK=1 and fake keys. This switch cannot change a server’s mock setting."
           }
         }
       },
@@ -5314,25 +5314,25 @@
         }
       }
     },
-    "This isn’t a MasterKey QR. Scan the connection or key setup QR shown by MasterKey.": {
+    "This isn’t a Keyala QR. Scan the connection or key setup QR shown by Keyala.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This isn’t a MasterKey QR. Scan the connection or key setup QR shown by MasterKey."
+            "value": "This isn’t a Keyala QR. Scan the connection or key setup QR shown by Keyala."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這不是 MasterKey QR code。請掃描 MasterKey 顯示的連結或 key 設定 QR code。"
+            "value": "這不是 Keyala QR code。請掃描 Keyala 顯示的連結或 key 設定 QR code。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "これは MasterKey の QR コードではありません。MasterKey が表示する接続用またはキー設定用の QR コードをスキャンしてください。"
+            "value": "これは Keyala の QR コードではありません。Keyala が表示する接続用またはキー設定用の QR コードをスキャンしてください。"
           }
         }
       }
@@ -5659,25 +5659,25 @@
         }
       }
     },
-    "Sign in to connect to your MasterKey server.": {
+    "Sign in to connect to your Keyala server.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign in to connect to your MasterKey server."
+            "value": "Sign in to connect to your Keyala server."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先登入，再連上你的 MasterKey 伺服器。"
+            "value": "請先登入，再連上你的 Keyala 伺服器。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey サーバーに接続するにはログインしてください。"
+            "value": "Keyala サーバーに接続するにはログインしてください。"
           }
         }
       }
@@ -5843,25 +5843,25 @@
         }
       }
     },
-    "This is a clearly labeled MasterKey demo response.": {
+    "This is a clearly labeled Keyala demo response.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a clearly labeled MasterKey demo response."
+            "value": "This is a clearly labeled Keyala demo response."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這是明確標示為範例的 MasterKey 回應。"
+            "value": "這是明確標示為範例的 Keyala 回應。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "これはサンプルと明示された MasterKey の応答です。"
+            "value": "これはサンプルと明示された Keyala の応答です。"
           }
         }
       }
@@ -6349,25 +6349,25 @@
         }
       }
     },
-    "This connection belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.": {
+    "This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This connection belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
+            "value": "This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個連結屬於另一個 MasterKey 伺服器。請在「設定 > 開發者選項」選擇相符的伺服器，再重新掃描。目前的伺服器沒有變更。"
+            "value": "這個連結屬於另一個 Keyala 伺服器。請在「設定 > 開發者選項」選擇相符的伺服器，再重新掃描。目前的伺服器沒有變更。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この接続は別の MasterKey サーバーのものです。「設定 > 開発者向け設定」で対応するサーバーを選び、もう一度スキャンしてください。現在のサーバーは変更されていません。"
+            "value": "この接続は別の Keyala サーバーのものです。「設定 > 開発者向け設定」で対応するサーバーを選び、もう一度スキャンしてください。現在のサーバーは変更されていません。"
           }
         }
       }
@@ -6395,25 +6395,25 @@
         }
       }
     },
-    "This key setup belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.": {
+    "This key setup belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This key setup belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
+            "value": "This key setup belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這次 key 設定屬於另一個 MasterKey 伺服器。請在「設定 > 開發者選項」選擇相符的伺服器，再重新掃描。目前的伺服器沒有變更。"
+            "value": "這次 key 設定屬於另一個 Keyala 伺服器。請在「設定 > 開發者選項」選擇相符的伺服器，再重新掃描。目前的伺服器沒有變更。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このキー設定は別の MasterKey サーバーのものです。「設定 > 開発者向け設定」で対応するサーバーを選び、もう一度スキャンしてください。現在のサーバーは変更されていません。"
+            "value": "このキー設定は別の Keyala サーバーのものです。「設定 > 開発者向け設定」で対応するサーバーを選び、もう一度スキャンしてください。現在のサーバーは変更されていません。"
           }
         }
       }
@@ -6533,25 +6533,25 @@
         }
       }
     },
-    "Notifications are off. MasterKey refreshes requests whenever the app opens.": {
+    "Notifications are off. Keyala refreshes requests whenever the app opens.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notifications are off. MasterKey refreshes requests whenever the app opens."
+            "value": "Notifications are off. Keyala refreshes requests whenever the app opens."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "通知已關閉。開啟 App 時，MasterKey 仍會更新請求。"
+            "value": "通知已關閉。開啟 App 時，Keyala 仍會更新請求。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "通知はオフです。アプリを開くと MasterKey がリクエストを更新します。"
+            "value": "通知はオフです。アプリを開くと Keyala がリクエストを更新します。"
           }
         }
       }
@@ -6625,25 +6625,25 @@
         }
       }
     },
-    "Open MasterKey in the foreground, then try connecting again.": {
+    "Open Keyala in the foreground, then try connecting again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open MasterKey in the foreground, then try connecting again."
+            "value": "Open Keyala in the foreground, then try connecting again."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請將 MasterKey 切換至前景，再重新連結。"
+            "value": "請將 Keyala 切換至前景，再重新連結。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey を前面で開いてから、もう一度接続してください。"
+            "value": "Keyala を前面で開いてから、もう一度接続してください。"
           }
         }
       }
@@ -7292,25 +7292,25 @@
         }
       }
     },
-    "MasterKey beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance.": {
+    "Keyala beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance."
+            "value": "Keyala beta is free. Model usage is billed separately to your provider account. A ChatGPT or Claude subscription does not supply API credits. OpenRouter uses its own balance."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey 測試版免費。模型用量會由你的服務商帳號另外計費。ChatGPT 或 Claude 訂閱不包含 API 額度。OpenRouter 使用自己的餘額。"
+            "value": "Keyala 測試版免費。模型用量會由你的服務商帳號另外計費。ChatGPT 或 Claude 訂閱不包含 API 額度。OpenRouter 使用自己的餘額。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey ベータ版は無料です。モデルの利用料はプロバイダーのアカウントに別途請求されます。ChatGPT や Claude のサブスクリプションに API の利用残高は含まれません。OpenRouter は専用の残高を使います。"
+            "value": "Keyala ベータ版は無料です。モデルの利用料はプロバイダーのアカウントに別途請求されます。ChatGPT や Claude のサブスクリプションに API の利用残高は含まれません。OpenRouter は専用の残高を使います。"
           }
         }
       }
@@ -7361,25 +7361,25 @@
         }
       }
     },
-    "The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. MasterKey does not automatically retry an uncertain model call.": {
+    "The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. Keyala does not automatically retry an uncertain model call.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. MasterKey does not automatically retry an uncertain model call."
+            "value": "The provider may already have processed the request. Check its recorded status and your provider usage before starting another request. Keyala does not automatically retry an uncertain model call."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "服務商可能已處理請求。開始另一個請求前，請先查看記錄狀態與服務商的用量。MasterKey 不會自動重試結果未確定的模型呼叫。"
+            "value": "服務商可能已處理請求。開始另一個請求前，請先查看記錄狀態與服務商的用量。Keyala 不會自動重試結果未確定的模型呼叫。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プロバイダーがすでにリクエストを処理した可能性があります。別のリクエストを始める前に、記録された状態とプロバイダーの利用状況を確認してください。MasterKey は結果が未確定のモデル呼び出しを自動で再試行しません。"
+            "value": "プロバイダーがすでにリクエストを処理した可能性があります。別のリクエストを始める前に、記録された状態とプロバイダーの利用状況を確認してください。Keyala は結果が未確定のモデル呼び出しを自動で再試行しません。"
           }
         }
       }
@@ -7453,48 +7453,48 @@
         }
       }
     },
-    "Who operates MasterKey": {
+    "Who operates Keyala": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Who operates MasterKey"
+            "value": "Who operates Keyala"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey 的營運者"
+            "value": "Keyala 的營運者"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey の運営者"
+            "value": "Keyala の運営者"
           }
         }
       }
     },
-    "Joseph Chen operates the hosted MasterKey service. Contact josephchen637@gmail.com with privacy questions.": {
+    "Joseph Chen operates the hosted Keyala service. Contact josephchen637@gmail.com with privacy questions.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Joseph Chen operates the hosted MasterKey service. Contact josephchen637@gmail.com with privacy questions."
+            "value": "Joseph Chen operates the hosted Keyala service. Contact josephchen637@gmail.com with privacy questions."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "託管的 MasterKey 服務由 Joseph Chen 營運。隱私相關問題請聯絡 josephchen637@gmail.com。"
+            "value": "託管的 Keyala 服務由 Joseph Chen 營運。隱私相關問題請聯絡 josephchen637@gmail.com。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ホスト型 MasterKey サービスは Joseph Chen が運営しています。プライバシーに関するお問い合わせは josephchen637@gmail.com までご連絡ください。"
+            "value": "ホスト型 Keyala サービスは Joseph Chen が運営しています。プライバシーに関するお問い合わせは josephchen637@gmail.com までご連絡ください。"
           }
         }
       }
@@ -7522,25 +7522,25 @@
         }
       }
     },
-    "Provider keys are sent to your selected MasterKey server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted.": {
+    "Provider keys are sent to your selected Keyala server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Provider keys are sent to your selected MasterKey server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted."
+            "value": "Provider keys are sent to your selected Keyala server and encrypted there. Apps receive scoped permission tokens, never your original key. The server decrypts a key to forward an allowed request; its operator must still be trusted."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "服務商 key 會傳送至你選擇的 MasterKey 伺服器，並在該處加密儲存。Apps 只收到有範圍限制的授權 token，不會取得原始 key。伺服器會解密 key 以轉送獲准的請求，因此你仍需信任伺服器營運者。"
+            "value": "服務商 key 會傳送至你選擇的 Keyala 伺服器，並在該處加密儲存。Apps 只收到有範圍限制的授權 token，不會取得原始 key。伺服器會解密 key 以轉送獲准的請求，因此你仍需信任伺服器營運者。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プロバイダーのキーは、選択した MasterKey サーバーに送信され、暗号化して保存されます。アプリに渡されるのは範囲が限定されたアクセストークンだけで、元のキーは渡されません。サーバーは許可済みのリクエストを転送する際にキーを復号するため、サーバー運営者への信頼は必要です。"
+            "value": "プロバイダーのキーは、選択した Keyala サーバーに送信され、暗号化して保存されます。アプリに渡されるのは範囲が限定されたアクセストークンだけで、元のキーは渡されません。サーバーは許可済みのリクエストを転送する際にキーを復号するため、サーバー運営者への信頼は必要です。"
           }
         }
       }
@@ -7568,25 +7568,25 @@
         }
       }
     },
-    "MasterKey stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy.": {
+    "Keyala stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy."
+            "value": "Keyala stores request contents, provider responses, timestamps and usage-derived costs so you can inspect them later. Approved request contents are sent to the selected provider, and the calling app receives the response. That app may keep its own copy."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey 會儲存請求內容、服務商回應、時間與依用量計算的費用，供你日後查閱。獲准的請求內容會送至選定的服務商，呼叫的 App 則會收到回應。該 App 可能自行保留副本。"
+            "value": "Keyala 會儲存請求內容、服務商回應、時間與依用量計算的費用，供你日後查閱。獲准的請求內容會送至選定的服務商，呼叫的 App 則會收到回應。該 App 可能自行保留副本。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey は後から確認できるよう、リクエスト内容、プロバイダーの応答、日時、利用量に基づく費用を保存します。許可したリクエスト内容は選択したプロバイダーに送信され、呼び出し元のアプリが応答を受け取ります。そのアプリが独自にコピーを保存する場合があります。"
+            "value": "Keyala は後から確認できるよう、リクエスト内容、プロバイダーの応答、日時、利用量に基づく費用を保存します。許可したリクエスト内容は選択したプロバイダーに送信され、呼び出し元のアプリが応答を受け取ります。そのアプリが独自にコピーを保存する場合があります。"
           }
         }
       }
@@ -7913,25 +7913,25 @@
         }
       }
     },
-    "Your selected MasterKey server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key.": {
+    "Your selected Keyala server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your selected MasterKey server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key."
+            "value": "Your selected Keyala server stores encrypted keys and decrypts them to forward approved requests. You must trust its operator. Apps get permission tokens, not your original key."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "你選擇的 MasterKey 伺服器會加密保存金鑰，並在轉送允許的請求時解密。你仍須信任營運者；App 只會取得授權權杖，不會取得原始金鑰。"
+            "value": "你選擇的 Keyala 伺服器會加密保存金鑰，並在轉送允許的請求時解密。你仍須信任營運者；App 只會取得授權權杖，不會取得原始金鑰。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだ MasterKey サーバーがキーを暗号化して保存し、許可されたリクエストの転送時に復号します。運営者への信頼は必要です。アプリに渡るのは許可用のトークンで、元のキーではありません。"
+            "value": "選んだ Keyala サーバーがキーを暗号化して保存し、許可されたリクエストの転送時に復号します。運営者への信頼は必要です。アプリに渡るのは許可用のトークンで、元のキーではありません。"
           }
         }
       }
@@ -8074,25 +8074,25 @@
         }
       }
     },
-    "New here? Continuing creates your MasterKey account. Returning users sign in to the same account.": {
+    "New here? Continuing creates your Keyala account. Returning users sign in to the same account.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New here? Continuing creates your MasterKey account. Returning users sign in to the same account."
+            "value": "New here? Continuing creates your Keyala account. Returning users sign in to the same account."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "第一次使用？繼續即可建立 MasterKey 帳號。既有使用者會登入原帳號。"
+            "value": "第一次使用？繼續即可建立 Keyala 帳號。既有使用者會登入原帳號。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "初めての場合は、続けると MasterKey アカウントが作成されます。以前利用した方は同じアカウントにログインします。"
+            "value": "初めての場合は、続けると Keyala アカウントが作成されます。以前利用した方は同じアカウントにログインします。"
           }
         }
       }
@@ -8120,25 +8120,25 @@
         }
       }
     },
-    "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; MasterKey does not have a separate account password.": {
+    "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; Keyala does not have a separate account password.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; MasterKey does not have a separate account password."
+            "value": "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple; Keyala does not have a separate account password."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "登入身分由 Apple 管理。請透過 Apple 修改電子郵件或 Apple 帳號設定；MasterKey 沒有獨立的帳號密碼。"
+            "value": "登入身分由 Apple 管理。請透過 Apple 修改電子郵件或 Apple 帳號設定；Keyala 沒有獨立的帳號密碼。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ログイン情報は Apple が管理します。メールや Apple Account の設定は Apple 側で変更してください。MasterKey 専用のパスワードはありません。"
+            "value": "ログイン情報は Apple が管理します。メールや Apple Account の設定は Apple 側で変更してください。Keyala 専用のパスワードはありません。"
           }
         }
       }
@@ -8281,48 +8281,48 @@
         }
       }
     },
-    "Delete MasterKey account": {
+    "Delete Keyala account": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete MasterKey account"
+            "value": "Delete Keyala account"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "刪除 MasterKey 帳號"
+            "value": "刪除 Keyala 帳號"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey アカウントを削除"
+            "value": "Keyala アカウントを削除"
           }
         }
       }
     },
-    "Permanently remove your MasterKey account, keys, permissions and history. Your provider accounts and subscriptions are separate.": {
+    "Permanently remove your Keyala account, keys, permissions and history. Your provider accounts and subscriptions are separate.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permanently remove your MasterKey account, keys, permissions and history. Your provider accounts and subscriptions are separate."
+            "value": "Permanently remove your Keyala account, keys, permissions and history. Your provider accounts and subscriptions are separate."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "永久移除 MasterKey 帳號、金鑰、授權與歷史。模型服務帳號與訂閱須另外管理。"
+            "value": "永久移除 Keyala 帳號、金鑰、授權與歷史。模型服務帳號與訂閱須另外管理。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey のアカウント、キー、許可、履歴を完全に削除します。プロバイダーのアカウントやサブスクリプションは別です。"
+            "value": "Keyala のアカウント、キー、許可、履歴を完全に削除します。プロバイダーのアカウントやサブスクリプションは別です。"
           }
         }
       }
@@ -8511,25 +8511,25 @@
         }
       }
     },
-    "Your MasterKey account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server.": {
+    "Your Keyala account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your MasterKey account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server."
+            "value": "Your Keyala account, stored provider keys, app permissions, sessions, and request and response history will be permanently removed from this server."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "你的 MasterKey 帳號、保存的服務商金鑰、App 授權、登入工作階段及請求與回應歷史，都會從此伺服器永久移除。"
+            "value": "你的 Keyala 帳號、保存的服務商金鑰、App 授權、登入工作階段及請求與回應歷史，都會從此伺服器永久移除。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このサーバーから MasterKey アカウント、保存したキー、アプリの許可、セッション、リクエストとレスポンスの履歴を完全に削除します。"
+            "value": "このサーバーから Keyala アカウント、保存したキー、アプリの許可、セッション、リクエストとレスポンスの履歴を完全に削除します。"
           }
         }
       }
@@ -8626,25 +8626,25 @@
         }
       }
     },
-    "Continue with Apple to verify the same account again. Completing verification deletes your MasterKey account.": {
+    "Continue with Apple to verify the same account again. Completing verification deletes your Keyala account.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Continue with Apple to verify the same account again. Completing verification deletes your MasterKey account."
+            "value": "Continue with Apple to verify the same account again. Completing verification deletes your Keyala account."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "繼續使用 Apple，再次驗證同一帳號。驗證成功後會刪除你的 MasterKey 帳號。"
+            "value": "繼續使用 Apple，再次驗證同一帳號。驗證成功後會刪除你的 Keyala 帳號。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple で同じアカウントの本人確認を行います。確認が完了すると MasterKey アカウントが削除されます。"
+            "value": "Apple で同じアカウントの本人確認を行います。確認が完了すると Keyala アカウントが削除されます。"
           }
         }
       }
@@ -8741,42 +8741,42 @@
         }
       }
     },
-    "MasterKey is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.": {
+    "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions."
+            "value": "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey 是 Joseph Chen 個人營運的實驗性專案。我持續認真開發與測試，但無法保證服務不中斷或立即回覆。問題可寄至 josephchen637@gmail.com。"
+            "value": "Keyala 是 Joseph Chen 個人營運的實驗性專案。我持續認真開發與測試，但無法保證服務不中斷或立即回覆。問題可寄至 josephchen637@gmail.com。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MasterKey は Joseph Chen が個人で運営する実験的なプロジェクトです。開発と検証を続けていますが、常時稼働や即時対応は保証できません。ご質問は josephchen637@gmail.com へお送りください。"
+            "value": "Keyala は Joseph Chen が個人で運営する実験的なプロジェクトです。開発と検証を続けていますが、常時稼働や即時対応は保証できません。ご質問は josephchen637@gmail.com へお送りください。"
           }
         }
       }
     },
-    "Delete your MasterKey account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used.": {
+    "Delete your Keyala account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete your MasterKey account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used."
+            "value": "Delete your Keyala account in Settings > Account. You must confirm and verify your identity again. Stored keys, permissions and request history are removed from the live service. Older backups may retain data until they expire; deletion records must be replayed before a restored database is used."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在「設定 > 帳號」可刪除 MasterKey 帳號，須確認並再次驗證身分。線上服務會移除保存的金鑰、授權及請求歷史。舊備份可能在到期前保有資料；使用還原的資料庫前須重播刪除紀錄。"
+            "value": "在「設定 > 帳號」可刪除 Keyala 帳號，須確認並再次驗證身分。線上服務會移除保存的金鑰、授權及請求歷史。舊備份可能在到期前保有資料；使用還原的資料庫前須重播刪除紀錄。"
           }
         },
         "ja": {
@@ -8810,25 +8810,25 @@
         }
       }
     },
-    "On another iPhone, sign in to the same MasterKey account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from MasterKey does not revoke it there.": {
+    "On another iPhone, sign in to the same Keyala account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from Keyala does not revoke it there.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On another iPhone, sign in to the same MasterKey account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from MasterKey does not revoke it there."
+            "value": "On another iPhone, sign in to the same Keyala account. In Settings > Account, sign out other devices and stop all app permissions. Revoke a leaked provider key at the provider too; removing it from Keyala does not revoke it there."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在另一支 iPhone 登入相同 MasterKey 帳號，於「設定 > 帳號」登出其他裝置並停止所有 App 授權。外洩的金鑰也須到服務商撤銷；從 MasterKey 移除不會撤銷服務商端的金鑰。"
+            "value": "在另一支 iPhone 登入相同 Keyala 帳號，於「設定 > 帳號」登出其他裝置並停止所有 App 授權。外洩的金鑰也須到服務商撤銷；從 Keyala 移除不會撤銷服務商端的金鑰。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "別の iPhone で同じ MasterKey アカウントにログインし、「設定 > アカウント」で他の端末からログアウトして、すべてのアプリの許可を停止してください。漏えいしたキーはプロバイダー側でも失効させてください。MasterKey からの削除だけでは失効しません。"
+            "value": "別の iPhone で同じ Keyala アカウントにログインし、「設定 > アカウント」で他の端末からログアウトして、すべてのアプリの許可を停止してください。漏えいしたキーはプロバイダー側でも失効させてください。Keyala からの削除だけでは失効しません。"
           }
         }
       }
@@ -8994,25 +8994,25 @@
         }
       }
     },
-    "Account deleted. You can also remove MasterKey in iPhone Settings > Apple Account > Sign in with Apple.": {
+    "Account deleted. You can also remove Keyala in iPhone Settings > Apple Account > Sign in with Apple.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Account deleted. You can also remove MasterKey in iPhone Settings > Apple Account > Sign in with Apple."
+            "value": "Account deleted. You can also remove Keyala in iPhone Settings > Apple Account > Sign in with Apple."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "帳號已刪除。也可前往 iPhone「設定 > Apple 帳號 > 使用 Apple 登入」移除 MasterKey。"
+            "value": "帳號已刪除。也可前往 iPhone「設定 > Apple 帳號 > 使用 Apple 登入」移除 Keyala。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アカウントを削除しました。iPhone の「設定 > Apple Account > Apple でサインイン」からも MasterKey を解除できます。"
+            "value": "アカウントを削除しました。iPhone の「設定 > Apple Account > Apple でサインイン」からも Keyala を解除できます。"
           }
         }
       }
@@ -9220,6 +9220,397 @@
           "stringUnit": {
             "state": "translated",
             "value": "アプリの接続を解除しました。"
+          }
+        }
+      }
+    },
+    "Language": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語言"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
+          }
+        }
+      }
+    },
+    "Follow system": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow system"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟隨系統"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムに従う"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已連接"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続済み"
+          }
+        }
+      }
+    },
+    "OpenRouter credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter credits"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter credits"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter クレジット"
+          }
+        }
+      }
+    },
+    "Use OpenRouter for OpenAI and Anthropic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use OpenRouter for OpenAI and Anthropic"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "透過 OpenRouter 使用 OpenAI 與 Anthropic"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI と Anthropic に OpenRouter を使う"
+          }
+        }
+      }
+    },
+    "Sign in to manage routing for this server.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to manage routing for this server."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入後即可管理此伺服器的轉送設定。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインすると、このサーバーの転送設定を変更できます。"
+          }
+        }
+      }
+    },
+    "Routing settings are unavailable. Check the server connection.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routing settings are unavailable. Check the server connection."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法取得轉送設定，請檢查伺服器連線。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "転送設定を取得できません。サーバーへの接続を確認してください。"
+          }
+        }
+      }
+    },
+    "Connect OpenRouter in Keys first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect OpenRouter in Keys first."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先到「金鑰」連接 OpenRouter。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まず「キー」で OpenRouter に接続してください。"
+          }
+        }
+      }
+    },
+    "Off by default. New OpenAI and Anthropic app connections can use supported models with your OpenRouter key and credits. Requests pass through OpenRouter and its downstream providers; prices follow OpenRouter.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off by default. New OpenAI and Anthropic app connections can use supported models with your OpenRouter key and credits. Requests pass through OpenRouter and its downstream providers; prices follow OpenRouter."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預設關閉。新連結的 OpenAI 與 Anthropic App 可透過你的 OpenRouter 金鑰與 credits 使用支援的模型。請求會經過 OpenRouter 及其下游服務商，費用依 OpenRouter 計算。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初期設定はオフです。新しく接続する OpenAI・Anthropic 対応アプリで、OpenRouter のキーとクレジットを使えます。対象は対応モデルのみです。リクエストは OpenRouter とその先の提供事業者に送られ、料金は OpenRouter に従います。"
+          }
+        }
+      }
+    },
+    "Existing app connections keep their billing provider. Disconnect and reconnect an app to change its route. Unsupported models and API features are not converted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Existing app connections keep their billing provider. Disconnect and reconnect an app to change its route. Unsupported models and API features are not converted."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既有 App 連結會維持原付款來源。若要改變轉送方式，請先中斷再重新連結；不支援的模型與 API 功能不會自動轉換。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続済みアプリの請求先は変わりません。経路を変えるには接続を解除して、再接続してください。未対応のモデルや API 機能は自動変換しません。"
+          }
+        }
+      }
+    },
+    "Don’t show this guide again": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don’t show this guide again"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不再顯示此引導"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この案内を今後表示しない"
+          }
+        }
+      }
+    },
+    "Show routing guide": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show routing guide"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示轉送功能引導"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "転送機能の案内を表示"
+          }
+        }
+      }
+    },
+    "Billed through OpenRouter credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billed through OpenRouter credits"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由 OpenRouter credits 付款"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter クレジットで支払い"
+          }
+        }
+      }
+    },
+    "This connection uses supported models through OpenRouter, including its downstream providers, instead of a direct provider key.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This connection uses supported models through OpenRouter, including its downstream providers, instead of a direct provider key."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個連結透過 OpenRouter 及其下游服務商使用支援的模型，不會使用原服務商的直接 API 金鑰。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この接続では直接の API キーを使わず、OpenRouter とその先の提供事業者を通じて対応モデルを利用します。"
+          }
+        }
+      }
+    },
+    "The billing route changed. Review the refreshed connection before approving again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The billing route changed. Review the refreshed connection before approving again."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "付款轉送方式已改變。請重新審閱連結內容後再批准。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支払い経路が変わりました。更新された接続内容を確認してから、もう一度許可してください。"
+          }
+        }
+      }
+    },
+    "Requests the %@ API through OpenRouter.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests the %@ API through OpenRouter."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要求透過 OpenRouter 使用 %@ API。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter 経由で %@ API を利用します。"
+          }
+        }
+      }
+    },
+    "When OpenRouter routing is enabled, requests go through OpenRouter and its downstream providers and use OpenRouter credits.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When OpenRouter routing is enabled, requests go through OpenRouter and its downstream providers and use OpenRouter credits."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟 OpenRouter 轉送後，請求會經過 OpenRouter 及其下游服務商，並使用 OpenRouter credits 付款。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenRouter 経由の転送を有効にすると、リクエストは OpenRouter とその先の提供事業者に送られ、OpenRouter クレジットで支払われます。"
           }
         }
       }

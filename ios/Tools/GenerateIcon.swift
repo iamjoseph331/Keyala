@@ -1,7 +1,7 @@
 import AppKit
 
 let size = 1024
-let output = CommandLine.arguments.dropFirst().first ?? "ios/MasterKey/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+let output = CommandLine.arguments.dropFirst().first ?? "ios/Keyala/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
 
 guard let bitmap = NSBitmapImageRep(
     bitmapDataPlanes: nil,

@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the image Render will run, then hit /healthz
         run: |
-          docker build -t masterkey:ci backend
-          docker run -d --name mk -p 8080:8080 -e MK_MASTER_KEY="$(openssl rand -base64 32)" masterkey:ci
+          docker build -t keyala:ci backend
+          docker run -d --name keyala -p 8080:8080 -e KEYALA_MASTER_KEY="$(openssl rand -base64 32)" keyala:ci
           for i in $(seq 30); do curl -sf localhost:8080/healthz && exit 0; sleep 1; done
-          docker logs mk; exit 1
+          docker logs keyala; exit 1

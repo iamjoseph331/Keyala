@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Resume Tailor</title>
-<meta name="description" content="Tailor your resume to any job description in a minute. Runs on your own AI account through MasterKey.">
-<link rel="icon" href="masterkey-icon.svg">
+<meta name="description" content="Tailor your resume to any job description in a minute. Runs on your own AI account through Keyala.">
+<link rel="icon" href="keyala-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,8 +15,8 @@
     --accent:#2450d6; --accent-ink:#fff; --accent-soft:#eaf0ff;
     --ok:#1e7a4c; --okbg:#e3f2e9; --warn:#946200; --warnbg:#fff3d6; --bad:#b3261e; --badbg:#fde7e5;
     --mark:#ffe58f; --mark-ink:#3a2c00;
-    /* MasterKey's own colours, so the hand-off is recognisable */
-    --mk:#3d7a57; --mk-paper:#faf7f2; --mk-ink:#1f1b16; --mk-muted:#7a7268; --mk-line:#ece6dc;
+    /* Keyala's own colours, so the hand-off is recognisable */
+    --ky:#3d7a57; --ky-paper:#faf7f2; --ky-ink:#1f1b16; --ky-muted:#7a7268; --ky-line:#ece6dc;
     --radius:16px;
     --shadow:0 1px 2px rgba(21,23,28,.04), 0 8px 24px -12px rgba(21,23,28,.12);
   }
@@ -25,7 +25,7 @@
       --accent:#8aa8ff; --accent-ink:#0d1020; --accent-soft:#1c2440;
       --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
       --mark:#5c4b12; --mark-ink:#ffe58f;
-      --mk-paper:#1d211e; --mk-ink:#eae6dd; --mk-muted:#a39d92; --mk-line:#2f352f;
+      --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
   }
   * { box-sizing:border-box }
@@ -89,19 +89,19 @@
   @keyframes p { 50% { opacity:.25 } }
   .linkbtn { background:none; padding:4px 0; color:var(--accent); font-weight:600 }
 
-  /* the MasterKey panel */
-  .mk { background:var(--mk-paper); color:var(--mk-ink); border:1px solid var(--mk-line); border-radius:14px; padding:16px; font-size:.86rem }
-  .mk-head { display:flex; align-items:center; gap:10px; margin-bottom:8px }
-  .mk-head img { width:30px; height:30px }
-  .mk-head b { font-size:.95rem; line-height:1.2 }
-  .mk-head span { display:block; font-size:.72rem; font-weight:700; letter-spacing:.05em; color:var(--mk); text-transform:uppercase }
-  .mk p { margin:0 0 10px; color:var(--mk-muted) }
-  .mk ol { margin:0 0 12px; padding-left:18px; display:grid; gap:6px }
-  .mk li b { color:var(--mk-ink) }
-  .mk li span { color:var(--mk-muted) }
-  .mk .get { display:flex; align-items:center; gap:12px; padding-top:12px; border-top:1px solid var(--mk-line) }
-  .mk .get img { flex:none; width:84px; height:84px; border-radius:8px; background:#fff; padding:4px }
-  .mk .get a { color:var(--mk); font-weight:600; text-decoration:none; display:block; margin-top:4px }
+  /* the Keyala panel */
+  .ky{ background:var(--ky-paper); color:var(--ky-ink); border:1px solid var(--ky-line); border-radius:14px; padding:16px; font-size:.86rem }
+  .ky-head { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+  .ky-head img { width:30px; height:30px }
+  .ky-head b { font-size:.95rem; line-height:1.2 }
+  .ky-head span { display:block; font-size:.72rem; font-weight:700; letter-spacing:.05em; color:var(--ky); text-transform:uppercase }
+  .kyp { margin:0 0 10px; color:var(--ky-muted) }
+  .kyol { margin:0 0 12px; padding-left:18px; display:grid; gap:6px }
+  .kyli b { color:var(--ky-ink) }
+  .kyli span { color:var(--ky-muted) }
+  .ky.get { display:flex; align-items:center; gap:12px; padding-top:12px; border-top:1px solid var(--ky-line) }
+  .ky.get img { flex:none; width:84px; height:84px; border-radius:8px; background:#fff; padding:4px }
+  .ky.get a { color:var(--ky); font-weight:600; text-decoration:none; display:block; margin-top:4px }
 
   /* inputs */
   .drop { position:relative; display:flex; align-items:center; gap:14px; padding:16px; border:1.5px dashed color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:12px; cursor:pointer; margin-bottom:10px; background:var(--accent-soft) }
@@ -191,7 +191,7 @@
     </a>
     <div class="right">
       <a href="#how" data-i18n="nav.how"></a>
-      <a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener">MasterKey</a>
+      <a href="https://iamjoseph331.github.io/Keyala/" target="_blank" rel="noopener">Keyala</a>
       <select id="ui-lang" aria-label="Language">
         <option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option>
       </select>
@@ -216,18 +216,18 @@
             <div class="providers" id="providers"></div>
             <p class="err hidden" id="c-err" role="alert"></p>
           </div>
-          <aside class="mk" aria-labelledby="mk-title">
-            <div class="mk-head"><img src="masterkey-icon.svg" alt=""><div><span data-i18n="mk.badge"></span><b id="mk-title" data-i18n="mk.title"></b></div></div>
-            <p data-i18n="mk.p"></p>
+          <aside class="ky" aria-labelledby="ky-title">
+            <div class="ky-head"><img src="keyala-icon.svg" alt=""><div><span data-i18n="ky.badge"></span><b id="ky-title" data-i18n="ky.title"></b></div></div>
+            <p data-i18n="ky.p"></p>
             <ol>
-              <li><b data-i18n="mk.s1t"></b> <span data-i18n="mk.s1d"></span></li>
-              <li><b data-i18n="mk.s2t"></b> <span data-i18n="mk.s2d"></span></li>
-              <li><b data-i18n="mk.s3t"></b> <span data-i18n="mk.s3d"></span></li>
+              <li><b data-i18n="ky.s1t"></b> <span data-i18n="ky.s1d"></span></li>
+              <li><b data-i18n="ky.s2t"></b> <span data-i18n="ky.s2d"></span></li>
+              <li><b data-i18n="ky.s3t"></b> <span data-i18n="ky.s3d"></span></li>
             </ol>
             <div class="get">
-              <!-- Points to the MasterKey site until there is an App Store listing; swap masterkey-qr.svg for the App Store QR then. -->
-              <img src="masterkey-qr.svg" alt="QR: iamjoseph331.github.io/MasterKey">
-              <div><b data-i18n="mk.get"></b><a href="https://iamjoseph331.github.io/MasterKey/" target="_blank" rel="noopener" data-i18n="mk.what"></a></div>
+              <!-- Points to the Keyala site until there is an App Store listing; swap keyala-qr.svg for the App Store QR then. -->
+              <img src="keyala-qr.svg" alt="QR: iamjoseph331.github.io/Keyala">
+              <div><b data-i18n="ky.get"></b><a href="https://iamjoseph331.github.io/Keyala/" target="_blank" rel="noopener" data-i18n="ky.what"></a></div>
             </div>
           </aside>
         </div>
@@ -340,7 +340,7 @@
 <footer>
   <div class="container">
     <span data-i18n="foot.1"></span>
-    <span><span data-i18n="foot.2"></span> <code>fetch(MK_URL + '/v1/openai/chat/completions', { headers: { Authorization: 'Bearer ' + grant } })</code></span>
+    <span><span data-i18n="foot.2"></span> <code>fetch(KEYALA_URL + '/v1/openai/chat/completions', { headers: { Authorization: 'Bearer ' + grant } })</code></span>
   </div>
 </footer>
 
@@ -356,15 +356,15 @@ const I18N = {
     'hero.h1': 'Tailor your resume to <em>every job</em> in a minute.',
     'hero.lead': 'Upload your resume, paste the job description, and get a version that speaks the job\'s language. Only facts from your resume, rewritten for this role, in the language you pick.',
     'tick.1': 'No sign-up', 'tick.2': 'Files stay in your browser', 'tick.3': 'You approve every AI call', 'tick.4': 'Never invents experience',
-    's1.title': 'Connect your AI', 's1.sub': 'Pick the account that pays for the AI. Your key stays in MasterKey; this page never sees it.',
+    's1.title': 'Connect your AI', 's1.sub': 'Pick the account that pays for the AI. Your key stays in Keyala; this page never sees it.',
     'prov.openai': 'GPT models', 'prov.anthropic': 'Claude models', 'prov.openrouter': 'Claude and GPT, one sign-in in the app',
     'prov.connect': 'Connect', 'prov.on': 'Connected', 'prov.off': 'Disconnect',
-    'err.denied': 'You declined the connection on your phone.', 'err.expired': 'The code expired. Try again.', 'err.reach': 'Could not reach MasterKey.',
-    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'This app has no API key and no subscription. You use your own OpenAI, Anthropic or OpenRouter account.',
-    'mk.s1t': 'Get the MasterKey app.', 'mk.s1d': 'Scan the code below to join the beta.',
-    'mk.s2t': 'Connect once.', 'mk.s2d': 'OpenRouter is one tap; OpenAI and Anthropic keys are pasted from your computer.',
-    'mk.s3t': 'Approve each request.', 'mk.s3d': 'You see the exact prompt and the estimated cost first.',
-    'mk.get': 'Get MasterKey', 'mk.what': 'What is MasterKey? →',
+    'err.denied': 'You declined the connection on your phone.', 'err.expired': 'The code expired. Try again.', 'err.reach': 'Could not reach Keyala.',
+    'ky.badge': 'Powered by', 'ky.title': 'Keyala', 'ky.p': 'This app has no API key and no subscription. You use your own OpenAI, Anthropic or OpenRouter account.',
+    'ky.s1t': 'Get the Keyala app.', 'ky.s1d': 'Scan the code below to join the beta.',
+    'ky.s2t': 'Connect once.', 'ky.s2d': 'OpenRouter is one tap; OpenAI and Anthropic keys are pasted from your computer.',
+    'ky.s3t': 'Approve each request.', 'ky.s3d': 'You see the exact prompt and the estimated cost first.',
+    'ky.get': 'Get Keyala', 'ky.what': 'What is Keyala? →',
     's2.title': 'Your resume', 'drop.title': 'Upload your resume', 'drop.sub': 'PDF, DOCX, TXT or MD. Drop it here or click to choose.',
     'resume.ph': '…or paste your resume text here. Uploaded files appear here so you can check them.',
     'drop.reading': 'Reading {name}…', 'drop.read': '{n} characters read. Check the text below, or drop another file.',
@@ -376,21 +376,21 @@ const I18N = {
     'est.none': 'Connect a provider in step 1 to choose a model and see the cost.',
     'est.text': 'At most <b>{cost}</b> per job from your {vendor} account, usually far less. Your phone shows this estimate before you approve. {price} per 1M tokens (in / out).',
     'go.one': 'Tailor my resume', 'go.many': 'Tailor for {n} jobs', 'go.connect': 'Connect a provider in step 1',
-    'secure': 'Nothing runs until you approve it in MasterKey.',
+    'secure': 'Nothing runs until you approve it in Keyala.',
     'form.resume': 'Add your resume first: upload a file or paste the text.', 'form.jd': 'Paste at least one job description.',
     'sample.title': 'What you\'ll get', 'sample.tag': 'Example', 'legend.1': 'Terms matched to the job', 'legend.2': 'One version per job: copy, download or print',
-    'job.waiting': 'Waiting for your approval in the MasterKey app…', 'job.queued': 'Queued. Runs after the job before it.', 'job.notrun': 'Not run: reconnect and try again.',
+    'job.waiting': 'Waiting for your approval in the Keyala app…', 'job.queued': 'Queued. Runs after the job before it.', 'job.notrun': 'Not run: reconnect and try again.',
     'job.copy': 'Copy', 'job.copied': 'Copied', 'job.dl': 'Download .md', 'job.print': 'Print / PDF', 'job.n': 'Job {n}',
-    'fail.denied': 'You denied this request in MasterKey.', 'fail.expired': 'The request expired before you approved it.',
-    'fail.gone': 'The MasterKey connection was revoked or reset. Connect again in step 1.', 'fail.timeout': 'The AI provider did not answer in time. Check the result in your MasterKey app; it was not retried.',
+    'fail.denied': 'You denied this request in Keyala.', 'fail.expired': 'The request expired before you approved it.',
+    'fail.gone': 'The Keyala connection was revoked or reset. Connect again in step 1.', 'fail.timeout': 'The AI provider did not answer in time. Check the result in your Keyala app; it was not retried.',
     'ex.h2': 'Same experience, told for this job', 'ex.p': 'It reorders, rephrases and emphasises what you already did, mirrors the job\'s key terms where they truthfully apply, and never adds anything you didn\'t write.',
     'ex.yours': 'Your resume', 'ex.asks': 'The job asks for:', 'ex.after': 'Tailored version', 'ex.note': 'Same facts. Stronger verbs, the job\'s own words, most relevant first.',
-    'how.h2': 'How it works', 'how.p': 'About a minute. MasterKey keeps your API key off this site the whole time.',
-    'how.1t': 'Connect your AI', 'how.1d': 'Scan the code with the MasterKey app once. OpenAI, Anthropic or OpenRouter.',
+    'how.h2': 'How it works', 'how.p': 'About a minute. Keyala keeps your API key off this site the whole time.',
+    'how.1t': 'Connect your AI', 'how.1d': 'Scan the code with the Keyala app once. OpenAI, Anthropic or OpenRouter.',
     'how.2t': 'Add your resume and the jobs', 'how.2d': 'Upload a PDF or Word file, or paste text. Add as many job descriptions as you like.',
-    'how.3t': 'Approve on your phone', 'how.3d': 'MasterKey shows the exact prompt and the estimated cost. Nothing runs without your tap.',
+    'how.3t': 'Approve on your phone', 'how.3d': 'Keyala shows the exact prompt and the estimated cost. Nothing runs without your tap.',
     'how.4t': 'Copy, download or print', 'how.4d': 'Clean Markdown for each job, ready for any editor or to save as PDF.',
-    'foot.1': 'A MasterKey example app. Open source under Apache-2.0.', 'foot.2': 'For developers: a static page with no backend. Each AI call is',
+    'foot.1': 'A Keyala example app. Open source under Apache-2.0.', 'foot.2': 'For developers: a static page with no backend. Each AI call is',
   },
   'zh-Hant': {
     'nav.how': '使用方式',
@@ -398,15 +398,15 @@ const I18N = {
     'hero.h1': '一分鐘，把履歷改寫成<em>每份職缺</em>想看的樣子。',
     'hero.lead': '上傳履歷、貼上職缺說明，就能得到用該職缺語言重寫的版本。只使用履歷裡的事實，並以你選擇的語言輸出。',
     'tick.1': '不用註冊', 'tick.2': '檔案只在瀏覽器裡讀取', 'tick.3': '每次 AI 呼叫都由你核准', 'tick.4': '絕不捏造經歷',
-    's1.title': '連接你的 AI', 's1.sub': '選擇要付費的 AI 帳戶。金鑰保存在 MasterKey，這個網頁看不到。',
+    's1.title': '連接你的 AI', 's1.sub': '選擇要付費的 AI 帳戶。金鑰保存在 Keyala，這個網頁看不到。',
     'prov.openai': 'GPT 模型', 'prov.anthropic': 'Claude 模型', 'prov.openrouter': 'Claude 與 GPT，在 App 裡一鍵登入',
     'prov.connect': '連接', 'prov.on': '已連接', 'prov.off': '中斷連接',
-    'err.denied': '你在手機上拒絕了連接。', 'err.expired': '代碼已過期，請再試一次。', 'err.reach': '無法連線到 MasterKey。',
-    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': '這個 App 沒有 API 金鑰，也不用訂閱。你使用自己的 OpenAI、Anthropic 或 OpenRouter 帳戶。',
-    'mk.s1t': '下載 MasterKey App。', 'mk.s1d': '掃描下方 QR code 加入測試版。',
-    'mk.s2t': '連接一次。', 'mk.s2d': 'OpenRouter 一鍵完成；OpenAI 與 Anthropic 的金鑰從電腦貼上。',
-    'mk.s3t': '逐次核准。', 'mk.s3d': '先看到完整提示內容與預估費用。',
-    'mk.get': '取得 MasterKey', 'mk.what': '什麼是 MasterKey？→',
+    'err.denied': '你在手機上拒絕了連接。', 'err.expired': '代碼已過期，請再試一次。', 'err.reach': '無法連線到 Keyala。',
+    'ky.badge': 'Powered by', 'ky.title': 'Keyala', 'ky.p': '這個 App 沒有 API 金鑰，也不用訂閱。你使用自己的 OpenAI、Anthropic 或 OpenRouter 帳戶。',
+    'ky.s1t': '下載 Keyala App。', 'ky.s1d': '掃描下方 QR code 加入測試版。',
+    'ky.s2t': '連接一次。', 'ky.s2d': 'OpenRouter 一鍵完成；OpenAI 與 Anthropic 的金鑰從電腦貼上。',
+    'ky.s3t': '逐次核准。', 'ky.s3d': '先看到完整提示內容與預估費用。',
+    'ky.get': '取得 Keyala', 'ky.what': '什麼是 Keyala？→',
     's2.title': '你的履歷', 'drop.title': '上傳履歷', 'drop.sub': 'PDF、DOCX、TXT 或 MD。拖放到這裡或點擊選擇。',
     'resume.ph': '…或直接貼上履歷文字。上傳的檔案內容會顯示在這裡供你確認。',
     'drop.reading': '正在讀取 {name}…', 'drop.read': '已讀取 {n} 個字元。請確認下方文字，或換一個檔案。',
@@ -418,21 +418,21 @@ const I18N = {
     'est.none': '在步驟 1 連接 AI 帳戶後，即可選擇模型並看到費用。',
     'est.text': '每份職缺最多 <b>{cost}</b>，由你的 {vendor} 帳戶支付，實際通常少很多。核准前手機會顯示同樣的預估。每 100 萬 token {price}（輸入 / 輸出）。',
     'go.one': '開始改寫履歷', 'go.many': '為 {n} 份職缺改寫', 'go.connect': '請先在步驟 1 連接 AI 帳戶',
-    'secure': '在你於 MasterKey 核准之前，什麼都不會執行。',
+    'secure': '在你於 Keyala 核准之前，什麼都不會執行。',
     'form.resume': '請先加入履歷：上傳檔案或貼上文字。', 'form.jd': '請至少貼上一份職缺說明。',
     'sample.title': '你會得到', 'sample.tag': '範例', 'legend.1': '與職缺相符的關鍵字', 'legend.2': '每份職缺一個版本：可複製、下載或列印',
-    'job.waiting': '等待你在 MasterKey App 中核准…', 'job.queued': '排隊中，前一份完成後執行。', 'job.notrun': '未執行：請重新連接後再試。',
+    'job.waiting': '等待你在 Keyala App 中核准…', 'job.queued': '排隊中，前一份完成後執行。', 'job.notrun': '未執行：請重新連接後再試。',
     'job.copy': '複製', 'job.copied': '已複製', 'job.dl': '下載 .md', 'job.print': '列印 / PDF', 'job.n': '職缺 {n}',
-    'fail.denied': '你在 MasterKey 中拒絕了這個請求。', 'fail.expired': '請求在你核准前已過期。',
-    'fail.gone': 'MasterKey 連接已被撤銷或重設，請在步驟 1 重新連接。', 'fail.timeout': 'AI 服務沒有及時回應。請在 MasterKey App 查看結果；系統不會自動重試。',
+    'fail.denied': '你在 Keyala 中拒絕了這個請求。', 'fail.expired': '請求在你核准前已過期。',
+    'fail.gone': 'Keyala 連接已被撤銷或重設，請在步驟 1 重新連接。', 'fail.timeout': 'AI 服務沒有及時回應。請在 Keyala App 查看結果；系統不會自動重試。',
     'ex.h2': '同樣的經歷，為這份職缺重新敘述', 'ex.p': '重新排序、改寫並強調你做過的事，在屬實的地方使用職缺的關鍵字，絕不加入你沒寫過的內容。',
     'ex.yours': '你的履歷', 'ex.asks': '職缺要求：', 'ex.after': '改寫後', 'ex.note': '事實不變。動詞更有力，用職缺自己的字眼，最相關的放最前面。',
-    'how.h2': '使用方式', 'how.p': '大約一分鐘。全程 MasterKey 都不會讓這個網站拿到你的 API 金鑰。',
-    'how.1t': '連接你的 AI', 'how.1d': '用 MasterKey App 掃描一次。支援 OpenAI、Anthropic、OpenRouter。',
+    'how.h2': '使用方式', 'how.p': '大約一分鐘。全程 Keyala 都不會讓這個網站拿到你的 API 金鑰。',
+    'how.1t': '連接你的 AI', 'how.1d': '用 Keyala App 掃描一次。支援 OpenAI、Anthropic、OpenRouter。',
     'how.2t': '加入履歷與職缺', 'how.2d': '上傳 PDF 或 Word 檔，或貼上文字。職缺說明想加幾份都可以。',
-    'how.3t': '在手機上核准', 'how.3d': 'MasterKey 會顯示完整提示內容與預估費用。沒有你的點擊就不會執行。',
+    'how.3t': '在手機上核准', 'how.3d': 'Keyala 會顯示完整提示內容與預估費用。沒有你的點擊就不會執行。',
     'how.4t': '複製、下載或列印', 'how.4d': '每份職缺一份乾淨的 Markdown，可貼到任何編輯器或存成 PDF。',
-    'foot.1': 'MasterKey 範例 App。以 Apache-2.0 開源。', 'foot.2': '給開發者：沒有後端的靜態網頁。每次 AI 呼叫就是',
+    'foot.1': 'Keyala 範例 App。以 Apache-2.0 開源。', 'foot.2': '給開發者：沒有後端的靜態網頁。每次 AI 呼叫就是',
   },
   ja: {
     'nav.how': '使い方',
@@ -440,15 +440,15 @@ const I18N = {
     'hero.h1': '履歴書を<em>応募する職ごとに</em>、1分で最適化。',
     'hero.lead': '履歴書をアップロードして求人票を貼り付けるだけで、その職に響く表現に書き直します。使うのは履歴書にある事実だけ。言語も選べます。',
     'tick.1': '登録不要', 'tick.2': 'ファイルはブラウザ内で読み込み', 'tick.3': 'AI の呼び出しは毎回あなたが承認', 'tick.4': '経歴を盛らない',
-    's1.title': 'AI を接続する', 's1.sub': '料金を払う AI アカウントを選びます。キーは MasterKey に保管され、このページからは見えません。',
+    's1.title': 'AI を接続する', 's1.sub': '料金を払う AI アカウントを選びます。キーは Keyala に保管され、このページからは見えません。',
     'prov.openai': 'GPT モデル', 'prov.anthropic': 'Claude モデル', 'prov.openrouter': 'Claude と GPT、アプリでワンタップ接続',
     'prov.connect': '接続', 'prov.on': '接続済み', 'prov.off': '接続を解除',
-    'err.denied': 'スマートフォンで接続が拒否されました。', 'err.expired': 'コードの有効期限が切れました。もう一度お試しください。', 'err.reach': 'MasterKey に接続できませんでした。',
-    'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'このアプリには API キーもサブスクリプションもありません。あなたの OpenAI、Anthropic、OpenRouter アカウントを使います。',
-    'mk.s1t': 'MasterKey アプリを入手。', 'mk.s1d': '下のコードをスキャンしてベータに参加。',
-    'mk.s2t': '一度だけ接続。', 'mk.s2d': 'OpenRouter はワンタップ。OpenAI と Anthropic のキーはパソコンから貼り付け。',
-    'mk.s3t': 'リクエストごとに承認。', 'mk.s3d': '送信されるプロンプトと費用の見積もりを先に確認できます。',
-    'mk.get': 'MasterKey を入手', 'mk.what': 'MasterKey とは？ →',
+    'err.denied': 'スマートフォンで接続が拒否されました。', 'err.expired': 'コードの有効期限が切れました。もう一度お試しください。', 'err.reach': 'Keyala に接続できませんでした。',
+    'ky.badge': 'Powered by', 'ky.title': 'Keyala', 'ky.p': 'このアプリには API キーもサブスクリプションもありません。あなたの OpenAI、Anthropic、OpenRouter アカウントを使います。',
+    'ky.s1t': 'Keyala アプリを入手。', 'ky.s1d': '下のコードをスキャンしてベータに参加。',
+    'ky.s2t': '一度だけ接続。', 'ky.s2d': 'OpenRouter はワンタップ。OpenAI と Anthropic のキーはパソコンから貼り付け。',
+    'ky.s3t': 'リクエストごとに承認。', 'ky.s3d': '送信されるプロンプトと費用の見積もりを先に確認できます。',
+    'ky.get': 'Keyala を入手', 'ky.what': 'Keyala とは？ →',
     's2.title': 'あなたの履歴書', 'drop.title': '履歴書をアップロード', 'drop.sub': 'PDF・DOCX・TXT・MD。ドロップするかクリックして選択。',
     'resume.ph': '…または履歴書のテキストを貼り付け。アップロードした内容もここに表示されるので確認できます。',
     'drop.reading': '{name} を読み込み中…', 'drop.read': '{n} 文字を読み込みました。下のテキストを確認するか、別のファイルをドロップしてください。',
@@ -460,21 +460,21 @@ const I18N = {
     'est.none': 'ステップ1で AI を接続すると、モデルを選んで費用を確認できます。',
     'est.text': '1件あたり最大 <b>{cost}</b>（{vendor} アカウントに請求、実際は通常ずっと少額）。承認前にスマートフォンにも同じ見積もりが表示されます。100万トークンあたり {price}（入力 / 出力）。',
     'go.one': '履歴書を最適化', 'go.many': '{n} 件の求人向けに最適化', 'go.connect': 'ステップ1で AI を接続してください',
-    'secure': 'MasterKey で承認するまで何も実行されません。',
+    'secure': 'Keyala で承認するまで何も実行されません。',
     'form.resume': '先に履歴書を追加してください：ファイルをアップロードするかテキストを貼り付け。', 'form.jd': '求人票を少なくとも1件貼り付けてください。',
     'sample.title': '仕上がりイメージ', 'sample.tag': '例', 'legend.1': '求人に合わせたキーワード', 'legend.2': '求人ごとに1つ：コピー、ダウンロード、印刷',
-    'job.waiting': 'MasterKey アプリでの承認を待っています…', 'job.queued': '待機中。前の求人のあとに実行します。', 'job.notrun': '未実行：もう一度接続してからお試しください。',
+    'job.waiting': 'Keyala アプリでの承認を待っています…', 'job.queued': '待機中。前の求人のあとに実行します。', 'job.notrun': '未実行：もう一度接続してからお試しください。',
     'job.copy': 'コピー', 'job.copied': 'コピーしました', 'job.dl': '.md をダウンロード', 'job.print': '印刷 / PDF', 'job.n': '求人 {n}',
-    'fail.denied': 'MasterKey でこのリクエストを拒否しました。', 'fail.expired': '承認前にリクエストの有効期限が切れました。',
-    'fail.gone': 'MasterKey の接続が取り消されたかリセットされました。ステップ1でもう一度接続してください。', 'fail.timeout': 'AI サービスが時間内に応答しませんでした。結果は MasterKey アプリで確認してください。自動再試行はしていません。',
+    'fail.denied': 'Keyala でこのリクエストを拒否しました。', 'fail.expired': '承認前にリクエストの有効期限が切れました。',
+    'fail.gone': 'Keyala の接続が取り消されたかリセットされました。ステップ1でもう一度接続してください。', 'fail.timeout': 'AI サービスが時間内に応答しませんでした。結果は Keyala アプリで確認してください。自動再試行はしていません。',
     'ex.h2': '同じ経験を、この求人向けに', 'ex.p': 'すでにやってきたことを並べ替え、言い換え、強調します。事実に合う範囲で求人のキーワードを使い、書いていないことは足しません。',
     'ex.yours': 'あなたの履歴書', 'ex.asks': '求人の要件：', 'ex.after': '最適化後', 'ex.note': '事実はそのまま。力強い動詞、求人と同じ言葉、関連の高い順。',
-    'how.h2': '使い方', 'how.p': '約1分。MasterKey があなたの API キーをこのサイトから遠ざけます。',
-    'how.1t': 'AI を接続', 'how.1d': 'MasterKey アプリで一度スキャンするだけ。OpenAI、Anthropic、OpenRouter に対応。',
+    'how.h2': '使い方', 'how.p': '約1分。Keyala があなたの API キーをこのサイトから遠ざけます。',
+    'how.1t': 'AI を接続', 'how.1d': 'Keyala アプリで一度スキャンするだけ。OpenAI、Anthropic、OpenRouter に対応。',
     'how.2t': '履歴書と求人を追加', 'how.2d': 'PDF か Word をアップロード、またはテキストを貼り付け。求人は何件でも。',
-    'how.3t': 'スマートフォンで承認', 'how.3d': 'MasterKey が送信内容と費用の見積もりを表示。タップしない限り実行されません。',
+    'how.3t': 'スマートフォンで承認', 'how.3d': 'Keyala が送信内容と費用の見積もりを表示。タップしない限り実行されません。',
     'how.4t': 'コピー、ダウンロード、印刷', 'how.4d': '求人ごとにきれいな Markdown。どのエディタにも貼れ、PDF にも保存できます。',
-    'foot.1': 'MasterKey のサンプルアプリ。Apache-2.0 のオープンソース。', 'foot.2': '開発者向け：バックエンドのない静的ページです。AI の呼び出しは',
+    'foot.1': 'Keyala のサンプルアプリ。Apache-2.0 のオープンソース。', 'foot.2': '開発者向け：バックエンドのない静的ページです。AI の呼び出しは',
   },
 };
 const LANGS = Object.keys(I18N);
@@ -484,15 +484,15 @@ const t = (k, v = {}) => (I18N[ui][k] ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, 
 const OUT_LANGS = [['English', 'English', '英文', '英語'], ['Japanese', '日本語', '日文', '日本語'], ['Traditional Chinese', '繁體中文', '繁體中文', '繁体字中国語'], ['Simplified Chinese', '简体中文', '簡體中文', '簡体字中国語'], ['Korean', '한국어', '韓文', '韓国語'], ['Spanish', 'Español', '西班牙文', 'スペイン語'], ['French', 'Français', '法文', 'フランス語'], ['German', 'Deutsch', '德文', 'ドイツ語']];
 const TONES = [['professional', 'professional'], ['confident', 'confident and achievement-focused'], ['concise', 'concise and to the point'], ['warm', 'warm and personable'], ['technical', 'technical and precise']];
 
-// ================= MasterKey: the whole backend of this app =================
-// A static page: no server, no API key. The visitor's own key stays in MasterKey; this page only
+// ================= Keyala: the whole backend of this app =================
+// A static page: no server, no API key. The visitor's own key stays in Keyala; this page only
 // ever holds a grant token, and every call follows the policy the visitor approves on their phone.
-// Local testing (localhost only): ?mk=http://localhost:8080&app=app_resume_tailor
+// Local testing (localhost only): ?ky=http://localhost:8080&app=app_resume_tailor
 // Staging (any host): ?server=staging. Only these two fixed servers can be picked by URL.
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const qs = new URLSearchParams(location.search);
 const SERVERS = { prod: 'https://masterkey-prod-vkgm.onrender.com', staging: 'https://masterkey-staging-vkgm.onrender.com' };
-const MK_URL = ((LOCAL && qs.get('mk')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
+const KEYALA_URL = ((LOCAL && qs.get('ky')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
 const APP_ID = (LOCAL && qs.get('app')) || 'app_resume_tailor';
 
 const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic', openrouter: 'OpenRouter' };
@@ -517,26 +517,26 @@ const MODELS = [
 ];
 const MAX_TOKENS = 4096; // the server's per-model output cap; a full resume fits
 
-// ponytail: grant tokens live in localStorage (per browser, per MasterKey server). Revoking in the app or a server reset just means reconnecting.
+// ponytail: grant tokens live in localStorage (per browser, per Keyala server). Revoking in the app or a server reset just means reconnecting.
 const store = {
-  get: (v) => { try { return localStorage.getItem(`rt-grant:${MK_URL}:${v}`); } catch { return null; } },
-  set: (v, tk) => { try { tk ? localStorage.setItem(`rt-grant:${MK_URL}:${v}`, tk) : localStorage.removeItem(`rt-grant:${MK_URL}:${v}`); } catch {} },
+  get: (v) => { try { return localStorage.getItem(`rt-grant:${KEYALA_URL}:${v}`); } catch { return null; } },
+  set: (v, tk) => { try { tk ? localStorage.setItem(`rt-grant:${KEYALA_URL}:${v}`, tk) : localStorage.removeItem(`rt-grant:${KEYALA_URL}:${v}`); } catch {} },
 };
 
-async function mk(path, { body, token, headers = {} } = {}) {
+async function ky(path, { body, token, headers = {} } = {}) {
   const auth = token ? { Authorization: 'Bearer ' + token } : {};
-  const r = await fetch(MK_URL + path, body === undefined ? { headers: { ...auth, ...headers } }
+  const r = await fetch(KEYALA_URL + path, body === undefined ? { headers: { ...auth, ...headers } }
     : { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth, ...headers }, body: JSON.stringify(body) });
   return { status: r.status, json: await r.json().catch(() => ({})) };
 }
 
 function failure(status, j = {}) {
   const type = j.error?.type;
-  if (status === 403 && type === 'masterkey_denied') return { kind: 'denied', message: t('fail.denied') };
+  if (status === 403 && type === 'keyala_denied') return { kind: 'denied', message: t('fail.denied') };
   if (status === 410) return { kind: 'expired', message: t('fail.expired') };
   if (status === 401) return { kind: 'disconnected', message: t('fail.gone') };
   if (status === 504) return { kind: 'error', message: t('fail.timeout') };
-  return { kind: 'error', message: j.error?.message || `MasterKey returned ${status}` };
+  return { kind: 'error', message: j.error?.message || `Keyala returned ${status}` };
 }
 
 // The app's actual value: the prompt. The visitor sees it on their phone before approving.
@@ -571,19 +571,19 @@ function ceilingUSD(model, body) {
 
 const textOf = (vendor, r) => openaiShape(vendor) ? r.choices?.[0]?.message?.content ?? '' : (r.content || []).map((c) => c.text || '').join('');
 
-// One job: a plain OpenAI / Anthropic request, sent to MasterKey with the grant instead of an API key.
+// One job: a plain OpenAI / Anthropic request, sent to Keyala with the grant instead of an API key.
 // No retries: a slow approval returns 202 and we poll; the Idempotency-Key guards against double billing.
 async function tailor(model, input, idemKey) {
   const token = store.get(model.vendor);
   const [path, body] = requestFor(model, input);
-  let r = await mk(path, { body, token, headers: { 'Idempotency-Key': idemKey, 'X-MasterKey-Wait': '25' } });
+  let r = await ky(path, { body, token, headers: { 'Idempotency-Key': idemKey, 'X-Keyala-Wait': '25' } });
   while (r.status === 202) {
     await sleep(1500);
-    const p = await mk('/v1/requests/' + encodeURIComponent(r.json.request_id), { token });
+    const p = await ky('/v1/requests/' + encodeURIComponent(r.json.request_id), { token });
     if (p.status !== 200) { r = p; break; }
     const st = p.json.status;
     if (st === 'completed') return { text: textOf(model.vendor, p.json.response || {}) };
-    if (st === 'denied') r = { status: 403, json: { error: { type: 'masterkey_denied' } } };
+    if (st === 'denied') r = { status: 403, json: { error: { type: 'keyala_denied' } } };
     else if (st === 'expired') r = { status: 410, json: {} };
     else if (st === 'failed' || st === 'uncertain') r = { status: st === 'uncertain' ? 504 : 502, json: { error: { message: p.json.response?.error?.message || `Request ${st}.` } } };
   }
@@ -616,15 +616,15 @@ function renderProviders() {
 }
 
 function disconnect(v) {
-  // ponytail: forgets the grant in this browser only; the user revokes it for good in the MasterKey app (Apps).
+  // ponytail: forgets the grant in this browser only; the user revokes it for good in the Keyala app (Apps).
   store.set(v, null); connected[v] = false; renderAll();
 }
 
 function connErr(msg) { $('c-err').textContent = msg; $('c-err').classList.toggle('hidden', !msg); }
 
-// Pairing is MasterKey's web SDK (served by the MasterKey server itself): a dialog with the QR on a computer,
-// an "Open MasterKey" button on a phone, and install hints when the app is missing.
-const sdk = new Promise((ok, no) => document.head.append(el('script', { src: MK_URL + '/sdk/masterkey.js', onload: ok, onerror: no })));
+// Pairing is Keyala's web SDK (served by the Keyala server itself): a dialog with the QR on a computer,
+// an "Open Keyala" button on a phone, and install hints when the app is missing.
+const sdk = new Promise((ok, no) => document.head.append(el('script', { src: KEYALA_URL + '/sdk/keyala.js', onload: ok, onerror: no })));
 
 async function connect(vendor) {
   connErr('');
@@ -632,10 +632,10 @@ async function connect(vendor) {
   pairing = vendor; renderProviders();
   try {
     await sdk;
-    const g = await MasterKey.connect({ app: APP_ID, vendor, server: MK_URL, lang: ui });
+    const g = await Keyala.connect({ app: APP_ID, vendor, server: KEYALA_URL, lang: ui });
     store.set(vendor, g.grant_token); connected[vendor] = true;
   } catch (e) {
-    if (e && e.code !== 'cancelled') connErr(e.code === 'denied' ? t('err.denied') : e.code ? e.message : t('err.reach') + ' ' + MK_URL);
+    if (e && e.code !== 'cancelled') connErr(e.code === 'denied' ? t('err.denied') : e.code ? e.message : t('err.reach') + ' ' + KEYALA_URL);
   }
   pairing = null; renderAll();
 }
@@ -781,7 +781,7 @@ $('form').onsubmit = async (e) => {
       job.status = 'waiting'; renderResults();
       let r;
       try { r = await tailor(model, { ...inp, jd: job.jd }, job.key); }
-      catch { r = { error: { kind: 'error', message: t('err.reach') + ' ' + MK_URL } }; }
+      catch { r = { error: { kind: 'error', message: t('err.reach') + ' ' + KEYALA_URL } }; }
       Object.assign(job, r.error ? { status: 'error', error: r.error.message } : { status: 'done', text: r.text });
       renderResults();
       if (r.error?.kind === 'disconnected') {
@@ -840,7 +840,7 @@ connected = Object.fromEntries(Object.keys(VENDOR).map((v) => [v, !!store.get(v)
 applyText(); renderStyle(); addJd(); renderAll();
 // Is OpenRouter available on this server? An unknown route answers 404 (or fails CORS); a real one answers 401 without a grant.
 (async () => {
-  try { hasOpenRouter = (await fetch(MK_URL + '/v1/openrouter/chat/completions', { method: 'POST' })).status !== 404; } catch { hasOpenRouter = false; }
+  try { hasOpenRouter = (await fetch(KEYALA_URL + '/v1/openrouter/chat/completions', { method: 'POST' })).status !== 404; } catch { hasOpenRouter = false; }
   if (hasOpenRouter) renderAll();
 })();
 </script>

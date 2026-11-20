@@ -16,7 +16,7 @@
   <text x="930" y="366" fill="#7e8a89" font-family="monospace" font-size="10">MESSAGE PREVIEW</text>
   <text x="930" y="390" fill="#35464a" font-family="Arial,sans-serif" font-size="12">“Summarize these notes</text>
   <text x="930" y="407" fill="#35464a" font-family="Arial,sans-serif" font-size="12">and list the next steps…”</text>
-  <text x="101" y="109" fill="#a4dfcc" font-family="monospace" font-size="15" letter-spacing="4">MASTERKEY / DEVELOPER PREVIEW</text>
+  <text x="101" y="109" fill="#a4dfcc" font-family="monospace" font-size="15" letter-spacing="4">KEYALA / DEVELOPER PREVIEW</text>
   <text x="95" y="293" fill="#f3f0e7" font-family="Arial,sans-serif" font-size="98" font-weight="500" letter-spacing="-6">Your key.</text>
   <text x="95" y="395" fill="#a4dfcc" font-family="Georgia,serif" font-size="100" font-style="italic" letter-spacing="-5">Your call.</text>
   <text x="100" y="465" fill="#c0cbc8" font-family="Arial,sans-serif" font-size="23">Let people bring their own model API key</text>

@@ -4,57 +4,61 @@ A one-page AI app that tailors a resume to one or more job descriptions, with an
 translation, a chosen tone, and any extra experience the user wants to add.
 
 **It ships with no API key and no backend.** It is a single static `index.html`. Each visitor
-connects their own OpenAI, Anthropic or OpenRouter key through MasterKey (OpenRouter is one tap in the app, no key to copy), picks any model they like (they pay
+connects their own OpenAI, Anthropic or OpenRouter key through Keyala (OpenRouter is one tap in the app, no key to copy), picks any model they like (they pay
 for it, so it's their call), and approves every call on their phone after seeing the exact prompt
 and an estimated cost. The person who publishes the page never holds anyone's key, runs no
 server, and never gets a token bill.
 
-Live: <https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/> (published from `main`
+Live: <https://iamjoseph331.github.io/Keyala/examples/resume-tailor/> (published from `main`
 by the Pages workflow; it talks to `masterkey-prod`).
 
-The flow is connect-first: step 1 picks the provider and pairs with the MasterKey app (QR, code, or
-"Open MasterKey" on the phone), and the model list only offers connected providers. Before running,
+The flow is connect-first: step 1 picks the provider and pairs with the Keyala app (QR, code, or
+"Open Keyala" on the phone), and the model list only offers connected providers. Before running,
 the page shows the per-job cost ceiling computed exactly as the server reserves it (request bytes +
 16 per message + 64, plus `max_tokens` of output), so it matches the estimate on the phone. The UI
 is in English, Traditional Chinese and Japanese (browser language, or the picker; remembered).
-The "Get MasterKey" QR (`masterkey-qr.svg`) points to the MasterKey site until there is an App
-Store listing; swap the file then.
+The "Get Keyala" QR (`keyala-qr.svg`) should point to `https://iamjoseph331.github.io/Keyala/` until there is an App
+Store listing; swap the file then. **The current file was renamed but still encodes the old `/MasterKey/` Pages URL
+(no QR tool was available when it was renamed). Regenerate it before publishing:**
+`cd examples/resume-tailor && npx --yes qrcode -t svg -o keyala-qr.svg --margin 1 https://iamjoseph331.github.io/Keyala/`
+(or `python3 -m pip install qrcode[pil] && qr --factory=svg-path https://iamjoseph331.github.io/Keyala/ > keyala-qr.svg`), then scan it to confirm.
+The page icon (`keyala-icon.svg`) is the repo-owned koala from `site/keyala-koala.svg`.
 
 ## Run it locally (mock vendor, no real credits)
 
 ```sh
-# terminal 1: MasterKey with fake keys, the Resume Tailor app declared, and a script that plays the phone
+# terminal 1: Keyala with fake keys, the Resume Tailor app declared, and a script that plays the phone
 sdk/demo.sh --simulate-phone
-# drop --simulate-phone to approve on the MasterKey iPhone app instead (dev login: demo@masterkey.dev)
+# drop --simulate-phone to approve on the Keyala iPhone app instead (dev login: demo@keyala.dev)
 
 # terminal 2: any static file server on port 3001
 cd examples/resume-tailor && python3 -m http.server 3001
-open "http://localhost:3001/?mk=http://localhost:8080"
+open "http://localhost:3001/?ky=http://localhost:8080"
 ```
 
-`?mk=` (MasterKey URL) and `?app=` (app id) are honoured on localhost only; anywhere else the page
+`?ky=` (Keyala URL) and `?app=` (app id) are honoured on localhost only; anywhere else the page
 uses `masterkey-prod` and `app_resume_tailor`. `?server=staging` (any host) switches to
 `masterkey-staging`, which has OpenRouter before prod does. The mock vendor answers every call with a fixed
 sentence, so the output pane shows that instead of a resume.
 
-## How a static page uses MasterKey
+## How a static page uses Keyala
 
 1. **Register a browser app** with the origins it is served from, either
    `POST /v1/apps {"name": "...", "allowed_origins": ["https://you.github.io"]}`, or as the
-   operator, in `MK_PUBLIC_APPS` (re-created on every start, which matters on Render's free plan
+   operator, in `KEYALA_PUBLIC_APPS` (re-created on every start, which matters on Render's free plan
    where the database resets). There is no app secret to hide.
 2. **Connect:** `POST /v1/connect {app_id, vendor}` from the page. The browser's `Origin` must be
    allowed. You get a `connect_code` to show the user and a `connect_secret` to keep.
 3. **Claim the grant:** poll `GET /v1/connect/{code}` with `Authorization: Bearer <connect_secret>`
    until the user approves; the response carries the `grant_token` once. Store it (this page uses
    `localStorage`).
-4. **Call the model:** a normal OpenAI or Anthropic request body (OpenRouter: the OpenAI shape at `/v1/openrouter/chat/completions` with an exact slug such as `anthropic/claude-haiku-5.5`), sent to MasterKey with the grant:
+4. **Call the model:** a normal OpenAI or Anthropic request body (OpenRouter: the OpenAI shape at `/v1/openrouter/chat/completions` with an exact slug such as `anthropic/claude-haiku-5.5`), sent to Keyala with the grant:
 
 ```js
-fetch(MK_URL + '/v1/anthropic/messages', {
+fetch(KEYALA_URL + '/v1/anthropic/messages', {
   method: 'POST',
   headers: { Authorization: 'Bearer ' + grant, 'Content-Type': 'application/json',
-             'Idempotency-Key': crypto.randomUUID(), 'X-MasterKey-Wait': '25' },
+             'Idempotency-Key': crypto.randomUUID(), 'X-Keyala-Wait': '25' },
   body: JSON.stringify({ model, max_tokens, system, messages }),
 })
 ```
@@ -65,7 +69,7 @@ the grant was revoked or the server was reset, so drop it and connect again.
 
 ## The page
 
-- A hero with a **"Powered by MasterKey"** panel (top right): get the app, add your key once,
+- A hero with a **"Powered by Keyala"** panel (top right): get the app, add your key once,
   approve each request. The App Store QR is a placeholder: replace the SVG inside `.qr .box` in
   `index.html` with `<img src="appstore-qr.png" alt="...">` once the app is live.
 - The result pane shows an **example tailored resume** until the first run, plus a before/after

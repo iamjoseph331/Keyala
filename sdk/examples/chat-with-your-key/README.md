@@ -1,27 +1,27 @@
 # Chat with your own key
 
-A tiny chat app with **no API key of its own**. The user lends theirs through MasterKey and approves
+A tiny chat app with **no API key of its own**. The user lends theirs through Keyala and approves
 each call on their phone. Node 20+, only dependency: the official `openai` package.
 
 This is a local-only, single-user demo. It keeps one grant token in process memory and binds to
 `127.0.0.1`; do not expose it to a LAN or use it as a production multi-user server.
 
 ```sh
-# 1. a MasterKey server (see ../../../backend/README.md, or just run ../../demo.sh)
+# 1. a Keyala server (see ../../../backend/README.md, or just run ../../demo.sh)
 # 2. register this app once
 curl -s -X POST http://localhost:8080/v1/apps -d '{"name":"Chat with your key"}'   # -> app_secret
 # 3. run it
 npm install
-MK_URL=http://localhost:8080 MK_APP_SECRET=mk_app_... npm start      # http://localhost:3000
+KEYALA_URL=http://localhost:8080 KEYALA_APP_SECRET=keyala_app_... npm start      # http://localhost:3000
 ```
 
 | Env | Default | |
 |---|---|---|
-| `MK_URL` | `http://localhost:8080` | MasterKey server |
-| `MK_APP_SECRET` | required | from `POST /v1/apps` |
+| `KEYALA_URL` | `http://localhost:8080` | Keyala server |
+| `KEYALA_APP_SECRET` | required | from `POST /v1/apps` |
 | `PORT` | `3000` | |
 | `MODEL` | `gpt-4o-mini` | must be on the server's allowlist |
 
 The whole integration is one line in `server.js`:
-`new OpenAI({ baseURL: MK_URL + '/v1/openai', apiKey: grantToken })`.
+`new OpenAI({ baseURL: KEYALA_URL + '/v1/openai', apiKey: grantToken })`.
 It sets `maxRetries: 0` so a held or uncertain call is never re-sent by the SDK.

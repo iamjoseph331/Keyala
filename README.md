@@ -1,47 +1,56 @@
-# MasterKey
+# Keyala
 
 ### Your key. Your call.
 
-[![MasterKey: user-approved AI requests](site/social.svg)](https://iamjoseph331.github.io/MasterKey/)
+[![Keyala: user-approved AI requests](site/social.svg)](https://iamjoseph331.github.io/Keyala/)
 
 Build AI tools people can try without handing you their API keys.
 
-MasterKey sits between an AI app and its model provider. The developer sends a
+Keyala sits between an AI app and its model provider. The developer sends a
 request. The user sees the full prompt and estimated cost on their iPhone, then
-decides whether it can run. MasterKey calls the provider with the user's stored
+decides whether it can run. Keyala calls the provider with the user's stored
 key and records the response for both sides to inspect.
 
 **The developer gets a response. The user keeps control of their key.**
 
-MasterKey is an experimental personal project operated by **Joseph Chen**. I am
+Keyala is an experimental personal project operated by **Joseph Chen**. I am
 actively developing it, testing the complete approval flow and documenting its
 limits. It is an early service with no uptime or immediate-support guarantee.
 Start with a separate, restricted provider key and a small provider-side spending
 limit where available. The beta is free; model usage is billed by your provider.
 
-[Privacy & data](https://iamjoseph331.github.io/MasterKey/privacy/) | [Help & contact](https://iamjoseph331.github.io/MasterKey/support/) | [Email Joseph](mailto:josephchen637@gmail.com)
+[Privacy & data](https://iamjoseph331.github.io/Keyala/privacy/) | [Help & contact](https://iamjoseph331.github.io/Keyala/support/) | [Email Joseph](mailto:josephchen637@gmail.com)
 
-[Try the interactive demo](https://iamjoseph331.github.io/MasterKey/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
+[Try the interactive demo](https://iamjoseph331.github.io/Keyala/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
 > tested against the Rust server with a mock provider. Production uses a persistent
 > disk; a pending connection survived deployment on 2026-11-19, and an automatic
 > SQLite backup passed a separate restore check. Daily backups retain seven copies
-> on the same disk; off-disk disaster recovery remains unverified. Staging compute
-> is suspended with its disk retained. Live OpenRouter consent, provider billing
+> on the same disk; off-disk disaster recovery remains unverified. Staging uses Free compute with no disk and resets on restart. Live OpenRouter consent, provider billing
 > and APNs delivery still require end-to-end verification.
+
+## OpenRouter credits for OpenAI and Anthropic apps
+
+In the iOS app, **Settings > OpenRouter credits** can route new OpenAI and
+Anthropic app connections through your OpenRouter account. It is **off by default**.
+Connect OpenRouter in Keys first. Pairing and request review show the billing
+provider and mapped model. Existing connections keep their original route;
+disconnect and reconnect to change it. Only the allowlisted text-only models and
+options are supported. Charges follow OpenRouter, not a ChatGPT or Claude
+subscription. The settings guide can be hidden and reopened.
 
 ## Start building
 
-[Developer console](https://iamjoseph331.github.io/MasterKey/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/MasterKey/tutorials/) walk through app registration, phone approval, provider requests, and a browser integration.
+[Developer console](https://iamjoseph331.github.io/Keyala/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/Keyala/tutorials/) walk through app registration, phone approval, provider requests, and a browser integration.
 
 ## Try the local demo
 
 You need Rust, Node.js 20+, Xcode for the iOS app, and `curl`, `jq`, and `openssl`.
 
 ```sh
-git clone https://github.com/iamjoseph331/MasterKey.git
-cd MasterKey
+git clone https://github.com/iamjoseph331/Keyala.git
+cd Keyala
 bash sdk/demo.sh
 ```
 
@@ -49,10 +58,10 @@ The script starts a disposable SQLite database with a fake provider key and mock
 responses. It prints the exact command for starting the example chat app in a
 second terminal. No real provider credits are used.
 
-Open [the iOS project](ios/MasterKey/MasterKey.xcodeproj) in Xcode and run it in a
+Open [the iOS project](ios/Keyala/Keyala.xcodeproj) in Xcode and run it in a
 simulator. Open **Settings → Developer options**, enable developer options, leave
 **Use sample data** off, enable **Allow HTTP for localhost**, and select the custom
-server `http://localhost:8080`. Sign in as `demo@masterkey.dev` through
+server `http://localhost:8080`. Sign in as `demo@keyala.dev` through
 **Development sign-in**. Connect from the
 chat example, scan its connection QR on the phone, then inspect and approve its request.
 See [iOS setup](ios/README.md) for signing and simulator-runtime notes.
@@ -64,21 +73,21 @@ application.
 
 ## Example apps
 
-[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through MasterKey and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/MasterKey/examples/resume-tailor/)
+[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through Keyala and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/Keyala/examples/resume-tailor/)
 
 ## On the iPhone
 
 Fresh installs show a three-step guide covering the operator trust boundary,
 provider billing, connection and request review. Reopen it from **Settings →
 Getting started**. Continuing with Apple creates an account for a new user and
-signs a returning user into the same account; no separate MasterKey password is
+signs a returning user into the same account; no separate Keyala password is
 needed. Fresh installs use the built-in production address. The app has Inbox, Apps, Keys
 and Settings tabs. Scan an app's connection QR, check the source, and review the
 prompt and estimated cost before allowing a call. Sample data and server overrides
 sit under Settings → Developer options.
 
 Keys offers one-tap OpenRouter authorization, using an OpenRouter account and its
-own credits. For OpenAI or Anthropic, open the MasterKey server's `/add-key` page
+own credits. For OpenAI or Anthropic, open the Keyala server's `/add-key` page
 on a computer, scan its setup QR, paste there and confirm on the phone. Direct
 paste on the phone remains available with provider-specific format hints. The
 phone's import review never downloads the full key.
@@ -92,7 +101,7 @@ server. The identities, prompts and keys are fictional QA data.
 <img src="docs/qa/ux-20261118/review-sheet.png" width="320" alt="Native review sheet with readable request content and explicit Deny and Allow controls">
 
 ```text
-Your AI app             MasterKey                  User's iPhone
+Your AI app             Keyala                  User's iPhone
     |                      |                            |
     |  model request       |                            |
     |--------------------->|  exact payload + estimate   |
@@ -119,14 +128,14 @@ Your AI app             MasterKey                  User's iPhone
 
 Users can inspect prompts, review responses, and revoke an app's access. History
 paging keeps older calls available beyond the first page. An
-approval covers what MasterKey will send to the provider. It cannot verify every
+approval covers what Keyala will send to the provider. It cannot verify every
 claim an app makes about why it wants the result, and developers can retain
 responses they receive.
 
 ## Designed for solo developers
 
 The integration uses an app-scoped connection token in place of a vendor
-key and a MasterKey base URL. The developer never receives the user's vendor key.
+key and a Keyala base URL. The developer never receives the user's vendor key.
 The backend supports bounded, non-streaming OpenAI, Anthropic and OpenRouter text
 requests. OpenRouter uses `/v1/openrouter` with its own exact model slugs and
 provider-specific grants. Unsupported request options fail visibly.
@@ -138,14 +147,14 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:8080/v1/openai",
-    api_key=masterkey_grant_token,
+    api_key=keyala_grant_token,
     max_retries=0,
 )
 ```
 
 A request awaiting human approval can return HTTP 202 after the wait window.
 Official vendor SDKs do not inherently handle that approval workflow: the
-MasterKey wrapper must poll the request ID. See the [shared contract](docs/PLAN.md)
+Keyala wrapper must poll the request ID. See the [shared contract](docs/PLAN.md)
 before integrating. Disable SDK automatic retries: after an uncertain outcome,
 inspect the existing request instead of submitting another chargeable call.
 Streaming is outside the first version.
@@ -165,8 +174,8 @@ ownership, interface decisions, and resource limits explicit.
 
 ## The trust boundary
 
-MasterKey removes the need to share a vendor key with each app developer. It
-does introduce a service users must trust: the MasterKey operator. The server
+Keyala removes the need to share a vendor key with each app developer. It
+does introduce a service users must trust: the Keyala operator. The server
 needs to decrypt keys to make provider calls. Encryption at rest protects a
 database copy; it does not hide keys from an operator who controls the running
 server and its master encryption key.
@@ -196,7 +205,7 @@ serve different purposes and must remain distinguishable.
 ## Build with us
 
 Start with the [plan and API contract](docs/PLAN.md). Report a concrete integration
-need or a reproducible problem in [GitHub Issues](https://github.com/iamjoseph331/MasterKey/issues).
+need or a reproducible problem in [GitHub Issues](https://github.com/iamjoseph331/Keyala/issues).
 Never include real API keys, session tokens, or private prompts in an issue,
 screenshot, or pull request.
 

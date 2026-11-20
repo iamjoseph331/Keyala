@@ -11,7 +11,7 @@ enum APIError: LocalizedError {
     case reauthenticationFailed, invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession
     var errorDescription: String? {
         switch self {
-        case .reauthenticationFailed: NSLocalizedString("Identity verification failed. Verify the same account again; your account was not deleted.", comment: "")
+        case .reauthenticationFailed: localized("Identity verification failed. Verify the same account again; your account was not deleted.")
         case .invalidURL: "Enter a valid server URL."
         case .insecureServer: "Live connections require HTTPS. Enable the separate localhost development option to use local HTTP."
         case .unauthorized: "Your session expired. Sign in again."
@@ -19,13 +19,13 @@ enum APIError: LocalizedError {
         case .passwordLoginUnavailable: "Password sign-in is unavailable on this server."
         case .http(let code, let message): "Server error (\(code)): \(message)"
         case .invalidResponse: "The server returned data this app could not read."
-        case .missingSession: "Sign in to connect to your MasterKey server."
+        case .missingSession: "Sign in to connect to your Keyala server."
         }
     }
 }
 
 final class SessionVault {
-    private let service = "app.masterkey.session"
+    private let service = "app.keyala.session"
     func read(origin: String) -> AuthenticatedSession? {
         var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         query[kSecAttrAccount as String] = origin
@@ -94,8 +94,9 @@ final class APIClient {
             }
             let message: String
             switch error?["type"] as? String {
-            case "request_in_flight": message = NSLocalizedString("A request is being sent. Wait for it to finish, then try account deletion again.", comment: "")
-            case "upstream_paused": message = NSLocalizedString("The operator has paused provider requests. Check support for the service status.", comment: "")
+            case "route_changed": message = localized("The billing route changed. Review the refreshed connection before approving again.")
+            case "request_in_flight": message = localized("A request is being sent. Wait for it to finish, then try account deletion again.")
+            case "upstream_paused": message = localized("The operator has paused provider requests. Check support for the service status.")
             default: message = error?["message"] as? String ?? "Request failed."
             }
             throw APIError.http(http.statusCode, message)
@@ -142,6 +143,10 @@ final class APIClient {
         let body: Encodable? = approve ? Body(policy: policy?.mode == "ask" ? nil : policy) : nil
         return try await send("/v1/me/requests/\(id)/\(approve ? "approve" : "deny")", method: "POST", body: body)
     }
+    func routingPreferences() async throws -> RoutingPreferences { try await send("/v1/me/preferences") }
+    func updateRoutingPreferences(_ enabled: Bool) async throws -> RoutingPreferences {
+        try await send("/v1/me/preferences", method: "PATCH", body: RoutingPreferences(openRouterForDirectAPIs: enabled))
+    }
     func keys() async throws -> [KeyRecord] { try await send("/v1/me/keys") }
     func startOpenRouter(limitUSD: Double) async throws -> OpenRouterAuthorization {
         struct Body: Encodable { let limitUSD: Double; enum CodingKeys: String, CodingKey { case limitUSD = "limit_usd" } }
@@ -172,9 +177,9 @@ final class APIClient {
         return try await send("/v1/me/grants/\(id)", method: "PATCH", body: Body(policy: policy))
     }
     func connectPreview(code: String) async throws -> ConnectPreview { try await send("/v1/me/connect/\(code)") }
-    func connectDecision(code: String, approve: Bool, policy: Policy? = nil) async throws {
-        struct Body: Encodable { let policy: Policy? }
-        let _: EmptyResponse = try await send("/v1/me/connect/\(code)/\(approve ? "approve" : "deny")", method: "POST", body: approve ? Body(policy: policy) : nil)
+    func connectDecision(code: String, approve: Bool, policy: Policy? = nil, billingVendor: Provider? = nil) async throws {
+        struct Body: Encodable { let policy: Policy?; let billing_vendor: Provider? }
+        let _: EmptyResponse = try await send("/v1/me/connect/\(code)/\(approve ? "approve" : "deny")", method: "POST", body: approve ? Body(policy: policy, billing_vendor: billingVendor) : nil)
     }
     func enrollment(id: String) async throws -> KeyEnrollment { try await send("/v1/me/enroll/\(id)") }
     func claimEnrollment(id: String) async throws -> KeyEnrollment { try await send("/v1/me/enroll/\(id)/claim", method: "POST") }
@@ -201,6 +206,8 @@ struct ConnectPreview: Decodable {
     let app: App; let vendor: Provider; let suggestedPolicy: PolicyPreview?
     var origin: String?
     var requiresAsk: Bool?
+    var billingVendor: Provider? = nil
+    var keyProvider: Provider { billingVendor ?? vendor }
 
     var sourceHost: String? {
         guard let origin, let url = URLComponents(string: origin), let host = url.host else { return nil }
@@ -209,7 +216,7 @@ struct ConnectPreview: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case app, vendor, origin
-        case suggestedPolicy = "suggested_policy", requiresAsk = "requires_ask"
+        case billingVendor = "billing_vendor", suggestedPolicy = "suggested_policy", requiresAsk = "requires_ask"
     }
 }
 struct PolicyPreview: Decodable { let mode: String?; let remainingCount: Int?; enum CodingKeys: String, CodingKey { case mode; case remainingCount = "remaining_count" } }
