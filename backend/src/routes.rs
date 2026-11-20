@@ -837,9 +837,9 @@ pub async fn app_report(
     let today = chrono::Utc::now().date_naive();
     let from = today - chrono::Duration::days(days - 1);
     let since = format!("{from}T00:00:00");
-    // tokens come from the stored vendor response (OpenAI prompt/completion, Anthropic input/output)
-    const TOK: &str = "COALESCE(json_extract(r.response,'$.usage.prompt_tokens'), json_extract(r.response,'$.usage.input_tokens'), 0)";
-    const OUT: &str = "COALESCE(json_extract(r.response,'$.usage.completion_tokens'), json_extract(r.response,'$.usage.output_tokens'), 0)";
+    // token columns are written at completion (the response itself is encrypted and later purged)
+    const TOK: &str = "COALESCE(r.input_tokens, 0)";
+    const OUT: &str = "COALESCE(r.output_tokens, 0)";
     let base =
         "FROM requests r JOIN grants g ON g.id=r.grant_id WHERE r.app_id=? AND r.created_at>=?";
     let n = |st: &str| format!("SUM(r.status='{st}')");

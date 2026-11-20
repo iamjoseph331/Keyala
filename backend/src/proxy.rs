@@ -144,6 +144,7 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
 
     let mut id = new_id("req");
     let mut created = true;
+    let dek = user_dek(&s, &g.user_id).await?; // before the write tx: it may write the users row
     let mut tx = s.db.begin().await?;
     // write first: takes the SQLite write lock so reservation can't race another request.
     sqlx::query("UPDATE grants SET last_used_at=? WHERE id=?")
@@ -189,7 +190,7 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
         );
         sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen,idem_key,body_hash,billing_vendor,upstream_model) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             .bind(&id).bind(&g.id).bind(&g.user_id).bind(&g.app_id).bind(vendor).bind(chk.model.name).bind(endpoint).bind(status)
-            .bind(estimate_micro).bind(micro).bind(count).bind(payload.to_string()).bind(now())
+            .bind(estimate_micro).bind(micro).bind(count).bind(seal_text(&dek, &id, "payload", &payload.to_string())).bind(now())
             .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS)).bind(gen).bind(&idem).bind(&body_hash)
             .bind(&g.billing_vendor).bind(upstream_model)
             .execute(&mut *tx).await?;
@@ -375,10 +376,24 @@ pub async fn deny_request(
     Ok(Json(r.json(true)))
 }
 
-/// Expires stale pending requests (10 minutes).
+/// Prompts and responses are kept this long after a request is decided, then removed (metadata stays).
+pub const RETENTION_DAYS: i64 = 30;
+
+/// Removes content of finished requests older than RETENTION_DAYS. Undecided, in-flight and
+/// `uncertain` requests keep theirs (someone may still need to check them).
+pub async fn purge_expired_content(s: &AppState) -> Result<u64, sqlx::Error> {
+    Ok(sqlx::query("UPDATE requests SET payload='', response=NULL, purged=1 WHERE purged=0 AND status IN ('completed','failed','denied','expired') AND COALESCE(completed_at, decided_at, created_at) < ?")
+        .bind(after(-RETENTION_DAYS * 86_400))
+        .execute(&s.db)
+        .await?
+        .rows_affected())
+}
+
+/// Expires stale pending requests (10 minutes) and applies content retention.
 pub async fn sweeper(s: AppState) {
     loop {
         tokio::time::sleep(Duration::from_secs(30)).await;
+        let _ = purge_expired_content(&s).await;
         // key enrollments never outlive their 10 minutes, and neither does an uploaded key
         let _ = sqlx::query("UPDATE enrollments SET status='expired', ciphertext=NULL, nonce=NULL WHERE expires_at<=? AND status IN ('pending','claimed','submitted')").bind(now()).execute(&s.db).await;
         // flows stay readable for a day after their 10 minutes, then go
@@ -545,9 +560,21 @@ async fn finish(
     body: &str,
     actual: Option<i64>,
 ) -> Result<(), sqlx::Error> {
+    // token counts kept as columns: reports must not need the (encrypted, later purged) response
+    let usage = serde_json::from_str::<Value>(body)
+        .ok()
+        .map(|v| v["usage"].clone());
+    let tokens = |a: &str, b: &str| {
+        usage
+            .as_ref()
+            .and_then(|u| u[a].as_i64().or_else(|| u[b].as_i64()))
+    };
+    let sealed_body = seal_text(&user_dek(s, &r.user_id).await?, &r.id, "response", body);
     let mut tx = s.db.begin().await?;
-    sqlx::query("UPDATE requests SET status=?, http_status=?, response=?, actual_micro=?, completed_at=? WHERE id=? AND status='sending'")
-        .bind(status).bind(http as i64).bind(body).bind(actual).bind(now()).bind(&r.id).execute(&mut *tx).await?;
+    sqlx::query("UPDATE requests SET status=?, http_status=?, response=?, actual_micro=?, completed_at=?, input_tokens=?, output_tokens=? WHERE id=? AND status='sending'")
+        .bind(status).bind(http as i64).bind(sealed_body).bind(actual).bind(now())
+        .bind(tokens("prompt_tokens", "input_tokens")).bind(tokens("completion_tokens", "output_tokens"))
+        .bind(&r.id).execute(&mut *tx).await?;
     match status {
         "completed" => {
             // no usage: charge the estimate and keep the reservation as is.

@@ -26,7 +26,7 @@
 <h2>Your keys and requests</h2>
 <ul>
 <li>Provider keys are encrypted at rest. The server decrypts a key in memory to forward a request you allowed, so the operator of this server can technically access it. You are trusting the operator.</li>
-<li>Requests and responses (the prompt, the reply, timestamps, model and computed cost) are stored so you can review them in the app. They are kept until you delete your account; there is no automatic expiry yet.</li>
+<li>Requests and responses (the prompt, the reply, timestamps, model and computed cost) are stored so you can review them in the app. They are stored encrypted, and the prompt and reply are deleted 30 days after you decide on the request (or earlier if you delete your account). Cost, model and timestamps stay so the history and totals still add up.</li>
 <li>Data goes to: the provider you chose (your key and the request), the app that made the request (the response), and the hosting service this server runs on. Your sign-in identity comes from Apple or the operator's own login.</li>
 <li>Optional OpenRouter routing is off by default. If you turn it on, requests to OpenAI or Anthropic apps are sent through OpenRouter and its downstream providers instead of directly to the provider, so they see the request, and the cost is charged to your OpenRouter credits rather than your OpenAI or Anthropic account.</li>
 <li>Developer reports are aggregates only (counts, cost, model, country code). They never include prompts, responses, keys or personal identifiers.</li>
@@ -49,7 +49,7 @@
 <h2>你的金鑰與請求</h2>
 <ul>
 <li>供應商金鑰以加密方式儲存。伺服器為了轉送你允許的請求，會在記憶體中解密金鑰，因此本伺服器的營運者在技術上能存取金鑰。你必須信任營運者。</li>
-<li>請求與回應（提示內容、回覆、時間、模型與計算出的費用）會保存，方便你在 App 中查看。保存到你刪除帳號為止，目前沒有自動到期機制。</li>
+<li>請求與回應（提示內容、回覆、時間、模型與計算出的費用）會保存，方便你在 App 中查看。內容以加密方式保存，並在你做出決定 30 天後刪除提示與回覆（刪除帳號時會更早刪除）。費用、模型與時間會保留，讓歷史紀錄與總額仍然正確。</li>
 <li>資料會送到：你選擇的供應商（金鑰與請求）、發出請求的 App（回應），以及本伺服器所在的主機服務。登入身分來自 Apple 或營運者自己的登入方式。</li>
 <li>選用的 OpenRouter 轉送預設為關閉。若你開啟，OpenAI 或 Anthropic App 的請求會經由 OpenRouter 及其下游供應商轉送，而不是直接送給原供應商，因此它們會看到請求內容，費用也會從你的 OpenRouter 額度扣除，而非你的 OpenAI 或 Anthropic 帳戶。</li>
 <li>開發者報表只有彙總資料（次數、費用、模型、國家代碼），不含提示內容、回應、金鑰或個人識別資訊。</li>
@@ -72,7 +72,7 @@
 <h2>キーとリクエストについて</h2>
 <ul>
 <li>プロバイダーのキーは暗号化して保存されます。許可したリクエストを転送するため、サーバーはメモリ上でキーを復号します。そのため、このサーバーの運営者は技術的にキーへアクセスできます。運営者を信頼していただく必要があります。</li>
-<li>リクエストとレスポンス（プロンプト、返答、日時、モデル、計算した費用）は、アプリで確認できるよう保存されます。アカウントを削除するまで保持され、自動的な期限はまだありません。</li>
+<li>リクエストとレスポンス（プロンプト、返答、日時、モデル、計算した費用）は、アプリで確認できるよう保存されます。内容は暗号化して保存され、プロンプトと返答は承認または拒否から 30 日後に削除されます（アカウントを削除した場合はその時点で削除）。費用、モデル、日時は履歴と合計のために残ります。</li>
 <li>データの送信先：選択したプロバイダー（キーとリクエスト）、リクエストしたアプリ（レスポンス）、このサーバーが動作するホスティングサービス。ログイン情報は Apple または運営者独自のログインに由来します。</li>
 <li>任意の OpenRouter 経由転送は初期設定でオフです。オンにすると、OpenAI または Anthropic 向けアプリのリクエストは、プロバイダーへ直接ではなく OpenRouter とその下流のプロバイダーを経由して送られるため、それらがリクエスト内容を受け取り、費用は OpenAI や Anthropic のアカウントではなく OpenRouter のクレジットから引かれます。</li>
 <li>開発者レポートは集計のみ（件数、費用、モデル、国コード）で、プロンプト、レスポンス、キー、個人を特定できる情報は含みません。</li>
