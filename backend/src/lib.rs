@@ -214,7 +214,7 @@ pub struct Inner {
 }
 pub type AppState = Arc<Inner>;
 
-pub use proxy::send_request;
+pub use proxy::{purge_expired_content, send_request, RETENTION_DAYS};
 
 pub async fn build_app(cfg: Config) -> Result<Router, Box<dyn std::error::Error>> {
     Ok(router(build_state(cfg).await?))
@@ -224,6 +224,8 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     let opts = SqliteConnectOptions::from_str(&cfg.database_url)?
         .create_if_missing(true)
         .foreign_keys(true)
+        // deleted rows (keys, prompts) are zeroed in the file, not left in free pages
+        .pragma("secure_delete", "on")
         .busy_timeout(Duration::from_secs(10));
     let db = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(8)
@@ -248,6 +250,12 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         jwks: Default::default(),
         apns_jwt: Default::default(),
     });
+    // retention first (nothing to encrypt that is due anyway), then encrypt rows written before 0013
+    proxy::purge_expired_content(&state).await?;
+    if encrypt_legacy_requests(&state).await? > 0 {
+        // one-time: rewrite the file so the old plaintext pages are gone too
+        sqlx::query("VACUUM").execute(&state.db).await?;
+    }
     for a in &state.cfg.public_apps {
         // the secret is random and discarded: declared apps are browser-only
         sqlx::query("INSERT INTO apps (id,name,homepage,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, homepage=excluded.homepage, allowed_origins=excluded.allowed_origins")
@@ -318,6 +326,10 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(developer)
         .route("/healthz", get(|| async { "ok" }))
+        .route(
+            "/",
+            get(|| async { axum::response::Redirect::to(routes::GET_APP_URL) }),
+        )
         .route("/v1/status", get(ops::status))
         .route("/v1/me/sessions/revoke-all", post(ops::revoke_sessions))
         .route("/v1/me/stop-all", post(ops::stop_all))
@@ -392,6 +404,15 @@ impl IntoResponse for ApiError {
 }
 impl From<sqlx::Error> for ApiError {
     fn from(e: sqlx::Error) -> Self {
+        if let sqlx::Error::Protocol(m) = &e {
+            if m.ends_with(UNREADABLE) {
+                // wrong KEYALA_MASTER_KEY for this database (see RUNBOOK): say so, never mint a new key over it
+                tracing::error!(
+                    "{m}: is KEYALA_MASTER_KEY the one this database was written with?"
+                );
+                return api(503, "data_key_unreadable", "stored data cannot be decrypted with this server's key; the operator has been alerted");
+            }
+        }
         tracing::error!("db error: {e}");
         api(500, "internal", "internal error")
     }
@@ -482,6 +503,96 @@ pub fn decrypt(master: &[u8; 32], aad: &str, ct: &[u8], nonce: &[u8]) -> Option<
 /// AAD binds a ciphertext to its (user, vendor) row.
 pub fn key_aad(user: &str, vendor: &str) -> String {
     format!("{user}|{vendor}")
+}
+
+const UNREADABLE: &str = " could not be decrypted";
+fn unreadable(what: &str) -> sqlx::Error {
+    sqlx::Error::Protocol(format!("{what}{UNREADABLE}"))
+}
+
+/// The user's data key: created on first use, stored wrapped with the master key (AAD `dek|{user}`).
+/// Call it outside any open write transaction (it may write the users row itself).
+pub async fn user_dek(s: &AppState, user: &str) -> Result<[u8; 32], sqlx::Error> {
+    let aad = format!("dek|{user}");
+    for _ in 0..2 {
+        let (ct, n): (Option<Vec<u8>>, Option<Vec<u8>>) =
+            sqlx::query_as("SELECT dek_ct, dek_nonce FROM users WHERE id=?")
+                .bind(user)
+                .fetch_one(&s.db)
+                .await?;
+        if let (Some(ct), Some(n)) = (ct, n) {
+            return decrypt(&s.cfg.master_key, &aad, &ct, &n)
+                .and_then(|k| STANDARD.decode(k).ok())
+                .and_then(|k| k.try_into().ok())
+                .ok_or_else(|| unreadable("user data key"));
+        }
+        let mut k = [0u8; 32];
+        rand::RngCore::fill_bytes(&mut OsRng, &mut k);
+        let (ct, n) = encrypt(&s.cfg.master_key, &aad, &STANDARD.encode(k));
+        // a concurrent first use may win: then the loop reads that one
+        sqlx::query("UPDATE users SET dek_ct=?, dek_nonce=? WHERE id=? AND dek_ct IS NULL")
+            .bind(ct)
+            .bind(n)
+            .bind(user)
+            .execute(&s.db)
+            .await?;
+    }
+    Err(unreadable("user data key"))
+}
+
+/// Request content at rest: `enc1:` + base64url(nonce || AES-GCM ciphertext), AAD `req|{id}|{field}`.
+pub fn seal_text(dek: &[u8; 32], id: &str, field: &str, plain: &str) -> String {
+    let (ct, nonce) = encrypt(dek, &format!("req|{id}|{field}"), plain);
+    format!("enc1:{}", URL_SAFE_NO_PAD.encode([nonce, ct].concat()))
+}
+/// Plaintext (rows from before encryption) passes through unchanged.
+fn open_text(dek: &[u8; 32], id: &str, field: &str, stored: &str) -> Option<String> {
+    let Some(b) = stored.strip_prefix("enc1:") else {
+        return Some(stored.to_string());
+    };
+    let b = URL_SAFE_NO_PAD.decode(b).ok().filter(|b| b.len() > 12)?;
+    decrypt(dek, &format!("req|{id}|{field}"), &b[12..], &b[..12])
+}
+fn sealed(v: &str) -> bool {
+    v.starts_with("enc1:")
+}
+
+/// Encrypts request content stored before migration 0013, in small batches. Returns rows changed.
+async fn encrypt_legacy_requests(s: &AppState) -> Result<usize, sqlx::Error> {
+    let mut done = 0;
+    loop {
+        let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            // only rows whose user exists (requests.user_id has no foreign key); deletion removes the rest
+            "SELECT r.id, r.user_id, r.payload, r.response FROM requests r JOIN users u ON u.id=r.user_id WHERE r.purged=0 AND (r.payload NOT LIKE 'enc1:%' OR r.response NOT LIKE 'enc1:%') LIMIT 100",
+        )
+        .fetch_all(&s.db)
+        .await?;
+        if rows.is_empty() {
+            return Ok(done);
+        }
+        for (id, user, payload, response) in rows {
+            let dek = user_dek(s, &user).await?;
+            let p = if sealed(&payload) {
+                payload
+            } else {
+                seal_text(&dek, &id, "payload", &payload)
+            };
+            let r = response.map(|r| {
+                if sealed(&r) {
+                    r
+                } else {
+                    seal_text(&dek, &id, "response", &r)
+                }
+            });
+            sqlx::query("UPDATE requests SET payload=?, response=? WHERE id=?")
+                .bind(p)
+                .bind(r)
+                .bind(&id)
+                .execute(&s.db)
+                .await?;
+            done += 1;
+        }
+    }
 }
 
 // ---------- auth ----------
@@ -688,7 +799,7 @@ pub async fn set_policy(
 // ---------- row types & JSON ----------
 
 pub const GRANT_SELECT: &str = "SELECT g.id, g.user_id, g.app_id, g.vendor, COALESCE(g.billing_vendor, g.vendor) AS billing_vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM grants g JOIN apps a ON a.id=g.app_id";
-pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, COALESCE(r.billing_vendor, r.vendor) AS billing_vendor, r.upstream_model, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
+pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, COALESCE(r.billing_vendor, r.vendor) AS billing_vendor, r.upstream_model, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.purged, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
 
 pub fn app_json(id: &str, name: &str, homepage: &Option<String>, icon: &Option<String>) -> Value {
     json!({"id": id, "name": name, "homepage": homepage, "icon_url": icon})
@@ -749,6 +860,8 @@ pub struct RequestRow {
     pub payload: String,
     pub response: Option<String>,
     pub http_status: Option<i64>,
+    /// 1 = content removed by the retention sweep
+    pub purged: i64,
     created_at: String,
     decided_at: Option<String>,
     completed_at: Option<String>,
@@ -766,8 +879,13 @@ impl RequestRow {
             "vendor": self.vendor, "billing_vendor": self.billing_vendor, "model": self.model, "upstream_model": self.upstream_model,
             "endpoint": self.endpoint, "status": self.status,
             "estimated_usd": usd(self.estimated_micro), "actual_usd": self.actual_micro.map(usd),
-            "created_at": self.created_at, "decided_at": self.decided_at, "completed_at": self.completed_at});
-        if detail {
+            "created_at": self.created_at, "decided_at": self.decided_at, "completed_at": self.completed_at,
+            "purged": self.purged != 0});
+        if detail && self.purged != 0 {
+            // content removed by the retention sweep; only metadata is left
+            v["payload"] = Value::Null;
+            v["response"] = Value::Null;
+        } else if detail {
             fn parse(s: &str) -> Value {
                 serde_json::from_str(s).unwrap_or_else(|_| Value::String(s.into()))
             }
@@ -778,11 +896,26 @@ impl RequestRow {
     }
 }
 
+/// One request with its content decrypted (the only way content is read back).
 pub async fn request_row(s: &AppState, id: &str) -> Result<Option<RequestRow>, sqlx::Error> {
-    sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?"))
+    let r: Option<RequestRow> = sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?"))
         .bind(id)
         .fetch_optional(&s.db)
-        .await
+        .await?;
+    let Some(mut r) = r else { return Ok(None) };
+    if sealed(&r.payload) || r.response.as_deref().is_some_and(sealed) {
+        let dek = user_dek(s, &r.user_id).await?;
+        r.payload = open_text(&dek, &r.id, "payload", &r.payload)
+            .ok_or_else(|| unreadable("request payload"))?;
+        r.response = match r.response.take() {
+            None => None,
+            Some(v) => Some(
+                open_text(&dek, &r.id, "response", &v)
+                    .ok_or_else(|| unreadable("request response"))?,
+            ),
+        };
+    }
+    Ok(Some(r))
 }
 
 // ---------- events ----------

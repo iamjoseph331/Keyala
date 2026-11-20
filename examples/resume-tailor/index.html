@@ -191,7 +191,7 @@
     </a>
     <div class="right">
       <a href="#how" data-i18n="nav.how"></a>
-      <a href="https://iamjoseph331.github.io/Keyala/" target="_blank" rel="noopener">Keyala</a>
+      <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
       <select id="ui-lang" aria-label="Language">
         <option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option>
       </select>
@@ -226,8 +226,8 @@
             </ol>
             <div class="get">
               <!-- Points to the Keyala site until there is an App Store listing; swap keyala-qr.svg for the App Store QR then. -->
-              <img src="keyala-qr.svg" alt="QR: iamjoseph331.github.io/Keyala">
-              <div><b data-i18n="ky.get"></b><a href="https://iamjoseph331.github.io/Keyala/" target="_blank" rel="noopener" data-i18n="ky.what"></a></div>
+              <img src="keyala-qr.svg" alt="QR: keyala.io">
+              <div><b data-i18n="ky.get"></b><a href="https://keyala.io/" target="_blank" rel="noopener" data-i18n="ky.what"></a></div>
             </div>
           </aside>
         </div>
@@ -491,7 +491,7 @@ const TONES = [['professional', 'professional'], ['confident', 'confident and ac
 // Staging (any host): ?server=staging. Only these two fixed servers can be picked by URL.
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const qs = new URLSearchParams(location.search);
-const SERVERS = { prod: 'https://masterkey-prod-vkgm.onrender.com', staging: 'https://masterkey-staging-vkgm.onrender.com' };
+const SERVERS = { prod: 'https://app.keyala.io', staging: 'https://staging.keyala.io' };
 const KEYALA_URL = ((LOCAL && qs.get('ky')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
 const APP_ID = (LOCAL && qs.get('app')) || 'app_resume_tailor';
 

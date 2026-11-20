@@ -1,6 +1,6 @@
 /* Keyala web SDK. Served by each Keyala server at /sdk/keyala.js and talks to that same server.
  *
- *   <script src="https://masterkey-prod-vkgm.onrender.com/sdk/keyala.js"></script>
+ *   <script src="https://app.keyala.io/sdk/keyala.js"></script>
  *   const { grant_token } = await Keyala.connect({ app: "app_...", vendor: "openai" });
  *   // then call {server}/v1/openai/chat/completions with Authorization: Bearer grant_token
  *
@@ -13,8 +13,8 @@
 (() => {
   if (window.Keyala) return;
   const SCRIPT = document.currentScript && document.currentScript.src;
-  const SERVER = SCRIPT ? new URL(SCRIPT).origin : 'https://masterkey-prod-vkgm.onrender.com';
-  const GET_APP = 'https://iamjoseph331.github.io/Keyala/';
+  const SERVER = SCRIPT ? new URL(SCRIPT).origin : 'https://app.keyala.io';
+  const GET_APP = 'https://keyala.io/';
   const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic', openrouter: 'OpenRouter' };
   const T = {
     en: { title: 'Use your own {v} key', why: 'Approve on your phone with Keyala. Your key stays in Keyala and you approve each call.', scan: 'Scan with your iPhone camera', open: 'Open Keyala', code: 'Or enter this code in the app', wait: 'Waiting for your phone…', app: 'Approve on your phone.', web: 'Your phone opened the link but Keyala is not installed. Install it, sign in, then scan again.', webPhone: 'Keyala is not installed yet. Get it, sign in, then come back and tap Open Keyala again.', get: 'No app yet? Get Keyala', cancel: 'Cancel', expired: 'This code expired.', again: 'New code', denied: 'You declined on your phone.', unreachable: 'Could not reach Keyala. It may be waking up; try again in a minute.', waking: 'Waking up the Keyala server, this can take up to a minute…', btn: 'Connect Keyala', on: 'Keyala connected' },

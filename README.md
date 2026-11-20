@@ -2,7 +2,7 @@
 
 ### Your key. Your call.
 
-[![Keyala: user-approved AI requests](site/social.svg)](https://iamjoseph331.github.io/Keyala/)
+[![Keyala: user-approved AI requests](site/social.svg)](https://keyala.io/)
 
 Build AI tools people can try without handing you their API keys.
 
@@ -19,9 +19,9 @@ limits. It is an early service with no uptime or immediate-support guarantee.
 Start with a separate, restricted provider key and a small provider-side spending
 limit where available. The beta is free; model usage is billed by your provider.
 
-[Privacy & data](https://iamjoseph331.github.io/Keyala/privacy/) | [Help & contact](https://iamjoseph331.github.io/Keyala/support/) | [Email Joseph](mailto:josephchen637@gmail.com)
+[Privacy & data](https://keyala.io/privacy/) | [Help & contact](https://keyala.io/support/) | [Email support](mailto:support@keyala.io)
 
-[Try the interactive demo](https://iamjoseph331.github.io/Keyala/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
+[Try the interactive demo](https://keyala.io/) | [Architecture and API contract](docs/PLAN.md) | [iOS app](ios/)
 
 > Working MVP. Native iOS pairing, approval, denial, and response inspection are
 > tested against the Rust server with a mock provider. Production uses a persistent
@@ -42,7 +42,7 @@ subscription. The settings guide can be hidden and reopened.
 
 ## Start building
 
-[Developer console](https://iamjoseph331.github.io/Keyala/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://iamjoseph331.github.io/Keyala/tutorials/) walk through app registration, phone approval, provider requests, and a browser integration.
+[Developer console](https://keyala.io/developers/) creates an app token and opens app-scoped usage reports. [Tutorials](https://keyala.io/tutorials/) walk through app registration, phone approval, provider requests, and a browser integration.
 
 ## Try the local demo
 
@@ -73,7 +73,7 @@ application.
 
 ## Example apps
 
-[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through Keyala and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://iamjoseph331.github.io/Keyala/examples/resume-tailor/)
+[Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through Keyala and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://keyala.io/examples/resume-tailor/)
 
 ## On the iPhone
 
