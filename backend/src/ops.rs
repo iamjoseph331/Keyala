@@ -69,7 +69,7 @@ pub async fn revoke_sessions(
 /// Ends only the session whose token is sent. A token that is already gone answers 401 like any
 /// dead session, so clients treat 401 on logout as "already signed out" and clear local state either way.
 pub async fn logout(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
-    auth_session(&s, &h).await?;
+    auth_level(&s, &h, READ).await?; // a web session may sign itself out
     let me = hash_token(bearer(&h, "keyala_sess_").unwrap_or_default());
     sqlx::query("DELETE FROM sessions WHERE token_hash=?")
         .bind(&me)
@@ -311,6 +311,9 @@ pub async fn delete_account(
         "DELETE FROM devices WHERE user_id=?1",
         "DELETE FROM enrollments WHERE user_id=?1",
         "DELETE FROM oauth_flows WHERE user_id=?1",
+        "DELETE FROM web_logins WHERE user_id=?1",
+        // apps outlive their owner: they keep working with their secret
+        "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id=?1",
         "DELETE FROM users WHERE id=?1",
     ] {
         sqlx::query(q).bind(&u).execute(&mut *tx).await?;

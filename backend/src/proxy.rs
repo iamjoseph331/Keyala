@@ -283,7 +283,7 @@ pub async fn approve_request(
     Path(id): Path<String>,
     J(b): J<ApproveReq>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     let policy = b.policy.map(PolicyIn::parse).transpose()?;
     let mut tx = s.db.begin().await?;
     // conditional UPDATE first: it's both the single-decision guard and the write lock.
@@ -355,7 +355,7 @@ pub async fn deny_request(
     h: HeaderMap,
     Path(id): Path<String>,
 ) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
+    let u = auth_level(&s, &h, ACT).await?;
     let r = sqlx::query("UPDATE requests SET status='denied', decided_at=? WHERE id=? AND user_id=? AND status='pending'").bind(now()).bind(&id).bind(&u).execute(&s.db).await?;
     if r.rows_affected() != 1 {
         return Err(

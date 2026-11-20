@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Keyala console</title>
+<style>
+:root{--paper:#FAF7F2;--card:#fff;--ink:#1F1B16;--muted:#6F675D;--line:#ECE6DC;--green:#3D7A57;--green-ink:#fff;--bad:#B3402F;--heat:61,122,87}
+@media (prefers-color-scheme:dark){:root{--paper:#17140F;--card:#211D17;--ink:#F3EEE6;--muted:#A39A8D;--line:#332D25;--green:#6FB58A;--green-ink:#10200F;--bad:#E57A68;--heat:111,181,138}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:920px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+header h1{font-size:1.2rem;margin:0;flex:1}
+h2{font-size:1.1rem;margin:24px 0 8px}h3{font-size:1rem;margin:16px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:8px 0}
+.muted{color:var(--muted);font-size:.9rem}.bad{color:var(--bad)}
+button,input{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 14px;cursor:pointer;min-height:40px}
+button.primary{background:var(--green);color:var(--green-ink);border-color:var(--green)}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+input{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 12px;min-height:40px}
+label{display:block;margin:10px 0 4px;font-size:.9rem;color:var(--muted)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none}
+.tabs button[aria-selected=true]{border-bottom-color:var(--green);font-weight:600}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row>div{min-width:0;overflow-wrap:anywhere}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.stat{padding:8px 12px;border:1px solid var(--line);border-radius:10px}.stat b{display:block;font-size:1.3rem}
+.qr{display:block;margin:12px auto;width:220px;height:220px;background:#fff;border-radius:8px;padding:6px}
+.secret{font-family:ui-monospace,monospace;font-size:.8rem;word-break:break-all;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto;font-size:.8rem}
+.bars{display:flex;align-items:flex-end;gap:2px;height:80px;margin-top:8px}
+.bars i{flex:1;background:var(--green);min-height:1px;border-radius:2px 2px 0 0}
+.heat{display:grid;grid-template-columns:2.2em repeat(24,1fr);gap:1px;font-size:.65rem}
+.heat span{aspect-ratio:1;border-radius:2px;background:rgba(var(--heat),var(--a,0));min-width:0}
+.heat em{font-style:normal;color:var(--muted);align-self:center}
+.err{color:var(--bad);margin:8px 0}
+</style>
+</head>
+<body>
+<main id="app"><p class="muted">Loading…</p></main>
+<script src="/console.js"></script>
+</body>
+</html>

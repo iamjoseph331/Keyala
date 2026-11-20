@@ -213,6 +213,53 @@ SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidate
 `/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{KEYALA_APPLE_TEAM_ID}.{KEYALA_APPLE_BUNDLE_ID}`
 (default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `keyala://connect/{code}` and `keyala://enroll/{id}` remain.
 
+### Web console (`/console`)
+
+A page served by the server itself (same origin as the API, so no CORS; CSP `default-src 'self'`). Two ways in, both end in a
+**web-scoped session**: `scope: "web"`, expires 12 h after creation (`expires_at`), never refreshed. App sessions
+(`scope` app, no expiry) are unchanged.
+
+**Web-session allowlist (fail closed).** Handlers opt in with `auth_level(READ)`; every other session route answers
+`403 web_session_not_allowed`. Allowed: `GET /v1/me`, `GET /v1/me/keys`, `GET /v1/me/grants`, `DELETE /v1/me/grants/{id}`
+(revoke), `GET /v1/me/requests` (+ `/{id}`), `GET /v1/me/preferences`, `GET /v1/me/events`, `POST /v1/me/logout`, and
+`/v1/me/apps*` below. Everything else is refused: approve/deny requests and connects, PUT/DELETE keys, PATCH grants,
+enroll, OAuth, devices, password set/delete, web-login preview/approve/deny, stop-all, revoke-all, delete account,
+preferences PATCH. An expired web token is `401 unauthorized`.
+
+**`GET /v1/me`** (any session) -> `{id, email, auth_provider: apple|password|dev, has_password}`.
+
+**Phone sign-in for the web**
+- `POST /v1/web/login` (no auth; 20 per 10 min per address, else 429) -> `{login_id, login_secret, qr_url, url, expires_at}`.
+  `login_id` = `wl_` + 22 base64url chars (25 total); `login_secret` = `keyala_wl_...`; `url` = `{public_url}/login/{login_id}`
+  (universal link, AASA `/login/*`; custom scheme `keyala://login/{login_id}`); `qr_url` = `{url}/qr.svg`; valid 5 minutes.
+  The server records the browser's `User-Agent` (first 200 chars) and country (`KEYALA_COUNTRY_HEADER`, like grants).
+- `GET /v1/web/login/{login_id}` with `Authorization: Bearer {login_secret}` (wrong/missing secret or unknown id: 401) ->
+  `{status: pending|approved|denied|expired|used}`. Once approved, the FIRST poll returns
+  `{status:"approved", session_token, expires_at, scope:"web", user:{id,email,auth_provider}}` and the row becomes `used`
+  (later polls: `{status:"used"}`, no token). The session belongs to the user who approved.
+- Phone (app session only; web sessions get 403): `GET /v1/me/web-login/{id}` -> `{id, status, created_at, expires_at,
+  user_agent (nullable, max 200 chars), country (nullable, 2 letters)}`; unknown/malformed id: 404.
+  `POST /v1/me/web-login/{id}/approve` and `/deny` (empty body) -> `{id, status: "approved"|"denied"}`; only while `pending`
+  and unexpired, first decision wins, otherwise `409 not_pending`.
+- `GET /login/{id}` (HTML, "Open in the Keyala app" -> `keyala://login/{id}`), `GET /login/{id}/qr.svg`.
+
+**Web password.** `PUT /v1/me/password {password}` (app session; 12..=200 chars else 400; stored as an argon2id hash on the
+user; -> `{has_password:true}`), `DELETE /v1/me/password` (-> `{has_password:false}`). `POST /v1/auth/password
+{username, password}` now has two meanings: the operator account (`KEYALA_PASSWORD_LOGIN`, unchanged: app-scoped session) or
+`username` = an account's email (case-insensitive) with a password set -> web-scoped session (response adds `expires_at`,
+`scope:"web"`). Unknown user and wrong password are the same `401 invalid_credentials` (an argon2 verify always runs); 10 per
+10 min per address (429). **Behavior change:** the endpoint no longer answers 404 when `KEYALA_PASSWORD_LOGIN` is unset.
+
+**Developer apps owned by accounts** (`apps.owner_user_id`, nullable; web or app session; non-owner = 404)
+- `GET /v1/me/apps` -> `[{id, name, homepage, allowed_origins, created_at, requests_7d, cost_usd_7d}]` (7 UTC days, today included).
+- `POST /v1/me/apps {name, homepage?, icon_url?, allowed_origins?}` -> `{app_id, app_secret}` (secret shown once; same validation as
+  `POST /v1/apps`; 20 per hour per address).
+- `POST /v1/me/apps/claim {app_secret}` -> the app summary above. Attaches an unowned app whose secret verifies (`401
+  invalid_app_secret`; `409 already_owned` if another account owns it; idempotent for the owner). 10 per 10 min per address.
+- `GET /v1/me/apps/{id}/report?days=` -> exactly the `/v1/app/report` shape. `POST /v1/me/apps/{id}/secret` -> `{app_secret}`
+  (rotation; the old secret dies at once).
+- Deleting the account detaches its apps (owner set to null); they keep working with their secret.
+
 ### Account controls and operations (launch readiness)
 | Method | Path | Auth | Notes |
 |---|---|---|---|
