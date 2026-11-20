@@ -47,7 +47,9 @@ async function api(method, path, body, auth) {
   if (t) hd.authorization = 'Bearer ' + t;
   const r = await fetch(path, { method, headers: hd, body: body === undefined ? undefined : JSON.stringify(body) });
   let j = null; try { j = await r.json() } catch (e) {}
-  if (r.status === 401 && auth === undefined && token) { setToken(null); start(L.expired); throw new Error('expired'); }
+  // only the session that made this call may be cleared; a late answer for an old session must not sign out a newer one
+  if (r.status === 401 && auth === undefined && t && t === token) { setToken(null); start(L.expired); throw new Error('expired'); }
+  if (r.status === 401 && auth === undefined && t !== token) throw new Error('expired');
   if (!r.ok) throw new Error((j && j.error && j.error.message) || L.error);
   return j;
 }
@@ -169,12 +171,13 @@ async function accountView(body) {
 
 function requestRow(r, err) {
   const detail = h('div', { hidden: true });
-  const head = h('div', { class: 'row', style: 'cursor:pointer' },
-    h('div', {}, h('b', {}, r.app.name), ' ', h('span', { class: 'muted' }, r.vendor + ', ' + r.model + ', ' + r.status)),
-    h('div', { class: 'muted' }, when(r.created_at) + ', ' + L.cost + ' ' + (r.actual_usd != null ? money(r.actual_usd) : money(r.estimated_usd) + ' (' + L.estimate + ')')));
+  const head = h('button', { type: 'button', class: 'row reqhead', 'aria-expanded': 'false' },
+    h('span', {}, h('b', {}, r.app.name), ' ', h('span', { class: 'muted' }, r.vendor + ', ' + r.model + ', ' + r.status)),
+    h('span', { class: 'muted' }, when(r.created_at) + ', ' + L.cost + ' ' + (r.actual_usd != null ? money(r.actual_usd) : money(r.estimated_usd) + ' (' + L.estimate + ')')));
   let loaded = false;
   head.addEventListener('click', async () => {
     detail.hidden = !detail.hidden;
+    head.setAttribute('aria-expanded', String(!detail.hidden));
     if (detail.hidden || loaded) return;
     try {
       const d = await api('GET', '/v1/me/requests/' + encodeURIComponent(r.id)); loaded = true;
