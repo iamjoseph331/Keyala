@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101c28">
   <meta name="description" content="Let people bring their own model API key and approve each AI request from their phone. Your key. Your call.">
-  <meta property="og:title" content="MasterKey — Your key. Your call.">
+  <meta property="og:title" content="Keyala — Your key. Your call.">
   <meta property="og:description" content="A user-controlled way to bring model API keys to AI apps.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://iamjoseph331.github.io/MasterKey/social.svg">
-  <title>MasterKey — Your key. Your call.</title>
+  <meta property="og:image" content="https://iamjoseph331.github.io/Keyala/social.svg">
+  <title>Keyala — Your key. Your call.</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <script src="./script.js" defer></script>
@@ -17,9 +17,9 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="wordmark" href="#top" aria-label="MasterKey home">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M12.2 18.1a7.4 7.4 0 1 1 5.6-2.6L29 26.7l-2.3 2.3-3.4-3.4-2 2-3-3 2-2-3.1-3.1a7.4 7.4 0 0 1-5 1.6Zm0-3.5a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z"/></svg></span>
-      <span>masterkey</span>
+    <a class="wordmark" href="#top" aria-label="Keyala home">
+      <span class="brand-mark" aria-hidden="true"><img src="./keyala-koala.svg" width="32" height="32" alt=""></span>
+      <span>keyala</span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
       <a href="#how">How it works</a>
@@ -27,7 +27,7 @@
       <a href="./tutorials/">Tutorials</a>
       <a href="./developers/">Developer console</a>
     </nav>
-    <a class="header-link" href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+    <a class="header-link" href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
   </header>
 
   <main id="main">
@@ -50,7 +50,7 @@
         <div class="phone">
           <div class="phone-island"></div>
           <div class="phone-top"><span>9:41</span><span class="phone-status">◉ &nbsp; ▮</span></div>
-          <div class="phone-app"><span class="mini-mark">m</span><span>MasterKey</span><span class="avatar">J</span></div>
+          <div class="phone-app"><img class="mini-mark" src="./keyala-koala.svg" width="24" height="24" alt=""><span>Keyala</span><span class="avatar">J</span></div>
           <div class="phone-content">
             <p class="phone-kicker">APP REQUEST</p>
             <h2>Paperplane<br>Assistant</h2>
@@ -74,12 +74,12 @@
       <p class="eyebrow eyebrow-dark">A different way to pay for AI</p>
       <div class="intro-grid">
         <h2 id="intro-title">Your app brings the request.<br><em>The user brings the key.</em></h2>
-        <p>MasterKey sits between your app and a model provider. The user connects their own key, sees what the app wants to send, and approves the request on their phone. Your server gets a grant token, never their provider key.</p>
+        <p>Keyala sits between your app and a model provider. The user connects their own key, sees what the app wants to send, and approves the request on their phone. Your server gets a grant token, never their provider key.</p>
       </div>
-      <div class="flow-line" aria-label="Request flow: developer app to MasterKey server to model provider, with approval by the user's phone">
+      <div class="flow-line" aria-label="Request flow: developer app to Keyala server to model provider, with approval by the user's phone">
         <div class="flow-node"><span class="flow-number">01</span><span class="flow-symbol flow-code">{ }</span><strong>Your app</strong><small>Sends a model request</small></div>
         <span class="flow-connector"><i></i><b>grant token</b></span>
-        <div class="flow-node flow-server"><span class="flow-number">02</span><span class="flow-symbol"><svg viewBox="0 0 36 36"><path d="M7 9h22v18H7zM12 14h12M12 19h12M12 24h6"/></svg></span><strong>MasterKey</strong><small>Checks the user's policy</small></div>
+        <div class="flow-node flow-server"><span class="flow-number">02</span><span class="flow-symbol"><svg viewBox="0 0 36 36"><path d="M7 9h22v18H7zM12 14h12M12 19h12M12 24h6"/></svg></span><strong>Keyala</strong><small>Checks the user's policy</small></div>
         <span class="flow-connector flow-connector-right"><i></i><b>approved request</b></span>
         <div class="flow-node"><span class="flow-number">03</span><span class="flow-symbol flow-spark">✳</span><strong>Model provider</strong><small>Returns the response</small></div>
         <div class="flow-phone-callout"><span class="callout-stem"></span><span class="callout-dot">↗</span><div><strong>The user decides</strong><small>Full payload + cost estimate<br>before the key is used</small></div></div>
@@ -94,7 +94,7 @@
       </div>
       <div class="demo-shell">
         <div class="demo-main">
-          <div class="demo-topline"><span class="demo-label"><span class="pulse"></span> INCOMING REQUEST</span><span class="demo-id">MK / SIMULATED</span></div>
+          <div class="demo-topline"><span class="demo-label"><span class="pulse"></span> INCOMING REQUEST</span><span class="demo-id">KEYALA / SIMULATED</span></div>
           <div class="demo-request-head"><div class="app-avatar">P</div><div><h3>Paperplane Assistant</h3><p>requests access to your OpenAI key</p></div><span class="provider-chip">OPENAI</span></div>
           <div class="request-summary"><div><span class="summary-label">MODEL</span><strong>gpt-4.1-mini</strong></div><div><span class="summary-label">ESTIMATED COST</span><strong class="cost">~$0.004 <small>USD</small></strong></div><div><span class="summary-label">ACCESS</span><strong id="scope-summary">This request only</strong></div></div>
           <div class="payload-wrap"><div class="payload-heading"><span>REQUEST PAYLOAD</span><span>POST /chat/completions</span></div><pre class="payload-code"><code id="payload-code">{
@@ -129,16 +129,16 @@
         <h2 id="native-title">A real app.<br><em>A visible request.</em></h2>
         <p>This is the SwiftUI app talking to the local Rust server. Pairing, exact payload inspection, approval, and the returned response have been tested together using a mock provider.</p>
         <p class="native-caption">iPhone 16 Pro simulator, iOS 18.4. Test prompt and fake key. No real provider credits.</p>
-        <a class="text-link" href="https://github.com/iamjoseph331/MasterKey/blob/main/ios/README.md">Run the native app <span aria-hidden="true">↗</span></a>
+        <a class="text-link" href="https://github.com/iamjoseph331/Keyala/blob/main/ios/README.md">Run the native app <span aria-hidden="true">↗</span></a>
       </div>
       <figure>
-        <img src="./media/ios-request.jpg" width="864" height="1848" loading="lazy" alt="MasterKey iOS request inspector showing the exact multilingual test payload and its estimated reservation before approval">
+        <img src="./media/ios-request.jpg" width="864" height="1848" loading="lazy" alt="Keyala iOS request inspector showing the exact multilingual test payload and its estimated reservation before approval">
         <figcaption>Actual simulator capture. Mock provider.</figcaption>
       </figure>
     </section>
 
     <section class="code-section section-pad" aria-labelledby="code-title">
-      <div class="code-heading"><div><p class="eyebrow eyebrow-dark">A familiar request shape</p><h2 id="code-title">Point the call at MasterKey.<br><em>Keep building.</em></h2></div><p>The OpenAI SDK can point at the v1 route. The Anthropic example uses the current route and Bearer auth directly. A grant token stands in for the provider key. These examples show the immediate-response path.</p></div>
+      <div class="code-heading"><div><p class="eyebrow eyebrow-dark">A familiar request shape</p><h2 id="code-title">Point the call at Keyala.<br><em>Keep building.</em></h2></div><p>The OpenAI SDK can point at the v1 route. The Anthropic example uses the current route and Bearer auth directly. A grant token stands in for the provider key. These examples show the immediate-response path.</p></div>
       <div class="code-card">
         <div class="code-tabs" role="tablist" aria-label="SDK examples">
           <button class="code-tab active" id="tab-openai" type="button" role="tab" aria-selected="true" aria-controls="code-openai" data-tab="openai">OpenAI / Python</button>
@@ -150,8 +150,8 @@
 <span class="code-key">import</span> os
 
 client = OpenAI(
-    base_url=<span class="code-string">"https://YOUR-MASTERKEY-SERVER/v1/openai"</span>,
-    api_key=os.environ[<span class="code-string">"MASTERKEY_GRANT_TOKEN"</span>],
+    base_url=<span class="code-string">"https://YOUR-KEYALA-SERVER/v1/openai"</span>,
+    api_key=os.environ[<span class="code-string">"KEYALA_GRANT_TOKEN"</span>],
     max_retries=<span class="code-number">0</span>,
 )
 
@@ -166,30 +166,30 @@ import os
 from urllib.request import Request, urlopen
 
 request = Request(
-    <span class="code-string">"https://YOUR-MASTERKEY-SERVER/v1/anthropic/messages"</span>,
+    <span class="code-string">"https://YOUR-KEYALA-SERVER/v1/anthropic/messages"</span>,
     data=json.dumps({
         <span class="code-string">"model"</span>: <span class="code-string">"MODEL_FROM_SERVER_ALLOWLIST"</span>,
         <span class="code-string">"max_tokens"</span>: <span class="code-number">120</span>,
         <span class="code-string">"messages"</span>: [{<span class="code-string">"role"</span>: <span class="code-string">"user"</span>, <span class="code-string">"content"</span>: <span class="code-string">"Hello!"</span>}],
     }).encode(),
     headers={
-        <span class="code-string">"Authorization"</span>: <span class="code-string">f"Bearer {os.environ['MASTERKEY_GRANT_TOKEN']}"</span>,
+        <span class="code-string">"Authorization"</span>: <span class="code-string">f"Bearer {os.environ['KEYALA_GRANT_TOKEN']}"</span>,
         <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span>,
     },
     method=<span class="code-string">"POST"</span>,
 )
 with urlopen(request) as response:
     result = json.load(response)</code></pre></div>
-        <div class="code-card-bottom"><span><i class="check-dot"></i> No provider key in your app</span><a href="https://github.com/iamjoseph331/MasterKey/blob/main/docs/PLAN.md#contract-v1--source-of-truth-for-backend-and-ios" target="_blank" rel="noreferrer">Read the v1 contract <b aria-hidden="true">↗</b></a></div>
+        <div class="code-card-bottom"><span><i class="check-dot"></i> No provider key in your app</span><a href="https://github.com/iamjoseph331/Keyala/blob/main/docs/PLAN.md#contract-v1--source-of-truth-for-backend-and-ios" target="_blank" rel="noreferrer">Read the v1 contract <b aria-hidden="true">↗</b></a></div>
       </div>
-      <div class="pending-note"><span class="pending-icon">↗</span><p><strong>When approval is needed, allow for a pause.</strong> MasterKey can hold the call briefly. If it returns <code>202 pending</code>, your app needs to poll <code>GET /v1/requests/{id}</code> and handle the completed response. Streaming is not supported in v1.</p></div>
+      <div class="pending-note"><span class="pending-icon">↗</span><p><strong>When approval is needed, allow for a pause.</strong> Keyala can hold the call briefly. If it returns <code>202 pending</code>, your app needs to poll <code>GET /v1/requests/{id}</code> and handle the completed response. Streaming is not supported in v1.</p></div>
     </section>
 
     <section class="trust-section section-pad" id="trust" aria-labelledby="trust-title">
-      <div class="trust-copy"><p class="eyebrow">Trust, stated plainly</p><h2 id="trust-title">The key stays with<br>the <em>user's account.</em></h2><p>I’m Joseph Chen. MasterKey is my experimental personal project. I take its security and reliability seriously, and I’m building and testing it in public. It is still evolving; uninterrupted availability and immediate support are not guaranteed.</p><p>MasterKey is designed so an app developer does not receive the user's provider key. The service stores it encrypted, then uses it to forward an approved request. The person or organization running that service is part of the trust boundary.</p><a class="text-link" href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">Read the source and decide for yourself <span aria-hidden="true">↗</span></a></div>
+      <div class="trust-copy"><p class="eyebrow">Trust, stated plainly</p><h2 id="trust-title">The key stays with<br>the <em>user's account.</em></h2><p>I’m Joseph Chen. Keyala is my experimental personal project. I take its security and reliability seriously, and I’m building and testing it in public. It is still evolving; uninterrupted availability and immediate support are not guaranteed.</p><p>Keyala is designed so an app developer does not receive the user's provider key. The service stores it encrypted, then uses it to forward an approved request. The person or organization running that service is part of the trust boundary.</p><a class="text-link" href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">Read the source and decide for yourself <span aria-hidden="true">↗</span></a></div>
       <div class="trust-ledger"><p>Keys are encrypted on the selected server, then decrypted there for approved calls. Prompts and responses are stored for your history. The operator must be trusted. Provider usage is billed separately from this free beta.</p><p><a href="./privacy/">Privacy, retention & account deletion</a> / <a href="./support/">Help & contact Joseph</a></p>
         <div class="ledger-row"><span class="ledger-index">01</span><div><strong>Developer gets a grant token</strong><p>It authorizes requests under the user's policy. It is not their provider key.</p></div><span class="ledger-symbol">↗</span></div>
-        <div class="ledger-row"><span class="ledger-index">02</span><div><strong>MasterKey server uses the key</strong><p>The server operator can decrypt stored keys to forward approved calls. Self-hosting lets you choose who operates it.</p></div><span class="ledger-symbol">⌑</span></div>
+        <div class="ledger-row"><span class="ledger-index">02</span><div><strong>Keyala server uses the key</strong><p>The server operator can decrypt stored keys to forward approved calls. Self-hosting lets you choose who operates it.</p></div><span class="ledger-symbol">⌑</span></div>
         <div class="ledger-row"><span class="ledger-index">03</span><div><strong>User can inspect and revoke</strong><p>Requests and grants are designed to be visible in the user's app.</p></div><span class="ledger-symbol">◎</span></div>
         <div class="ledger-foot">OPEN SOURCE <span>/</span> SELF-HOSTABLE <span>/</span> V1 IN DEVELOPMENT</div>
       </div>
@@ -197,9 +197,9 @@ with urlopen(request) as response:
 
     <section class="closing section-pad" aria-labelledby="closing-title">
       <div class="closing-stamp" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="M30 47a18 18 0 1 1 13.6-6.2L71 68l-5.5 5.5-8.3-8.3-4.8 4.8-7.2-7.2 4.8-4.8-7.5-7.5A18 18 0 0 1 30 47Zm0-8.5a9.5 9.5 0 1 0 0-19 9.5 9.5 0 0 0 0 19Z"/></svg></div>
-      <p class="eyebrow">MasterKey / open source</p><h2 id="closing-title">Make room for<br><em>user choice.</em></h2><div class="closing-actions"><a class="button button-bright" href="./developers/">Open developer console <span aria-hidden="true">→</span></a><a class="text-link" href="./tutorials/">Read the tutorials <span aria-hidden="true">→</span></a></div>
+      <p class="eyebrow">Keyala / open source</p><h2 id="closing-title">Make room for<br><em>user choice.</em></h2><div class="closing-actions"><a class="button button-bright" href="./developers/">Open developer console <span aria-hidden="true">→</span></a><a class="text-link" href="./tutorials/">Read the tutorials <span aria-hidden="true">→</span></a></div>
     </section>
   </main>
-  <footer class="site-footer"><a class="wordmark footer-mark" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M12.2 18.1a7.4 7.4 0 1 1 5.6-2.6L29 26.7l-2.3 2.3-3.4-3.4-2 2-3-3 2-2-3.1-3.1a7.4 7.4 0 0 1-5 1.6Zm0-3.5a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z"/></svg></span><span>masterkey</span></a><span>© 2026 MasterKey / Your key. Your call.</span><a href="https://github.com/iamjoseph331/MasterKey/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a><a href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a><nav aria-label="Support"><a href="./support/">Help & contact</a> <a href="./privacy/">Privacy</a></nav></footer>
+  <footer class="site-footer"><a class="wordmark footer-mark" href="#top"><span class="brand-mark" aria-hidden="true"><img src="./keyala-koala.svg" width="32" height="32" alt=""></span><span>keyala</span></a><span>© 2026 Keyala / Your key. Your call.</span><a href="https://github.com/iamjoseph331/Keyala/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a><a href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a><nav aria-label="Support"><a href="./support/">Help & contact</a> <a href="./privacy/">Privacy</a></nav></footer>
 </body>
 </html>

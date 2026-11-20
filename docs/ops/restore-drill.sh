@@ -8,14 +8,14 @@ for c in cargo curl jq sqlite3 openssl python3; do command -v "$c" >/dev/null ||
 TMP=$(mktemp -d); PIDS=()
 trap 'for p in "${PIDS[@]:-}"; do [[ -n $p ]] && kill "$p" 2>/dev/null || true; done; rm -rf "$TMP"' EXIT
 (cd "$ROOT/backend" && cargo build -q)
-BIN="$ROOT/backend/target/debug/masterkey-server"
+BIN="$ROOT/backend/target/debug/keyala-server"
 FAILS=0
 check() { if [[ $2 == "$3" ]]; then echo "PASS  $1"; else echo "FAIL  $1 (got '$2', want '$3')"; FAILS=$((FAILS+1)); fi; }
 
 # start_server DB MASTER_KEY -> sets B (base URL) and PID
 start_server() {
   local port; port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-  MK_MASTER_KEY=$2 MK_DATABASE_URL="sqlite://$1?mode=rwc" PORT=$port MK_DEV_LOGIN=1 MK_VENDOR_MOCK=1 "$BIN" >"$TMP/server-$port.log" 2>&1 &
+  KEYALA_MASTER_KEY=$2 KEYALA_DATABASE_URL="sqlite://$1?mode=rwc" PORT=$port KEYALA_DEV_LOGIN=1 KEYALA_VENDOR_MOCK=1 "$BIN" >"$TMP/server-$port.log" 2>&1 &
   PID=$!; disown "$PID"; PIDS+=("$PID"); B="http://127.0.0.1:$port"
   for _ in $(seq 100); do curl -sf "$B/healthz" >/dev/null && return 0; kill -0 "$PID" 2>/dev/null || break; sleep 0.1; done
   echo "server failed to start:"; cat "$TMP/server-$port.log"; exit 1
@@ -23,7 +23,7 @@ start_server() {
 # one mock request: ask + wait 0, approve on the "phone", wait for the final status; prints the request id
 run_request() { # TOKEN SESSION
   local rid st
-  rid=$(curl -s "$B/v1/openai/chat/completions" -H "Authorization: Bearer $1" -H 'X-MasterKey-Wait: 0' \
+  rid=$(curl -s "$B/v1/openai/chat/completions" -H "Authorization: Bearer $1" -H 'X-Keyala-Wait: 0' \
         -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"drill"}],"max_tokens":16}' | jq -r .request_id)
   curl -s -o /dev/null "$B/v1/me/requests/$rid/approve" -H "Authorization: Bearer $2" -d '{}'
   for _ in $(seq 100); do

@@ -39,19 +39,19 @@
 <main>
   <header>
     <h1>Chat with your own key</h1>
-    <p>This app has no API key. You lend yours through MasterKey and approve every call on your phone.</p>
+    <p>This app has no API key. You lend yours through Keyala and approve every call on your phone.</p>
   </header>
 
   <section id="connect" class="card connect">
     <div id="c-idle">
-      <p>Connect your MasterKey to start chatting.</p>
-      <button id="btn-connect">Connect your MasterKey</button>
+      <p>Connect your Keyala to start chatting.</p>
+      <button id="btn-connect">Connect your Keyala</button>
     </div>
     <div id="c-code" class="hidden">
       <div class="muted">Scan with your iPhone camera</div>
-      <img id="qr" width="200" height="200" alt="QR code to connect in MasterKey" style="display:block;margin:12px 0;background:#fff;border-radius:12px">
-      <div class="muted">On this phone? <a id="url" href="#">Open MasterKey</a>. Or enter the code in the app:</div>
-      <div class="code" id="code">MK-----</div>
+      <img id="qr" width="200" height="200" alt="QR code to connect in Keyala" style="display:block;margin:12px 0;background:#fff;border-radius:12px">
+      <div class="muted">On this phone? <a id="url" href="#">Open Keyala</a>. Or enter the code in the app:</div>
+      <div class="code" id="code">KY-----</div>
       <p class="muted pulse" style="margin-top:14px">Waiting for approval on your phone…</p>
     </div>
   </section>
@@ -67,7 +67,7 @@
   <section class="card">
     <div class="muted" style="margin-bottom:8px">The only difference from normal OpenAI code:</div>
 <pre><span class="c">// server.js</span>
-<span class="hl">const client = new OpenAI({ baseURL: MK_URL + '/v1/openai', apiKey: grantToken });</span>
+<span class="hl">const client = new OpenAI({ baseURL: KEYALA_URL + '/v1/openai', apiKey: grantToken });</span>
 const r = await client.chat.completions.create({ model, messages });</pre>
   </section>
 </main>

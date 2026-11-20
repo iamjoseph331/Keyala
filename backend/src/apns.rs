@@ -1,6 +1,6 @@
 //! APNs push (token-based auth, HTTP/2). No-op when not configured.
 //! Privacy: pushes never contain prompt text. By default they are fully generic (nothing about the
-//! app, vendor, model or spend on the lock screen); MK_APNS_DETAILED=1 adds app/vendor/model/estimate.
+//! app, vendor, model or spend on the lock screen); KEYALA_APNS_DETAILED=1 adds app/vendor/model/estimate.
 use crate::*;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use std::time::Instant;
@@ -18,16 +18,20 @@ pub struct ApnsCfg {
 impl ApnsCfg {
     pub fn from_env(env: &dyn Fn(&str) -> Option<String>) -> Option<ApnsCfg> {
         Some(ApnsCfg {
-            key_pem: env("MK_APNS_KEY_P8")?.replace("\\n", "\n"),
-            key_id: env("MK_APNS_KEY_ID")?,
-            team_id: env("MK_APNS_TEAM_ID")?,
-            topic: env("MK_APNS_TOPIC").unwrap_or_else(|| "app.sorevan.masterkey".into()),
-            sandbox: env("MK_APNS_SANDBOX").as_deref() == Some("1"),
-            detailed: env("MK_APNS_DETAILED").as_deref() == Some("1"),
+            key_pem: env("KEYALA_APNS_KEY_P8")?.replace("\\n", "\n"),
+            key_id: env("KEYALA_APNS_KEY_ID")?,
+            team_id: env("KEYALA_APNS_TEAM_ID")?,
+            topic: env("KEYALA_APNS_TOPIC").unwrap_or_else(|| "app.sorevan.masterkey".into()),
+            sandbox: env("KEYALA_APNS_SANDBOX").as_deref() == Some("1"),
+            detailed: env("KEYALA_APNS_DETAILED").as_deref() == Some("1"),
         })
     }
     fn host(&self) -> &'static str {
-        if self.sandbox { "https://api.sandbox.push.apple.com" } else { "https://api.push.apple.com" }
+        if self.sandbox {
+            "https://api.sandbox.push.apple.com"
+        } else {
+            "https://api.push.apple.com"
+        }
     }
 }
 
@@ -61,30 +65,63 @@ fn jwt(s: &AppState, cfg: &ApnsCfg) -> Option<String> {
     }
 }
 
-pub fn alert_payload(cfg: &ApnsCfg, category: &str, title: &str, body: &str, extra: (&str, &str)) -> Value {
-    let (title, body) = if cfg.detailed { (title, body) } else { ("MasterKey", "Open MasterKey to review a request") };
+pub fn alert_payload(
+    cfg: &ApnsCfg,
+    category: &str,
+    title: &str,
+    body: &str,
+    extra: (&str, &str),
+) -> Value {
+    let (title, body) = if cfg.detailed {
+        (title, body)
+    } else {
+        ("Keyala", "Open Keyala to review a request")
+    };
     json!({"aps": {"alert": {"title": title, "body": body}, "sound": "default", "category": category}, extra.0: extra.1})
 }
 
 /// Fire-and-forget to all of the user's devices.
 pub fn send(s: &AppState, user_id: &str, payload: Value) {
-    let Some(cfg) = s.cfg.apns.clone() else { return };
+    let Some(cfg) = s.cfg.apns.clone() else {
+        return;
+    };
     let (s, user_id) = (s.clone(), user_id.to_string());
     tokio::spawn(async move {
-        let tokens: Vec<String> = sqlx::query_scalar("SELECT apns_token FROM devices WHERE user_id=?").bind(&user_id).fetch_all(&s.db).await.unwrap_or_default();
+        let tokens: Vec<String> =
+            sqlx::query_scalar("SELECT apns_token FROM devices WHERE user_id=?")
+                .bind(&user_id)
+                .fetch_all(&s.db)
+                .await
+                .unwrap_or_default();
         let Some(jwt) = jwt(&s, &cfg) else { return };
         for t in tokens {
-            let r = s.http.post(format!("{}/3/device/{t}", cfg.host())).timeout(Duration::from_secs(10))
-                .header("authorization", format!("bearer {jwt}")).header("apns-topic", &cfg.topic)
-                .header("apns-push-type", "alert").header("apns-priority", "10").header("content-type", "application/json").body(payload.to_string()).send().await;
+            let r = s
+                .http
+                .post(format!("{}/3/device/{t}", cfg.host()))
+                .timeout(Duration::from_secs(10))
+                .header("authorization", format!("bearer {jwt}"))
+                .header("apns-topic", &cfg.topic)
+                .header("apns-push-type", "alert")
+                .header("apns-priority", "10")
+                .header("content-type", "application/json")
+                .body(payload.to_string())
+                .send()
+                .await;
             match r {
                 Ok(r) if r.status().is_success() => {}
                 Ok(r) => {
                     let code = r.status().as_u16();
                     let body = r.text().await.unwrap_or_default();
                     // dead tokens: 410 Unregistered, or 400 BadDeviceToken / DeviceTokenNotForTopic
-                    if code == 410 || (code == 400 && (body.contains("BadDeviceToken") || body.contains("DeviceTokenNotForTopic"))) {
-                        let _ = sqlx::query("DELETE FROM devices WHERE apns_token=?").bind(&t).execute(&s.db).await;
+                    if code == 410
+                        || (code == 400
+                            && (body.contains("BadDeviceToken")
+                                || body.contains("DeviceTokenNotForTopic")))
+                    {
+                        let _ = sqlx::query("DELETE FROM devices WHERE apns_token=?")
+                            .bind(&t)
+                            .execute(&s.db)
+                            .await;
                     } else {
                         tracing::warn!("APNs rejected push: {code} {body}");
                     }
@@ -102,14 +139,34 @@ pub async fn request_created(s: &AppState, id: &str) {
     if let (Ok(Some(r)), Some(cfg)) = (request_row(s, id).await, s.cfg.apns.as_ref()) {
         let title = format!("{} wants to use your {} key", r.app_name(), r.vendor);
         let body = format!("{} - est. ${:.2}", r.model, usd(r.estimated_micro));
-        send(s, &r.user_id, alert_payload(cfg, "MK_REQUEST", &title, &body, ("request_id", &r.id)));
+        send(
+            s,
+            &r.user_id,
+            alert_payload(cfg, "KEYALA_REQUEST", &title, &body, ("request_id", &r.id)),
+        );
     }
 }
 
 pub async fn spend_alert(s: &AppState, grant_id: &str) {
-    if let (Ok(Some(g)), Some(cfg)) = (sqlx::query_as::<_, GrantRow>(&format!("{GRANT_SELECT} WHERE g.id=?")).bind(grant_id).fetch_optional(&s.db).await, s.cfg.apns.as_ref()) {
+    if let (Ok(Some(g)), Some(cfg)) = (
+        sqlx::query_as::<_, GrantRow>(&format!("{GRANT_SELECT} WHERE g.id=?"))
+            .bind(grant_id)
+            .fetch_optional(&s.db)
+            .await,
+        s.cfg.apns.as_ref(),
+    ) {
         let title = format!("{} passed your daily spend alert", g.app_name_str());
-        send(s, &g.user_id, alert_payload(cfg, "MK_ALERT", &title, "Daily spend alert reached", ("grant_id", &g.id)));
+        send(
+            s,
+            &g.user_id,
+            alert_payload(
+                cfg,
+                "KEYALA_ALERT",
+                &title,
+                "Daily spend alert reached",
+                ("grant_id", &g.id),
+            ),
+        );
     }
 }
 
@@ -121,7 +178,11 @@ mod tests {
     fn cfg(detailed: bool) -> ApnsCfg {
         ApnsCfg {
             key_pem: include_str!("../tests/fixtures/test_ec_private.pem").into(),
-            key_id: "KEY123".into(), team_id: "TEAM456".into(), topic: "app.masterkey.ios".into(), sandbox: true, detailed,
+            key_id: "KEY123".into(),
+            team_id: "TEAM456".into(),
+            topic: "app.keyala.ios".into(),
+            sandbox: true,
+            detailed,
         }
     }
 
@@ -134,20 +195,42 @@ mod tests {
         let mut v = Validation::new(Algorithm::ES256);
         v.required_spec_claims.clear();
         v.validate_exp = false;
-        let c = decode::<Value>(&j, &DecodingKey::from_ec_pem(include_bytes!("../tests/fixtures/test_ec_public.pem")).unwrap(), &v).unwrap().claims;
+        let c = decode::<Value>(
+            &j,
+            &DecodingKey::from_ec_pem(include_bytes!("../tests/fixtures/test_ec_public.pem"))
+                .unwrap(),
+            &v,
+        )
+        .unwrap()
+        .claims;
         assert_eq!(c["iss"], "TEAM456");
         assert_eq!(c["iat"], 1_700_000_000);
     }
 
     #[test]
     fn payloads_are_generic_by_default_and_never_contain_prompts() {
-        let p = alert_payload(&cfg(false), "MK_REQUEST", "Demo wants to use your openai key", "gpt-4o - est. $0.01", ("request_id", "req_1"));
-        assert_eq!(p["aps"]["category"], "MK_REQUEST");
+        let p = alert_payload(
+            &cfg(false),
+            "KEYALA_REQUEST",
+            "Demo wants to use your openai key",
+            "gpt-4o - est. $0.01",
+            ("request_id", "req_1"),
+        );
+        assert_eq!(p["aps"]["category"], "KEYALA_REQUEST");
         assert_eq!(p["request_id"], "req_1");
         let s = p.to_string();
         assert!(!s.contains("Demo") && !s.contains("gpt-4o") && !s.contains('\u{b7}'));
-        let d = alert_payload(&cfg(true), "MK_REQUEST", "Demo wants to use your openai key", "gpt-4o - est. $0.01", ("request_id", "req_1"));
-        assert_eq!(d["aps"]["alert"]["title"], "Demo wants to use your openai key");
+        let d = alert_payload(
+            &cfg(true),
+            "KEYALA_REQUEST",
+            "Demo wants to use your openai key",
+            "gpt-4o - est. $0.01",
+            ("request_id", "req_1"),
+        );
+        assert_eq!(
+            d["aps"]["alert"]["title"],
+            "Demo wants to use your openai key"
+        );
         assert_eq!(d["aps"]["alert"]["body"], "gpt-4o - est. $0.01");
     }
 

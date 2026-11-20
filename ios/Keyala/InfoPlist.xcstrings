@@ -7,19 +7,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan an app’s MasterKey QR code to review and approve its connection."
+            "value": "Scan an app’s Keyala QR code to review and approve its connection."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "掃描 App 的 MasterKey QR code，以審閱並批准連結。"
+            "value": "掃描 App 的 Keyala QR code，以審閱並批准連結。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリの MasterKey QR コードをスキャンして、接続を確認・許可します。"
+            "value": "アプリの Keyala QR コードをスキャンして、接続を確認・許可します。"
           }
         }
       }

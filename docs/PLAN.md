@@ -1,14 +1,14 @@
-# MasterKey — plan
+# Keyala — plan
 
 > Developers ship AI apps without paying for users' tokens. Users lend their API key without
 > ever handing it over — and approve every call from their phone.
 
 ## The pitch in one diagram
 ```
- Developer's app ──(OpenAI/Anthropic-compatible call, grant token)──▶ MasterKey server
+ Developer's app ──(OpenAI/Anthropic-compatible call, grant token)──▶ Keyala server
                                                                          │ cost estimate + policy check
                                           push / live event ◀────────────┤
- User's iPhone (MasterKey app): sees full payload + est. cost ──approve──▶│
+ User's iPhone (Keyala app): sees full payload + est. cost ──approve──▶│
                                                                          │ decrypts user's key, forwards
                                                          OpenAI / Anthropic ◀┘
                      response ──▶ developer (and recorded for the user to audit)
@@ -19,7 +19,7 @@ Developer DX goal: **change one line — the base URL** — and use the official
 - User's key is write-only: encrypted at rest (AES-256-GCM, server master key from env), never
   returned by any API, never sent to the developer. Only `last4` is ever shown.
 - The developer never sees the key; the user sees every payload and response.
-- The user still trusts whoever runs the MasterKey server → server is open source and
+- The user still trusts whoever runs the Keyala server → server is open source and
   self-hostable (one binary + one SQLite file). That is the answer, and the README says so.
 
 ## Stack (decided)
@@ -30,25 +30,25 @@ Developer DX goal: **change one line — the base URL** — and use the official
   updates; APNs when an Apple Developer account is available (see Open questions).
 - **Site:** static GitHub Pages in `site/` (plain HTML/CSS, no build step), simulator screen
   recordings + screenshots as demo media.
-- **Mock vendor:** `MK_VENDOR_MOCK=1` makes the server fake OpenAI/Anthropic responses so
+- **Mock vendor:** `KEYALA_VENDOR_MOCK=1` makes the server fake OpenAI/Anthropic responses so
   demos, tests and screenshots never burn real credits or expose real keys.
 
 ## Core flows
 1. **Register app** — developer calls `POST /v1/apps` → `app_id` + `app_secret`.
 2. **Connect a user (device-code style, no web UI needed)** — developer backend calls
-   `POST /v1/connect` → short `connect_code` (e.g. `MK-4F7Q`) + `connect_url` (universal link /
+   `POST /v1/connect` → short `connect_code` (e.g. `KY-4F7Q`) + `connect_url` (universal link /
    QR). User opens it in the iOS app, sees the app name + requested vendor, and approves the
    first grant for that app with `ask` (one phone approval per call). Afterward, the user can
    widen the policy from Grants. Developer polls `GET /v1/connect/{code}` → receives a `grant_token`.
 3. **Call the model** — developer calls `POST /v1/openai/chat/completions` (or
-   `/v1/anthropic/messages`) with `Authorization: Bearer mk_grant_…`. Server estimates cost,
+   `/v1/anthropic/messages`) with `Authorization: Bearer keyala_grant_…`. Server estimates cost,
    checks the grant policy:
    - allowed → forward immediately;
    - needs approval → create pending request, notify phone, **hold the HTTP call** up to
-     `X-MasterKey-Wait` seconds (default 60, max 120). Approved in time → real vendor response.
+     `X-Keyala-Wait` seconds (default 60, max 120). Approved in time → real vendor response.
      Timeout → `202 {request_id, status:"pending"}`; developer polls `GET /v1/requests/{id}`.
 4. **Approve on phone** — options: *once*, *next N calls*, *up to $X*, *trust (with alert at
-   $Y/day)*. Approval updates the grant policy. Deny → developer gets `403 masterkey_denied`.
+   $Y/day)*. Approval updates the grant policy. Deny → developer gets `403 keyala_denied`.
 5. **Audit** — every request stores payload, estimated + actual cost (from vendor `usage`),
    response, timestamps. User browses it any time.
 
@@ -95,9 +95,9 @@ Key      { "vendor", "last4", "created_at" }
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/v1/apps` | none (rate-limited) | `{name, homepage?, icon_url?, allowed_origins?}` → `{app_id, app_secret}` |
-| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, connect_qr_url, expires_at}` (10 min). `connect_url` = `{server}/connect/{code}` (universal link; a page with the QR on a computer), `connect_qr_url` = an SVG QR of it for the developer's page. Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`mk_cs_…`) |
+| POST | `/v1/connect` | app secret, or browser | `{vendor, suggested_policy?}` → `{connect_code, connect_url, connect_qr_url, expires_at}` (10 min). `connect_url` = `{server}/connect/{code}` (universal link; a page with the QR on a computer), `connect_qr_url` = an SVG QR of it for the developer's page. Browser: `{app_id, vendor, suggested_policy?}`, no auth, `Origin` must be in the app's `allowed_origins` (else `403 origin_not_allowed`; 20/10 min per IP) → also `connect_secret` (`keyala_cs_…`) |
 | GET | `/v1/connect/{code}` | app secret or `connect_secret` | `{status: pending\|approved\|denied\|expired, grant_token?, seen?}`. While pending, `seen` is `null`, `"web"` (the `/connect/{code}` page was opened in a browser, so the app is probably not installed) or `"app"` (the app opened the review). A hint for the pairing UI only, never authority |
-| GET | `/sdk/masterkey.js` | none | the web SDK (`MasterKey.connect({app, vendor})` dialog and `<masterkey-connect>` button), served by each server and talking to the server it was loaded from; see sdk/web/README.md |
+| GET | `/sdk/keyala.js` | none | the web SDK (`Keyala.connect({app, vendor})` dialog and `<keyala-connect>` button), served by each server and talking to the server it was loaded from; see sdk/web/README.md |
 | POST | `/v1/openai/chat/completions` | grant | OpenAI body passthrough; vendor response verbatim |
 | POST | `/v1/anthropic/messages` | grant | Anthropic body passthrough; vendor response verbatim |
 | POST | `/v1/openrouter/chat/completions` | grant | OpenAI-shaped body for vendor `openrouter`; exact slugs from the allowlist only (`openai/gpt-4o-mini`, `anthropic/claude-haiku-5.5`, ...); OpenRouter's `models` fallback, `provider` routing and `plugins` are rejected (`unsupported_option`) because they change the price |
@@ -107,7 +107,7 @@ Key      { "vendor", "last4", "created_at" }
 | GET | `/v1/app/report?days=30` | app secret | usage report for the last `days` (1-365, UTC days, today included), see below |
 
 **Browser (public) clients:** an app registered with `allowed_origins` (1-10 origins like `https://x.github.io`,
-`http://` only for localhost; or declared by the operator in `MK_PUBLIC_APPS`) can run entirely in a static page:
+`http://` only for localhost; or declared by the operator in `KEYALA_PUBLIC_APPS`) can run entirely in a static page:
 connect with its `app_id`, claim the grant with `connect_secret`, keep the grant in the browser. Developer endpoints
 (`/v1/apps`, `/v1/app*`, `/v1/connect*`, proxy, and `/v1/requests/*`) answer CORS with
 `Access-Control-Allow-Origin: *`. Authenticated developer routes use bearer tokens. `/v1/me/*` has no CORS.
@@ -133,10 +133,10 @@ history are not recoverable this way; users reconnect.
   "countries": [{ "country": "JP" | null, "users", "requests", "cost_usd" }] }  // most requests first
 ```
 `country` is ISO 3166-1 alpha-2 of the user's phone when they approved the connect (from the header the
-operator's trusted edge sets, `MK_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
+operator's trusted edge sets, `KEYALA_COUNTRY_HEADER`, e.g. `cf-ipcountry` on Render; null when unset or absent). Only the code is stored, never
 the IP. `hours_utc` is when calls were made (request creation time, UTC); the console shifts it to the viewer's time zone. It reveals nothing a developer's own server does not already see, since every call passes through it. `users` = distinct users with a request in range; `new_users` = users whose first grant for this app was created in range.
 
-Proxy responses carry `X-MasterKey-Request-Id`. Streaming (`stream: true`) → `400` in v1.
+Proxy responses carry `X-Keyala-Request-Id`. Streaming (`stream: true`) → `400` in v1.
 Optional `Idempotency-Key` header (≤128 chars, unique per grant): a repeat with the same body returns the
 original request's outcome without sending again; a different body → `409 idempotency_conflict`.
 Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests/{id}`, never resubmit.
@@ -145,10 +145,10 @@ Disable SDK retries or use this header; after `202`/`504` poll `GET /v1/requests
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/v1/auth/apple` / `/v1/auth/google` | `{id_token}` → `{session_token, user}` |
-| POST | `/v1/auth/password` | only if `MK_PASSWORD_LOGIN` is set (one operator-provisioned account, a fallback while Apple sign-in is unavailable): `{username, password}` → `{session_token, user}`; 404 unconfigured, 401 `invalid_credentials`, 429 `rate_limited` (10 per 10 min per address). Identity `{username}@password.invalid`, never linked to Apple or email accounts |
-| POST | `/v1/auth/dev` | only if `MK_DEV_LOGIN=1`: `{email}` → `{session_token, user}` |
+| POST | `/v1/auth/password` | only if `KEYALA_PASSWORD_LOGIN` is set (one operator-provisioned account, a fallback while Apple sign-in is unavailable): `{username, password}` → `{session_token, user}`; 404 unconfigured, 401 `invalid_credentials`, 429 `rate_limited` (10 per 10 min per address). Identity `{username}@password.invalid`, never linked to Apple or email accounts |
+| POST | `/v1/auth/dev` | only if `KEYALA_DEV_LOGIN=1`: `{email}` → `{session_token, user}` |
 | GET | `/v1/me/keys` | `[Key]` |
-| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned). 400 `invalid_key` if the shape is wrong for the vendor (OpenAI `sk-…` not `sk-ant-`, Anthropic `sk-ant-…`; admin keys `sk-admin-`/`sk-ant-admin` refused) or the vendor's free `GET /v1/models` answers 401. A 403 (e.g. a restricted key without the models-list permission) or an unreachable vendor = saved with `checked: false`; a 200 = `checked: true` (field added to this response and to enrollment upload). Mock: a key containing `MK_MOCK_INVALID` is rejected |
+| PUT | `/v1/me/keys/{vendor}` | `{api_key}` → `Key` (key never returned). 400 `invalid_key` if the shape is wrong for the vendor (OpenAI `sk-…` not `sk-ant-`, Anthropic `sk-ant-…`; admin keys `sk-admin-`/`sk-ant-admin` refused) or the vendor's free `GET /v1/models` answers 401. A 403 (e.g. a restricted key without the models-list permission) or an unreachable vendor = saved with `checked: false`; a 200 = `checked: true` (field added to this response and to enrollment upload). Mock: a key containing `KEYALA_MOCK_INVALID` is rejected |
 | DELETE | `/v1/me/keys/{vendor}` | |
 | POST | `/v1/me/devices` | `{apns_token}` |
 | GET | `/v1/me/connect/{code}` | preview `{app, vendor, suggested_policy, expires_at, origin, requires_ask}` (`origin` null for server apps; `requires_ask` is true when this user has no prior grant for this app) |
@@ -168,10 +168,10 @@ OpenAI and Anthropic have no API that creates a personal key; OpenRouter does. T
 so the new key goes from OpenRouter to the server and never through the phone.
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/v1/me/oauth/openrouter` | session | `{limit_usd?}` → `{flow_id, auth_url, expires_at}` (10 min). `limit_usd` prefills OpenRouter's spending cap (the user can change it). Open `auth_url` in `ASWebAuthenticationSession` with callback scheme `masterkey` |
+| POST | `/v1/me/oauth/openrouter` | session | `{limit_usd?}` → `{flow_id, auth_url, expires_at}` (10 min). `limit_usd` prefills OpenRouter's spending cap (the user can change it). Open `auth_url` in `ASWebAuthenticationSession` with callback scheme `keyala` |
 | GET | `/v1/me/oauth/openrouter/flows/{flow_id}` | session (owner only, else 404) | `{flow_id, provider, status: pending\|exchanging\|saved\|failed\|cancelled\|expired, reason, last4, expires_at}`. This, not the callback URL, is the outcome |
 | POST | `/v1/me/oauth/openrouter/flows/{flow_id}/cancel` | session (owner only) | pending → `cancelled` (later callbacks for it do nothing); other states unchanged; returns the flow |
-| GET | `/oauth/openrouter/callback` | single-use `state` | OpenRouter redirects here; pending → exchanging exactly once, the server exchanges the code (verifier deleted first), stores the key as vendor `openrouter`, emits SSE `key.updated`, and answers a page that redirects to `masterkey://oauth/openrouter?status=ok&flow={flow_id}` or `?status=error&reason=…[&flow=…]`. No key or last4 in the URL. Declined at OpenRouter = no state, so `reason=cancelled` without `flow`: the app cancels its own flow. A crash mid-exchange marks the flow `failed`/`interrupted` on restart (codes are single use; never retried) |
+| GET | `/oauth/openrouter/callback` | single-use `state` | OpenRouter redirects here; pending → exchanging exactly once, the server exchanges the code (verifier deleted first), stores the key as vendor `openrouter`, emits SSE `key.updated`, and answers a page that redirects to `keyala://oauth/openrouter?status=ok&flow={flow_id}` or `?status=error&reason=…[&flow=…]`. No key or last4 in the URL. Declined at OpenRouter = no state, so `reason=cancelled` without `flow`: the app cancels its own flow. A crash mid-exchange marks the flow `failed`/`interrupted` on restart (codes are single use; never retried) |
 Mock mode: `auth_url` is the server's own `/oauth/openrouter/mock`, which approves at once (key `sk-or-v1-mock…`), so the
 whole loop runs locally. OpenRouter keys can also be pasted (`sk-or-…`, checked with the free `GET /api/v1/key`).
 
@@ -180,7 +180,7 @@ The user is usually signed in to the provider's console on a computer, so the ke
 on the server's own page `{server}/add-key` (same origin as the API, no CORS; CSP, no-referrer, no-store).
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/v1/enroll` | none (10/10 min per IP) | `{vendor}` → `{enroll_id, enroll_url, qr_url, enroll_secret, expires_at}` (10 min). `enroll_id` = `en_` + 22 random chars (unguessable; QR only, no typed code). `enroll_secret` (`mk_es_…`) stays in the page's memory |
+| POST | `/v1/enroll` | none (10/10 min per IP) | `{vendor}` → `{enroll_id, enroll_url, qr_url, enroll_secret, expires_at}` (10 min). `enroll_id` = `en_` + 22 random chars (unguessable; QR only, no typed code). `enroll_secret` (`keyala_es_…`) stays in the page's memory |
 | GET | `/v1/enroll/{id}` | `enroll_secret` | `Enrollment` (the page polls) |
 | POST | `/v1/enroll/{id}/key` | `enroll_secret` | `{api_key}` → `Enrollment`; only while `claimed`, exactly once (409 `not_claimed` otherwise); same checks as PUT keys (400 `invalid_key`; response adds `checked`). The candidate is then immutable |
 | GET | `/v1/me/enroll/{id}` | session | `Enrollment` + `current_last4` (the key it would replace, or null). Any signed-in user while `pending`, afterwards only the claimer (else 404) |
@@ -191,8 +191,8 @@ on the server's own page `{server}/add-key` (same origin as the API, no CORS; CS
 SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidates are AES-GCM encrypted
 (AAD `enroll|{id}`) and wiped on save, cancel or expiry. Wrong key after upload = cancel and start again.
 `/enroll/{id}` (universal link, page with an "Open in app" link) and `/enroll/{id}/qr.svg`, `/connect/{code}/qr.svg`.
-`/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{MK_APPLE_TEAM_ID}.{MK_APPLE_BUNDLE_ID}`
-(default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `masterkey://connect/{code}` and `masterkey://enroll/{id}` remain.
+`/.well-known/apple-app-site-association` covers `/connect/*` and `/enroll/*` for `{KEYALA_APPLE_TEAM_ID}.{KEYALA_APPLE_BUNDLE_ID}`
+(default `83APHP8F76.app.sorevan.masterkey`). Custom scheme `keyala://connect/{code}` and `keyala://enroll/{id}` remain.
 
 ### Account controls and operations (launch readiness)
 | Method | Path | Auth | Notes |
@@ -201,17 +201,28 @@ SSE `enroll.updated` (data = Enrollment) goes to the claimer. Uploaded candidate
 | POST | `/v1/me/logout` | session | no body → `{signed_out: true}`. Deletes only the session whose token is sent (other sessions of the same or any other user are untouched). Calling it again, or with an unknown token, answers 401 `unauthorized` like any dead session, so a client treats 401 on logout as "already signed out" and clears local state either way. Grant tokens and keys are not affected (use stop-all for that) |
 | POST | `/v1/me/stop-all` | session | no body → `{grants_revoked, requests_denied, requests_in_flight, enrollments_cancelled, flows_cancelled}`. Lost-device switch: every grant token dies at once; pending and approved-but-unsent requests become `denied` (reservations refunded; an unsent approved request is never sent afterwards); requests already `sending` cannot be recalled and are counted in `requests_in_flight`. Keys stay stored; sessions stay valid. New connects work normally afterwards |
 | POST | `/v1/me/delete` | session + fresh identity | `{confirm: "DELETE", id_token?, authorization_code?, password?, email?}` → `{deleted: true, apple_revoked: true\|false\|null}`. 400 `confirmation_required` (confirm is not exactly `DELETE`), 401 `reauth_failed`, 409 `request_in_flight` (a call is being sent to a provider; retry in about a minute), 429 `rate_limited`. Deletes in one transaction: sessions, devices, stored provider keys, grants (tokens die), every request with its payload and response, enrollments (incl. uploaded candidates), OAuth flows, the user row. Developer reports are computed from stored requests, so a deleted account's calls also leave the app's report (nothing is retained). Irreversible |
-**`user.auth_provider`:** every login response (`/v1/auth/apple|password|dev`) returns `user: {id, email, auth_provider}` with `auth_provider` one of `"apple"`, `"password"`, `"dev"`, set by the login route that verified the identity. Native should choose the fresh-reauth UI from it (Apple: new Apple sign-in sheet and send `id_token` + `authorization_code`; password: ask for the password; dev: email). It is display/UX only; authorization uses the stored identity (Apple `sub`, operator password account, dev email), never the email text and never links accounts by email. `email` is whatever Apple supplied at first sign-in (possibly a private relay, or the placeholder `{sub}@apple.invalid`); it changes only by changing it with Apple, MasterKey has no editable profile. `/v1/auth/dev` refuses any email ending `.invalid`.
+**`user.auth_provider`:** every login response (`/v1/auth/apple|password|dev`) returns `user: {id, email, auth_provider}` with `auth_provider` one of `"apple"`, `"password"`, `"dev"`, set by the login route that verified the identity. Native should choose the fresh-reauth UI from it (Apple: new Apple sign-in sheet and send `id_token` + `authorization_code`; password: ask for the password; dev: email). It is display/UX only; authorization uses the stored identity (Apple `sub`, operator password account, dev email), never the email text and never links accounts by email. `email` is whatever Apple supplied at first sign-in (possibly a private relay, or the placeholder `{sub}@apple.invalid`); it changes only by changing it with Apple, Keyala has no editable profile. `/v1/auth/dev` refuses any email ending `.invalid`.
 **Deletion durability:** the deletion is recorded as `deleted <user_id> <time>` in `deleted-accounts.log` and fsynced BEFORE the database transaction commits. If that file cannot be written the request fails with `503 deletion_unavailable`, nothing is deleted and the session stays valid (retry later). If the commit itself fails after the record was written, an `undeleted <user_id> <time>` line cancels it. `docs/ops/replay-deletions.sh` uses the last line per id after a restore. Apple revocation runs after the commit, so a refused deletion never revokes Apple access. Backups are NOT erased on deletion; they roll off by retention, and a restore re-applies the recorded deletions.
-Fresh identity, by how the account signs in: Apple accounts send a **fresh Apple `id_token`** (its `sub` must equal the account's, `iat` within 5 minutes, same audience as sign-in); password accounts send `password`; dev-login accounts send their `email` (only exists when `MK_DEV_LOGIN=1`). A session token alone never deletes an account.
-Apple revocation: if the app also sends the `authorization_code` from that same Apple sign-in and the operator configured `MK_APPLE_SIGNIN_KEY_P8` (+ `MK_APPLE_SIGNIN_KEY_ID`, team `MK_APPLE_TEAM_ID`), the server exchanges the code at `appleid.apple.com/auth/token` and revokes the refresh token at `/auth/revoke` before deleting; `apple_revoked` is `true`. If not configured or Apple refuses, deletion still completes with `apple_revoked: false` (non-Apple accounts: `null`) and the app should tell the user they can also remove MasterKey under Settings > Apple Account > Sign in with Apple. The `.p8` is never in git or logs.
-**Operator switches (not user API):** `MK_PAUSE_UPSTREAM=1`, or the file `PAUSE_UPSTREAM` created next to the database, makes new proxy calls answer `503 upstream_paused` with no reservation, and holds approved-but-unsent requests (still `approved`, sent after unpausing). `GET /v1/status` (public, no secrets) → `{ok, paused, db, version}`; `/healthz` stays `ok`. Consistent backup, restore drill and runbook: `docs/ops/`.
-`GET /v1/status` (public) -> `{ok, paused, db, version}`, HTTP 503 when the database does not answer. `MK_BACKUP_DIR` (+ `MK_BACKUP_KEEP`, default 7; `MK_BACKUP_INTERVAL_SECS`, default 86400) writes `VACUUM INTO` backups in-process, counted from the newest file. Each deletion appends `deleted <user_id> <time>` (no email) to `deleted-accounts.log` beside the database for restore replay. See docs/ops/.
+Fresh identity, by how the account signs in: Apple accounts send a **fresh Apple `id_token`** (its `sub` must equal the account's, `iat` within 5 minutes, same audience as sign-in); password accounts send `password`; dev-login accounts send their `email` (only exists when `KEYALA_DEV_LOGIN=1`). A session token alone never deletes an account.
+Apple revocation: if the app also sends the `authorization_code` from that same Apple sign-in and the operator configured `KEYALA_APPLE_SIGNIN_KEY_P8` (+ `KEYALA_APPLE_SIGNIN_KEY_ID`, team `KEYALA_APPLE_TEAM_ID`), the server exchanges the code at `appleid.apple.com/auth/token` and revokes the refresh token at `/auth/revoke` before deleting; `apple_revoked` is `true`. If not configured or Apple refuses, deletion still completes with `apple_revoked: false` (non-Apple accounts: `null`) and the app should tell the user they can also remove Keyala under Settings > Apple Account > Sign in with Apple. The `.p8` is never in git or logs.
+**Operator switches (not user API):** `KEYALA_PAUSE_UPSTREAM=1`, or the file `PAUSE_UPSTREAM` created next to the database, makes new proxy calls answer `503 upstream_paused` with no reservation, and holds approved-but-unsent requests (still `approved`, sent after unpausing). `GET /v1/status` (public, no secrets) → `{ok, paused, db, version}`; `/healthz` stays `ok`. Consistent backup, restore drill and runbook: `docs/ops/`.
+`GET /v1/status` (public) -> `{ok, paused, db, version}`, HTTP 503 when the database does not answer. `KEYALA_BACKUP_DIR` (+ `KEYALA_BACKUP_KEEP`, default 7; `KEYALA_BACKUP_INTERVAL_SECS`, default 86400) writes `VACUUM INTO` backups in-process, counted from the newest file. Each deletion appends `deleted <user_id> <time>` (no email) to `deleted-accounts.log` beside the database for restore replay. See docs/ops/.
+
+### Route OpenAI / Anthropic apps through OpenRouter (optional, per account)
+Lets an app written for the OpenAI or Anthropic API work for a user who only has an OpenRouter key.
+- `GET /v1/me/preferences` -> `{openrouter_for_direct_apis: false}` (default OFF); `PATCH /v1/me/preferences` `{openrouter_for_direct_apis: bool}` -> same shape. Per user, stored on the server that answers (not synced across servers). Session auth, owner only.
+- The setting only affects NEW connects. At approval, the grant freezes `billing_vendor`: `openrouter` when the setting is ON and the app's `vendor` is `openai` or `anthropic`, otherwise the vendor itself. Turning the setting on or off later never changes an existing grant, and the user must reconnect an app to change its route. Existing grants (pre-feature) are direct.
+- `GET /v1/me/connect/{code}` adds `billing_vendor` (what approval would use). `POST /v1/me/connect/{code}/approve` accepts optional `billing_vendor` (the value the phone showed); if it no longer matches, `409 route_changed` and nothing is consumed. A routed approval requires an OpenRouter key (`409 no_key` naming `openrouter`); the user's direct key is never a fallback.
+- `Grant` gains `billing_vendor`. `Request` gains `billing_vendor` and `upstream_model` (the exact OpenRouter slug, null when direct); `vendor`/`model`/`payload` keep the ORIGINAL protocol, model and body, so the review shows both. Native must show original model, `upstream_model` and `billing_vendor` before Allow.
+- Wire behaviour: the app keeps its protocol, auth and response shape. OpenAI protocol -> `POST https://openrouter.ai/api/v1/chat/completions`; Anthropic protocol -> OpenRouter's native Anthropic Messages `POST https://openrouter.ai/api/v1/messages` (no conversion; source: OpenRouter's official `openapi.json`, `POST /messages` "Create a message using Anthropic Messages API format", checked 2026-11-20), `Authorization: Bearer <OpenRouter key>` plus `anthropic-version: 2023-06-01`. Only the `model` field is rewritten, using a static verified table (`pricing::or_slug`): gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini -> `openai/<same>`; claude-opus-5-5 / sonnet-5-5 / haiku-5-5 -> `anthropic/claude-<tier>-5.5`. Any model without a mapping: `400 model_not_routable`, nothing stored or sent, no fallback. OpenRouter's `models`/`provider`/`plugins` are not reachable.
+- Money: the reservation and the settlement use the OpenRouter table's prices for the mapped slug, from the response `usage` (OpenAI `prompt/completion_tokens`, Anthropic `input/output_tokens`). Missing usage keeps `actual_usd: null` with the reservation retained, never zero or the estimate presented as actual. It is still an estimate of OpenRouter's invoice, not the invoice.
+- Limits (not all API features are claimed to work): same text-only, no streaming, required output cap and at-most-once/`Idempotency-Key` rules as direct. Additionally rejected when routed (`400 unsupported_option`) because they were not verified on OpenRouter: OpenAI `max_completion_tokens`, `n`, role `developer`; Anthropic `metadata`, `top_k`. Key replacement/deletion, revocation, stop-all, deletion and session ownership use the existing paths (a deleted OpenRouter key makes routed calls fail `no_key`).
+- Migration `0012_openrouter_routing.sql`: `users.openrouter_for_direct`, `grants.billing_vendor`, `requests.billing_vendor`, `requests.upstream_model`. Mock mode adds `mock_url` to responses so tests can see which fixed upstream URL was chosen.
 
 **Server pages:** `/about` and `/privacy` (same page, English / 繁體中文 / 日本語, picked by browser language) state who runs the server (a personal experimental project, no SLA), what is stored and sent where, retention, deletion and backups, and support contact. `/add-key`, `/connect/{code}`, `/enroll/{id}` and the OpenRouter result page link to it. They make no claim about production disk or backups; update the text when production persistence is actually applied.
 
-Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `mk_app_`, `mk_grant_`,
-`mk_sess_` (so a leaked token is identifiable).
+Auth header everywhere: `Authorization: Bearer <token>`. Token prefixes: `keyala_app_`, `keyala_grant_`,
+`keyala_sess_` (so a leaked token is identifiable).
 
 **First-grant protection:** For a user and app pair, the first grant can only be approved with
 policy mode `ask`. Any earlier grant counts, including revoked grants and grants for another

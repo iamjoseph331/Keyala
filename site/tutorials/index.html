@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101c28">
-  <meta name="description" content="Build an app with MasterKey: register, connect a user, route OpenAI or Anthropic text requests, and handle phone approval safely.">
-  <title>Developer tutorials | MasterKey</title>
+  <meta name="description" content="Build an app with Keyala: register, connect a user, route OpenAI or Anthropic text requests, and handle phone approval safely.">
+  <title>Developer tutorials | Keyala</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="./tutorials.css">
@@ -13,23 +13,23 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="wordmark" href="../" aria-label="MasterKey home">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M12.2 18.1a7.4 7.4 0 1 1 5.6-2.6L29 26.7l-2.3 2.3-3.4-3.4-2 2-3-3 2-2-3.1-3.1a7.4 7.4 0 0 1-5 1.6Zm0-3.5a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z"/></svg></span>
-      <span>masterkey</span>
+    <a class="wordmark" href="../" aria-label="Keyala home">
+      <span class="brand-mark" aria-hidden="true"><img src="../keyala-koala.svg" width="32" height="32" alt=""></span>
+      <span>keyala</span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
       <a href="../">Overview</a>
       <a href="#tutorials" aria-current="page">Tutorials</a>
       <a href="../developers/">Developer console</a>
     </nav>
-    <a class="header-link" href="https://github.com/iamjoseph331/MasterKey" target="_blank" rel="noreferrer">Source code <span aria-hidden="true">↗</span></a>
+    <a class="header-link" href="https://github.com/iamjoseph331/Keyala" target="_blank" rel="noreferrer">Source code <span aria-hidden="true">↗</span></a>
   </header>
 
   <main id="main" class="tutorial-page">
     <section class="tutorial-hero" id="tutorials" aria-labelledby="page-title">
       <p class="eyebrow eyebrow-dark"><span class="eyebrow-dot"></span> Developer guide</p>
       <h1 id="page-title">From app token<br><em>to approved call.</em></h1>
-      <p class="tutorial-lead">Connect a user once, then send supported OpenAI or Anthropic text requests through MasterKey. Their provider key stays with the service; they inspect and approve calls on their phone.</p>
+      <p class="tutorial-lead">Connect a user once, then send supported OpenAI or Anthropic text requests through Keyala. Their provider key stays with the service; they inspect and approve calls on their phone.</p>
       <div class="tutorial-actions">
         <a class="button button-bright" href="#quickstart">Run the local mock <span aria-hidden="true">↓</span></a>
         <a class="text-link" href="../developers/">Open developer console <span aria-hidden="true">↗</span></a>
@@ -50,7 +50,7 @@
           <div class="code-label"><span>Terminal 1</span><span>Phone approval</span></div>
           <pre><code>bash sdk/demo.sh</code></pre>
         </div>
-        <p>Open the iOS project in Xcode and run it in a simulator. In Settings, turn off Demo mode, set the server URL to <code>http://localhost:8080</code>, and enable <strong>Allow HTTP for localhost</strong>. In Account, sign in as <code>demo@masterkey.dev</code>. The script prints the chat example command. Start it in another terminal, open <code>http://localhost:3000</code>, connect, then review and approve the request on the phone.</p>
+        <p>Open the iOS project in Xcode and run it in a simulator. In Settings, turn off Demo mode, set the server URL to <code>http://localhost:8080</code>, and enable <strong>Allow HTTP for localhost</strong>. In Account, sign in as <code>demo@keyala.dev</code>. The script prints the chat example command. Start it in another terminal, open <code>http://localhost:3000</code>, connect, then review and approve the request on the phone.</p>
         <div class="code-block">
           <div class="code-label"><span>Terminal 1</span><span>Scripted phone simulation</span></div>
           <pre><code>bash sdk/demo.sh --simulate-phone</code></pre>
@@ -67,28 +67,28 @@
         <p>Create an app in the <a href="../developers/">developer console</a> or use the terminal recipe below. Keep <code>app_secret</code> in server-side secret storage. It authenticates connection creation and polling; it is not a model grant and must never be shipped to a browser.</p>
         <div class="code-block">
           <div class="code-label"><span>Register once</span><span>Save the returned app_secret</span></div>
-          <pre><code>export MK_URL=http://localhost:8080
+          <pre><code>export KEYALA_URL=http://localhost:8080
 
-curl -sS -X POST "$MK_URL/v1/apps" \
+curl -sS -X POST "$KEYALA_URL/v1/apps" \
   -H 'Content-Type: application/json' \
   -d '{"name":"My app","homepage":"https://example.com"}'</code></pre>
         </div>
         <p>Save both returned values: <code>app_id</code> identifies the app, and <code>app_secret</code> starts server-side connections. Ask the user which provider to connect, then create a short-lived connect code:</p>
         <div class="code-block">
           <div class="code-label"><span>Create a connection</span><span>Run on your backend</span></div>
-          <pre><code>curl -sS -X POST "$MK_URL/v1/connect" \
-  -H "Authorization: Bearer $MK_APP_SECRET" \
+          <pre><code>curl -sS -X POST "$KEYALA_URL/v1/connect" \
+  -H "Authorization: Bearer $KEYALA_APP_SECRET" \
   -H 'Content-Type: application/json' \
   -d '{"vendor":"openai"}'</code></pre>
         </div>
         <p>Show the returned <code>connect_url</code> or code to the user. The phone displays the app and provider. A user's first grant for your app must use <code>ask</code>, so each model request needs its own approval. They can widen access later in Grants.</p>
-        <p>Poll the returned code from the server until the user approves. The approved response includes <code>grant_token</code> exactly once. Store that token on your backend, scoped to the authenticated app user and provider. Export it as <code>MK_GRANT_TOKEN</code> only for local testing.</p>
+        <p>Poll the returned code from the server until the user approves. The approved response includes <code>grant_token</code> exactly once. Store that token on your backend, scoped to the authenticated app user and provider. Export it as <code>KEYALA_GRANT_TOKEN</code> only for local testing.</p>
         <div class="code-block">
           <div class="code-label"><span>Poll the connection</span><span>Do not log tokens</span></div>
-          <pre><code>curl -sS "$MK_URL/v1/connect/$CONNECT_CODE" \
-  -H "Authorization: Bearer $MK_APP_SECRET"</code></pre>
+          <pre><code>curl -sS "$KEYALA_URL/v1/connect/$CONNECT_CODE" \
+  -H "Authorization: Bearer $KEYALA_APP_SECRET"</code></pre>
         </div>
-        <p>For an SDK integration, use the official client with the MasterKey route and automatic retries disabled. Keep the vendor-specific grant scoped to the user session and provider.</p>
+        <p>For an SDK integration, use the official client with the Keyala route and automatic retries disabled. Keep the vendor-specific grant scoped to the user session and provider.</p>
       </div>
     </section>
 
@@ -100,10 +100,10 @@ curl -sS -X POST "$MK_URL/v1/apps" \
         <div class="code-block">
           <div class="code-label"><span>First OpenAI request with curl</span><span>Returns a request ID while approval is pending</span></div>
           <pre><code>request_key=$(openssl rand -hex 16)
-curl -sS -i "$MK_URL/v1/openai/chat/completions" \
-  -H "Authorization: Bearer $MK_GRANT_TOKEN" \
+curl -sS -i "$KEYALA_URL/v1/openai/chat/completions" \
+  -H "Authorization: Bearer $KEYALA_GRANT_TOKEN" \
   -H 'Content-Type: application/json' \
-  -H 'X-MasterKey-Wait: 0' \
+  -H 'X-Keyala-Wait: 0' \
   -H "Idempotency-Key: $request_key" \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello."}],"max_tokens":32}'</code></pre>
         </div>
@@ -113,7 +113,7 @@ curl -sS -i "$MK_URL/v1/openai/chat/completions" \
           <pre><code>from openai import OpenAI
 
 client = OpenAI(
-    base_url=f"{MK_URL}/v1/openai",
+    base_url=f"{KEYALA_URL}/v1/openai",
     api_key=grant_token,
     max_retries=0,
 )
@@ -130,7 +130,7 @@ reply = client.chat.completions.create(
           <pre><code>from anthropic import Anthropic
 
 client = Anthropic(
-    base_url=f"{MK_URL}/v1/anthropic",
+    base_url=f"{KEYALA_URL}/v1/anthropic",
     api_key=grant_token,
     max_retries=0,
 )
@@ -142,17 +142,17 @@ reply = client.messages.create(
     extra_headers={"Idempotency-Key": operation_id},
 )</code></pre>
         </div>
-        <p>Only allowlisted models work. The current names are <code>gpt-4o</code>, <code>gpt-4o-mini</code>, <code>gpt-4.1</code>, <code>gpt-4.1-mini</code>, <code>claude-opus-5-5</code>, <code>claude-sonnet-5-5</code>, and <code>claude-haiku-5-5</code>. Output has a server-enforced cap; when omitted, MasterKey injects the model's default. Streaming and non-text content are rejected. Check the server pricing allowlist before selecting models in your app.</p>
+        <p>Only allowlisted models work. The current names are <code>gpt-4o</code>, <code>gpt-4o-mini</code>, <code>gpt-4.1</code>, <code>gpt-4.1-mini</code>, <code>claude-opus-5-5</code>, <code>claude-sonnet-5-5</code>, and <code>claude-haiku-5-5</code>. Output has a server-enforced cap; when omitted, Keyala injects the model's default. Streaming and non-text content are rejected. Check the server pricing allowlist before selecting models in your app.</p>
         <h3>When the response is not ready</h3>
         <ol class="recovery-list">
           <li><strong>202 Accepted:</strong> approval is still pending. Read <code>request_id</code> and poll <code>GET /v1/requests/{id}</code> with the same grant until the status is terminal.</li>
-          <li><strong>504 masterkey_uncertain:</strong> the upstream call may have been sent, but its outcome is unknown. Poll the existing request ID. Never issue a new model POST to recover.</li>
+          <li><strong>504 keyala_uncertain:</strong> the upstream call may have been sent, but its outcome is unknown. Poll the existing request ID. Never issue a new model POST to recover.</li>
           <li><strong>Completed:</strong> use the stored response. Actual cost can be <code>null</code> when the provider did not return usage.</li>
         </ol>
         <div class="code-block">
-          <div class="code-label"><span>Poll an existing request</span><span>Use the body ID or X-MasterKey-Request-Id header</span></div>
-          <pre><code>curl -sS "$MK_URL/v1/requests/$REQUEST_ID" \
-  -H "Authorization: Bearer $MK_GRANT_TOKEN"</code></pre>
+          <div class="code-label"><span>Poll an existing request</span><span>Use the body ID or X-Keyala-Request-Id header</span></div>
+          <pre><code>curl -sS "$KEYALA_URL/v1/requests/$REQUEST_ID" \
+  -H "Authorization: Bearer $KEYALA_GRANT_TOKEN"</code></pre>
         </div>
         <p class="tutorial-callout"><strong>Retry rule:</strong> retrying the same logical POST with the same <code>Idempotency-Key</code> and body returns the existing outcome. A different body under that key returns <code>409 idempotency_conflict</code>. Keep the key stable across transport retries and poll the request after a timeout.</p>
       </div>
@@ -165,7 +165,7 @@ reply = client.messages.create(
         <p>A static site can request browser access using its registered origin. Register <code>allowed_origins</code> for your exact HTTPS origin, or ask the server operator to declare the app. Registration returns an <code>app_id</code> and an <code>app_secret</code>. Use only the app ID in client code and store the secret securely for the developer console.</p>
         <div class="code-block">
           <div class="code-label"><span>Register a public app</span><span>Server or operator setup</span></div>
-          <pre><code>curl -sS -X POST "$MK_URL/v1/apps" \
+          <pre><code>curl -sS -X POST "$KEYALA_URL/v1/apps" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Static tool","allowed_origins":["https://example.com"]}'</code></pre>
         </div>
@@ -183,8 +183,8 @@ reply = client.messages.create(
         <p>The hosted free service loses report history, grants, and provider keys on restart. A new app token can restore its app registration if the server keeps the same master key. Run with persistent storage to retain reports and ensure old tokens stay revoked after rotation.</p>
         <div class="code-block">
           <div class="code-label"><span>Fetch an aggregate report</span><span>Use the app token</span></div>
-          <pre><code>curl -sS "$MK_URL/v1/app/report?days=30" \
-  -H "Authorization: Bearer $MK_APP_SECRET"</code></pre>
+          <pre><code>curl -sS "$KEYALA_URL/v1/app/report?days=30" \
+  -H "Authorization: Bearer $KEYALA_APP_SECRET"</code></pre>
         </div>
       </div>
     </section>
@@ -197,20 +197,20 @@ reply = client.messages.create(
           <div><dt>400 model_not_allowed</dt><dd>Choose a model from the server's vendor allowlist.</dd></div>
           <div><dt>400 unsupported_content / unsupported_option</dt><dd>Send plain text and supported options only. Images, audio, files, tools, and streaming are outside v1.</dd></div>
           <div><dt>400 policy_not_allowed_yet</dt><dd>Retry the pending first connection with the <code>ask</code> policy. The user may widen it later in Grants.</dd></div>
-          <div><dt>403 masterkey_denied</dt><dd>Tell the user the request was denied. Do not submit it again automatically.</dd></div>
+          <div><dt>403 keyala_denied</dt><dd>Tell the user the request was denied. Do not submit it again automatically.</dd></div>
           <div><dt>401</dt><dd>The credential is invalid, revoked, or was lost in a server reset. Reconnect if your grant has been rejected.</dd></div>
-          <div><dt>410 masterkey_expired</dt><dd>The request expired before approval. Ask the user before starting a fresh request.</dd></div>
+          <div><dt>410 keyala_expired</dt><dd>The request expired before approval. Ask the user before starting a fresh request.</dd></div>
           <div><dt>429 or 5xx</dt><dd>Respect rate limits and service errors. Use an idempotency key, avoid automatic retries for model POSTs, and inspect the original request when its outcome is unclear.</dd></div>
         </dl>
-        <p>Cost shown before approval is a reservation estimate, not a provider guarantee. MasterKey reserves against the request and settles from provider-reported usage when available. Users can inspect request history and revoke grants; your app should still handle a revoked grant or unavailable server cleanly.</p>
+        <p>Cost shown before approval is a reservation estimate, not a provider guarantee. Keyala reserves against the request and settles from provider-reported usage when available. Users can inspect request history and revoke grants; your app should still handle a revoked grant or unavailable server cleanly.</p>
         <div class="tutorial-footer-links">
           <a class="button button-bright" href="../developers/">Open developer console <span aria-hidden="true">↗</span></a>
-          <a class="text-link" href="https://github.com/iamjoseph331/MasterKey/blob/main/docs/PLAN.md">Read the v1 API contract <span aria-hidden="true">↗</span></a>
-          <a class="text-link" href="https://github.com/iamjoseph331/MasterKey/blob/main/sdk/examples/chat-with-your-key/README.md">Inspect the runnable chat example <span aria-hidden="true">↗</span></a>
+          <a class="text-link" href="https://github.com/iamjoseph331/Keyala/blob/main/docs/PLAN.md">Read the v1 API contract <span aria-hidden="true">↗</span></a>
+          <a class="text-link" href="https://github.com/iamjoseph331/Keyala/blob/main/sdk/examples/chat-with-your-key/README.md">Inspect the runnable chat example <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>
   </main>
-  <footer class="tutorial-footer"><a class="wordmark" href="../"><span class="brand-mark" aria-hidden="true">m</span><span>masterkey</span></a><span>Open source, self-hostable. Built by Joseph Chen.</span><nav aria-label="Support"><a href="../support/">Help & contact</a> <a href="../privacy/">Privacy</a></nav></footer>
+  <footer class="tutorial-footer"><a class="wordmark" href="../"><span class="brand-mark" aria-hidden="true">m</span><span>keyala</span></a><span>Open source, self-hostable. Built by Joseph Chen.</span><nav aria-label="Support"><a href="../support/">Help & contact</a> <a href="../privacy/">Privacy</a></nav></footer>
 </body>
 </html>

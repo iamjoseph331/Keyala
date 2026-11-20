@@ -22,6 +22,6 @@ All directions share the same rules, which Codex can apply now whatever Joseph p
 1. Price and requester are the largest text on an approval; raw JSON sits behind "Full JSON".
 2. Say "apps", "keys", "activity", "allow"; avoid "grant", "policy", "payload" in the UI.
 3. Built-in server, nothing to type. Server picker and test mode live under Settings > Developer, off by default, with the explanation from C3.
-4. Pairing opens the camera; the MK code and link paste are the "Can't scan?" fallback.
+4. Pairing opens the camera; the KY code and link paste are the "Can't scan?" fallback.
 5. Adding a key: "From your computer" first (server page `/add-key`), then paste with a format hint (`sk-proj-...`, `sk-ant-api03-...`), then a link to the provider's key page.
 6. No middle dot characters (Joseph's rule).

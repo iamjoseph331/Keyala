@@ -6,7 +6,7 @@ Contact: Joseph Chen, josephchen637@gmail.com. Phone/contact fields required by 
 
 ## Beta description draft
 
-MasterKey lets you connect your model provider account, pair an AI tool, and inspect the exact request and estimated cost on your iPhone before you allow it. Developers receive permission tokens rather than your original provider API key. You can inspect request history and manage app access. The beta supports OpenAI, Anthropic and OpenRouter with bounded, non-streaming text requests.
+Keyala lets you connect your model provider account, pair an AI tool, and inspect the exact request and estimated cost on your iPhone before you allow it. Developers receive permission tokens rather than your original provider API key. You can inspect request history and manage app access. The beta supports OpenAI, Anthropic and OpenRouter with bounded, non-streaming text requests.
 
 What to test: sign-in, provider connection, QR pairing, request review/Allow/Deny, error recovery, account controls, English/Traditional Chinese/Japanese layout and device verification. Do not submit real API keys or private prompt content as feedback.
 
