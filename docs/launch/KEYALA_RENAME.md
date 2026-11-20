@@ -57,3 +57,29 @@ not evidence that the live backend, Pages or a distributed iPhone build changed.
 Backend/crypto constraints and the operational sequence are in
 `docs/ops/KEYALA_CUTOVER.md`. Claude authored the backend rename script; Codex ran
 it and verified the Rust tests and clippy, then removed the one-off script.
+
+## Live verification, 2026-11-20
+
+Main PR #16 merged as `5ad6fca0ef4e0f357e6824b54f547dca054e8545`.
+Prod deploy `dep-dbvvdcc9v7es73cc2sv0` went live at 07:32:46 UTC;
+staging `36b5ef1`, deploy `dep-dbvv9koae00c73ammatg`, at 07:24:11 UTC.
+Both report healthy version 0.2.0 with the database available. Backend CI and Pages
+succeeded. All six public Keyala Pages entry points return 200 with the new brand.
+
+Verified on both live servers: new SDK, about/privacy pages, retained Apple AASA,
+authenticated preferences, disabled public development login, new KY pairing
+codes/keyala tokens/seen hint and keyala:// plus /Keyala/ links. No model call made.
+Prod database integrity is ok; users/keys/grants/requests counts match before and
+after migration. No existing user has routing enabled by the migration.
+The pre-cutover consistent backup remains on the prod disk; this is not offsite
+disaster recovery or proof of a real paid request.
+
+Render project display name is Keyala. Existing service IDs/hosts and the other
+external identifiers listed above are deliberately unchanged. The iOS source and
+full-asset signed simulator build are ready; no TestFlight/App Store upload or
+installation on Joseph’s physical iPhone was performed in this release. Old tokens
+and pairing codes require sign-in/reconnection with the new app build.
+
+Joseph’s signing, catalog and workspace edits remain uncommitted under the renamed
+iOS paths. Concurrent domain/mascot drafts were left untouched. The two temporary
+localhost QA services and the test simulator were stopped after verification.
