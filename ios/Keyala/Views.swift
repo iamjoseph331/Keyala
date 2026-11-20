@@ -367,7 +367,7 @@ struct VaultView: View {
                         else { Task { await store.connectOpenRouter() } }
                     } label: {
                         HStack { if store.isConnectingOpenRouter { ProgressView() }; Text(store.isConnectingOpenRouter ? "Connecting…" : (hasOpenRouter ? "Reconnect OpenRouter" : "Connect OpenRouter")).frame(maxWidth: .infinity) }
-                    }.buttonStyle(.borderedProminent).tint(hasOpenRouter ? KeyalaStyle.muted : KeyalaStyle.teal).foregroundStyle(hasOpenRouter ? KeyalaStyle.cream : KeyalaStyle.buttonText)
+                    }.buttonStyle(.borderedProminent).tint(hasOpenRouter ? KeyalaStyle.muted : KeyalaStyle.teal).foregroundStyle(KeyalaStyle.buttonText)
                         .disabled(store.demoMode || store.isConnectingOpenRouter)
                 }.padding(.vertical, 8)
             }.listRowBackground(KeyalaStyle.panel)
