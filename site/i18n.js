@@ -18,6 +18,7 @@
     const T = (window.KEYALA_STRINGS || {})[lang] || {}, EN = (window.KEYALA_STRINGS || {}).en || {};
     document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T[el.dataset.i18n] ?? EN[el.dataset.i18n] ?? el.textContent; });
     document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = T[el.dataset.i18nHtml] ?? EN[el.dataset.i18nHtml] ?? el.innerHTML; });
+    document.querySelectorAll('[data-i18n-alt]').forEach(el => { el.alt = T[el.dataset.i18nAlt] ?? EN[el.dataset.i18nAlt] ?? el.alt; });
     const title = T._title || EN._title;
     if (title) document.title = title;
     const picker = document.getElementById('language');

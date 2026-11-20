@@ -54,3 +54,7 @@ pre { background: var(--code); border: 1px solid var(--line); border-radius: 12p
 .footer a { color: var(--muted); }
 
 [data-language][hidden] { display: none !important; }
+
+.demo { margin: 0; text-align: center; }
+.demo video, .demo img { display: block; width: 100%; max-width: 300px; margin: 0 auto; border-radius: 28px; border: 1px solid var(--line); background: var(--card); }
+.demo figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }

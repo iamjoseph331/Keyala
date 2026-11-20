@@ -46,7 +46,8 @@ en: {
   'tr.h': 'Trust, in plain words',
   'tr.1h': 'Keys are never shared', 'tr.1p': 'Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.',
   'tr.2h': 'Your content is private', 'tr.2p': 'Prompts and responses are encrypted per user and deleted after 30 days.',
-  'tr.3h': 'You stay in charge', 'tr.3p': 'First connections always ask each time. Costs shown are estimates from reported usage, not promises.',
+  'see.h': 'See it in the app', 'see.cap': 'Native app demo with a local mock provider. Fictional data; no real provider charge.', 'see.a1': 'Request review: app, estimated cost, the exact prompt', 'see.a2': 'Completed request with its response and cost',
+  'tr.3h': 'You stay in charge', 'tr.3p': 'First connections always ask each time. Before a call you see an estimate; afterwards, the cost from the usage the provider reported.',
   'tr.4h': 'Honest about the limits', 'tr.4p': 'Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.',
   'tr.link': 'Read the privacy details',
   'end.h': 'Stop asking who pays. Let people bring their own key.',
@@ -84,7 +85,8 @@ en: {
   'tr.h': '用白話說明信任',
   'tr.1h': '金鑰不會外流', 'tr.1p': '金鑰以加密方式儲存，絕不會傳給開發者，畫面上只會顯示最後 4 碼。',
   'tr.2h': '內容保持私密', 'tr.2p': '提示詞與回應依使用者分別加密，30 天後刪除。',
-  'tr.3h': '決定權在你', 'tr.3p': '第一次連線一律每次詢問。顯示的費用是依回報用量算出的預估，並非保證。',
+  'see.h': '實際的 App 畫面', 'see.cap': 'iOS App 實機畫面，使用本機模擬服務商。內容皆為虛構，未產生任何實際費用。', 'see.a1': '請求審核：App、預估費用、完整提示詞', 'see.a2': '已完成的請求，含回應與費用',
+  'tr.3h': '決定權在你', 'tr.3p': '第一次連線一律每次詢問。核准前看到的是預估費用；完成後顯示的是依服務商回報用量計算的費用。',
   'tr.4h': '坦白說明限制', 'tr.4p': 'Keyala 是實驗性的個人專案。伺服器會解密你的金鑰來轉送你核准的呼叫，所以你需要信任營運者。',
   'tr.link': '閱讀隱私權說明',
   'end.h': '別再爭論誰出錢，讓大家帶自己的金鑰。',
@@ -122,7 +124,8 @@ ja: {
   'tr.h': '信頼について、率直に',
   'tr.1h': 'キーは共有されません', 'tr.1p': 'キーは暗号化して保存され、開発者には送られません。表示されるのは末尾4文字だけです。',
   'tr.2h': '内容はプライベート', 'tr.2p': 'プロンプトとレスポンスはユーザーごとに暗号化され、30日後に削除されます。',
-  'tr.3h': '決めるのはあなた', 'tr.3p': '最初の接続は必ず毎回確認します。表示される費用は報告された使用量からの概算で、保証ではありません。',
+  'see.h': 'アプリの実際の画面', 'see.cap': 'ローカルの模擬プロバイダーで動かした iOS アプリの実画面です。内容は架空で、実際の課金はありません。', 'see.a1': 'リクエストの確認：アプリ、見積もり費用、プロンプト全文', 'see.a2': '完了したリクエストと応答、費用',
+  'tr.3h': '決めるのはあなた', 'tr.3p': '最初の接続は必ず毎回確認します。承認前に見えるのは見積もりで、完了後はプロバイダーが報告した使用量にもとづく費用が表示されます。',
   'tr.4h': '限界も正直に', 'tr.4p': 'Keyalaは実験的な個人プロジェクトです。承認された呼び出しを転送するため、サーバーはキーを復号します。運営者を信頼していただく前提です。',
   'tr.link': 'プライバシーの詳細を読む',
   'end.h': '誰が払うかで悩むのは終わり。みんな自分のキーを持ち込めます。',
@@ -163,13 +166,24 @@ ja: {
   </ol>
 </div></section>
 
+<section class="see"><div class="wrap">
+  <h2 data-i18n="see.h">See it in the app</h2>
+  <div class="see-row">
+    <figure class="demo"><img src="media/keyala-request-review.jpg" alt="" data-i18n-alt="see.a1" width="720" height="1565" loading="lazy"></figure>
+    <figure class="demo"><video src="media/keyala-review-demo.mp4" poster="media/keyala-request-review.jpg" controls muted playsinline preload="none" aria-label="Keyala demo"></video></figure>
+    <figure class="demo"><img src="media/keyala-request-completed.jpg" alt="" data-i18n-alt="see.a2" width="720" height="1565" loading="lazy"></figure>
+  </div>
+  <p class="muted see-cap" data-i18n="see.cap">Native app demo with a local mock provider.</p>
+</div></section>
+
 <section class="band"><div class="wrap lanes">
   <div class="card">
     <h2 data-i18n="dev.h">For developers</h2>
     <ul><li data-i18n="dev.1">Change one line: the base URL. Official OpenAI and Anthropic SDKs work as they are.</li><li data-i18n="dev.2">Pair users with one script tag: QR, link or code.</li><li data-i18n="dev.3">Built-in dashboard: calls, cost, models, countries, busiest hours.</li><li data-i18n="dev.4">No keys to store, no bill to carry. Free.</li></ul>
     <pre><code>client = OpenAI(
   base_url="https://app.keyala.io/v1/openai",
-  api_key=grant_token)</code></pre>
+  api_key=grant_token,
+  max_retries=0)</code></pre>
     <a href="docs/" data-i18n="dev.link">Read the developer docs</a>
   </div>
   <div class="card">
@@ -184,7 +198,7 @@ ja: {
   <div class="trust">
     <p><strong data-i18n="tr.1h">Keys are never shared</strong><span class="muted" data-i18n="tr.1p">Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.</span></p>
     <p><strong data-i18n="tr.2h">Your content is private</strong><span class="muted" data-i18n="tr.2p">Prompts and responses are encrypted per user and deleted after 30 days.</span></p>
-    <p><strong data-i18n="tr.3h">You stay in charge</strong><span class="muted" data-i18n="tr.3p">First connections always ask each time. Costs shown are estimates from reported usage, not promises.</span></p>
+    <p><strong data-i18n="tr.3h">You stay in charge</strong><span class="muted" data-i18n="tr.3p">First connections always ask each time. Before a call you see an estimate; afterwards, the cost from the usage the provider reported.</span></p>
     <p><strong data-i18n="tr.4h">Honest about the limits</strong><span class="muted" data-i18n="tr.4p">Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.</span></p>
   </div>
   <a href="privacy/" data-i18n="tr.link">Read the privacy details</a>
