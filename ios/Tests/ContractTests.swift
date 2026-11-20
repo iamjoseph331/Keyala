@@ -3,6 +3,21 @@ import Foundation
 @main
 enum ContractTests {
     static func main() throws {
+        let loginID = "wl_abcdefghijklmnopqrstuv"
+        for host in [AppPreferences.productionURL, AppPreferences.stagingURL] {
+            precondition(WebLoginLink.id(from: host + "/login/" + loginID) == loginID)
+        }
+        precondition(WebLoginLink.id(from: "keyala://login/" + loginID) == loginID)
+        precondition(!PairingLink.matchesServer(AppPreferences.stagingURL + "/login/" + loginID, activeServer: AppPreferences.productionURL))
+        for link in ["https://evil.invalid/login/" + loginID, "https://app.keyala.io/login/" + loginID + "?token=bad", "https://user@app.keyala.io/login/" + loginID, "https://app.keyala.io/login/short", "keyala://login/" + loginID + "/extra", "keyala://login/%77l_abcdefghijklmnopqrstuv", "keyala://login/" + loginID + "#secret"] {
+            precondition(WebLoginLink.id(from: link) == nil, "Reject malformed or untrusted web-login links")
+        }
+        let pendingLogin = try JSONDecoder().decode(WebLoginPreview.self, from: Data(#"{"user_agent":"Safari","country":"JP","created_at":"2026-11-20T10:00:00Z","expires_at":"2026-11-20T10:05:00Z","status":"pending"}"#.utf8))
+        let loginTime = ISO8601DateFormatter().date(from: "2026-11-20T10:04:00Z")!
+        precondition(pendingLogin.isPending(at: loginTime))
+        precondition(!pendingLogin.isPending(at: loginTime.addingTimeInterval(60)))
+        let malformedLogin = try JSONDecoder().decode(WebLoginPreview.self, from: Data(#"{"created_at":"unknown","expires_at":"unknown","status":"pending"}"#.utf8))
+        precondition(!malformedLogin.canApprove)
         let preferenceSuite = "keyala-tests-" + UUID().uuidString
         let preferences = UserDefaults(suiteName: preferenceSuite)!
         defer { preferences.removePersistentDomain(forName: preferenceSuite) }

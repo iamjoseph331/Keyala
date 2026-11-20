@@ -150,3 +150,32 @@ The temporary koala app icon and in-app mark use Claude's existing artwork. Gett
 one page per step at standard text size on iPhone 17 Pro; accessibility sizes can scroll.
 Validation, recording locations and remaining device/account gates are in
 [Phase 2 QA](../docs/qa/domain-phase2-20261120/README.md).
+
+## Web console sign-in
+
+Open `https://app.keyala.io/console` on the computer. Scan its five-minute QR with
+the iPhone Camera or Keyala's scanner. `/login/wl_…` links open a native review
+showing the requesting browser's user agent, network country when available,
+creation time, expiry, and the active server. These details are hints, not identity
+verification. Only approve a QR from your own browser. Production and staging
+links stay isolated; no session token appears in a link or QR.
+
+Settings > Web password sets or removes a separate 12–200-character password for
+the web console. The username is the account email shown there. Both password
+changes and web sign-in approval follow the device authentication setting used by
+request approvals. A web session is limited by the backend and expires after
+12 hours; spending approvals and key changes remain on the phone.
+
+The standalone integration check requires a disposable localhost backend with
+`KEYALA_DEV_LOGIN=1` and `KEYALA_VENDOR_MOCK=1`:
+
+```sh
+swiftc -module-cache-path /private/tmp/keyala-swift-modules \
+  ios/Keyala/Models.swift ios/Keyala/Networking.swift \
+  ios/Tests/WebAccessIntegrationChecks.swift -o /private/tmp/keyala-web-checks
+KEYALA_TEST_URL=http://127.0.0.1:8097 /private/tmp/keyala-web-checks
+```
+
+It exercises one-time browser-session delivery, denial, password save/removal,
+and the server's refusal to let a web session change a password or approve
+another browser. All accounts and passwords are generated test data.

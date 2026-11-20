@@ -9614,6 +9614,798 @@
           }
         }
       }
+    },
+    "Web password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web password"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁密碼"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワード"
+          }
+        }
+      }
+    },
+    "Web sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web sign-in"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁登入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブログイン"
+          }
+        }
+      }
+    },
+    "Sign in on the web": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in on the web"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入網頁版"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ版にログイン"
+          }
+        }
+      }
+    },
+    "Approve web sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve web sign-in"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "批准網頁登入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブログインを許可"
+          }
+        }
+      }
+    },
+    "Deny web sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deny web sign-in"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒絕網頁登入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブログインを拒否"
+          }
+        }
+      }
+    },
+    "Review browser": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review browser"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認瀏覽器"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブラウザを確認"
+          }
+        }
+      }
+    },
+    "Browser": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browser"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏覽器"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブラウザ"
+          }
+        }
+      }
+    },
+    "Country": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Country"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "國家"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "国"
+          }
+        }
+      }
+    },
+    "Created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立時間"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成日時"
+          }
+        }
+      }
+    },
+    "Expires": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expires"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到期時間"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効期限"
+          }
+        }
+      }
+    },
+    "Keyala server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyala server"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyala 伺服器"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyala サーバー"
+          }
+        }
+      }
+    },
+    "Loading sign-in…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading sign-in…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在載入登入資訊…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン情報を読み込み中…"
+          }
+        }
+      }
+    },
+    "Unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明"
+          }
+        }
+      }
+    },
+    "Only approve if you just opened Keyala in your own browser and scanned its sign-in QR. A QR sent by someone else can sign them into your account.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only approve if you just opened Keyala in your own browser and scanned its sign-in QR. A QR sent by someone else can sign them into your account."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有在你剛於自己的瀏覽器開啟 Keyala 並掃描其登入 QR code 時才批准。別人傳來的 QR code 可能讓對方登入你的帳號。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分のブラウザで Keyala を開き、そのログイン QR コードを読み取った場合のみ許可してください。他人から送られた QR コードを許可すると、その人があなたのアカウントにログインできる可能性があります。"
+          }
+        }
+      }
+    },
+    "Browser details are hints, not verified identity.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browser details are hints, not verified identity."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏覽器資訊僅供參考，不代表身分已驗證。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブラウザ情報は参考情報であり、本人確認にはなりません。"
+          }
+        }
+      }
+    },
+    "The web console can view your keys’ last four characters, connected apps and request history, and manage your developer apps. Key changes and spending approvals stay on your phone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The web console can view your keys’ last four characters, connected apps and request history, and manage your developer apps. Key changes and spending approvals stay on your phone."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁控制台可查看金鑰末四碼、已連接的 Apps 與請求紀錄，並管理你開發的 Apps。變更金鑰與批准用量仍需在手機操作。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブコンソールではキーの末尾4文字、接続済みアプリ、リクエスト履歴の確認と、開発したアプリの管理ができます。キーの変更や利用の許可は引き続きスマートフォンで行います。"
+          }
+        }
+      }
+    },
+    "This sign-in is no longer pending. Start again in your browser.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This sign-in is no longer pending. Start again in your browser."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次登入已處理或到期。請回到瀏覽器重新開始。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このログインは処理済み、または期限切れです。ブラウザでやり直してください。"
+          }
+        }
+      }
+    },
+    "Approve this browser to sign in to Keyala.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve this browser to sign in to Keyala."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "批准此瀏覽器登入 Keyala。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このブラウザで Keyala にログインすることを許可します。"
+          }
+        }
+      }
+    },
+    "Confirm this change to your Keyala web password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm this change to your Keyala web password."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認變更你的 Keyala 網頁密碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyala のウェブ用パスワードの変更を確認します。"
+          }
+        }
+      }
+    },
+    "Use 12 to 200 characters for your web password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use 12 to 200 characters for your web password."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁密碼請使用 12 至 200 個字元。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードは12〜200文字にしてください。"
+          }
+        }
+      }
+    },
+    "Use the matching Keyala server with sample data turned off before reviewing a web sign-in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the matching Keyala server with sample data turned off before reviewing a web sign-in."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請選擇對應的 Keyala 伺服器並關閉範例資料，再確認網頁登入。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応する Keyala サーバーを選び、サンプルデータをオフにしてからウェブログインを確認してください。"
+          }
+        }
+      }
+    },
+    "Sign in to the web console with your account email and a separate password. Your Apple Account password stays with Apple.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to the web console with your account email and a separate password. Your Apple Account password stays with Apple."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用帳號電子郵件與另外設定的密碼登入網頁控制台。Apple 帳號密碼仍由 Apple 管理。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントのメールアドレスと別途設定したパスワードでウェブコンソールにログインします。Apple Account のパスワードは Apple が管理します。"
+          }
+        }
+      }
+    },
+    "Use at least 12 characters. Scan the web sign-in QR instead if you prefer not to set a password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use at least 12 characters. Scan the web sign-in QR instead if you prefer not to set a password."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請使用至少 12 個字元。不想設定密碼，也可以掃描網頁登入 QR code。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12文字以上にしてください。パスワードを設定したくない場合は、ウェブログイン用 QR コードを読み取れます。"
+          }
+        }
+      }
+    },
+    "New web password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New web password"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新的網頁密碼"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいウェブ用パスワード"
+          }
+        }
+      }
+    },
+    "Confirm web password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm web password"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再次輸入網頁密碼"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを再入力"
+          }
+        }
+      }
+    },
+    "Save web password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save web password"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存網頁密碼"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを保存"
+          }
+        }
+      }
+    },
+    "Remove web password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove web password"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除網頁密碼"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを削除"
+          }
+        }
+      }
+    },
+    "Remove web password?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove web password?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除網頁密碼？"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを削除しますか？"
+          }
+        }
+      }
+    },
+    "Web password saved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web password saved."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存網頁密碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを保存しました。"
+          }
+        }
+      }
+    },
+    "Web password removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web password removed."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移除網頁密碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブ用パスワードを削除しました。"
+          }
+        }
+      }
+    },
+    "You can still sign in by scanning the web sign-in QR with Keyala.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can still sign in by scanning the web sign-in QR with Keyala."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你仍可使用 Keyala 掃描網頁登入 QR code 來登入。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引き続き Keyala でウェブログイン用 QR コードを読み取ってログインできます。"
+          }
+        }
+      }
+    },
+    "Send console link": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send console link"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "傳送控制台連結"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンソールのリンクを送信"
+          }
+        }
+      }
+    },
+    "Choose phone sign-in. Scan the QR using your iPhone Camera or Keyala’s QR scanner, then review and approve the browser.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose phone sign-in. Scan the QR using your iPhone Camera or Keyala’s QR scanner, then review and approve the browser."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇手機登入，使用 iPhone 相機或 Keyala 的 QR 掃描器掃描，再確認並批准瀏覽器登入。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマートフォンでのログインを選び、iPhone のカメラまたは Keyala の QR スキャナで読み取って、ブラウザを確認して許可してください。"
+          }
+        }
+      }
+    },
+    "Can’t scan? Paste the sign-in link": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t scan? Paste the sign-in link"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法掃描？貼上登入連結"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み取れない場合はログインリンクを貼り付け"
+          }
+        }
+      }
+    },
+    "Review web sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review web sign-in"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認網頁登入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブログインを確認"
+          }
+        }
+      }
+    },
+    "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple. You can set a separate web password in Settings > Web password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple manages your sign-in identity. Change your email or Apple Account settings with Apple. You can set a separate web password in Settings > Web password."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple 管理你的登入身分。請向 Apple 變更電子郵件或 Apple 帳號設定；你可以在「設定 > 網頁密碼」另設網頁登入密碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン情報は Apple が管理します。メールアドレスや Apple Account の設定は Apple で変更してください。「設定 > ウェブ用パスワード」で別のパスワードを設定できます。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

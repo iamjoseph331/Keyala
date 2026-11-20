@@ -506,3 +506,41 @@ func localized(_ key: String, locale: Locale) -> String {
     guard let path = Bundle.main.path(forResource: language, ofType: "lproj"), let bundle = Bundle(path: path) else { return key }
     return bundle.localizedString(forKey: key, value: key, table: nil)
 }
+
+
+struct WebLoginPreview: Decodable {
+    let browser: String?
+    let country: String?
+    let createdAt: String
+    let expiresAt: String
+    let status: String
+    enum CodingKeys: String, CodingKey {
+        case country, status
+        case browser = "user_agent"
+        case createdAt = "created_at", expiresAt = "expires_at"
+    }
+    var canApprove: Bool { isPending(at: Date()) }
+    func isPending(at now: Date) -> Bool {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fractional = parser.date(from: expiresAt)
+        parser.formatOptions = [.withInternetDateTime]
+        guard let expires = fractional ?? parser.date(from: expiresAt) else { return false }
+        return status == "pending" && expires > now
+    }
+}
+
+enum WebLoginLink {
+    static func id(from text: String) -> String? {
+        guard let url = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil, url.percentEncodedPath == url.path else { return nil }
+        let path: String
+        if url.scheme?.lowercased() == "keyala", url.host?.lowercased() == "login" { path = url.path }
+        else if PairingLink.serverURL(from: text) != nil, url.path.hasPrefix("/login/") {
+            path = String(url.path.dropFirst("/login".count))
+        } else { return nil }
+        guard path.range(of: "^/wl_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
+        return String(path.dropFirst())
+    }
+}
