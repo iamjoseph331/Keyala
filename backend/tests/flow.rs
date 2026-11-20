@@ -3717,7 +3717,7 @@ async fn trust_pages_are_served_and_linked() {
         let body = r.text().await.unwrap();
         assert!(
             body.contains("personal experimental project")
-                && body.contains("josephchen637@gmail.com")
+                && body.contains("support@keyala.io")
                 && body.contains("decrypts"),
             "{p}"
         );
