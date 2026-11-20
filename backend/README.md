@@ -1,4 +1,4 @@
-# MasterKey server
+# Keyala server
 
 Rust (axum + sqlx/SQLite). One binary, one SQLite file. See `../docs/PLAN.md` for the contract.
 
@@ -6,8 +6,8 @@ Rust (axum + sqlx/SQLite). One binary, one SQLite file. See `../docs/PLAN.md` fo
 
 ```sh
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"   # if rust comes from Homebrew rustup
-export MK_MASTER_KEY=$(openssl rand -base64 32)    # keep it: it encrypts every stored API key
-MK_DEV_LOGIN=1 MK_VENDOR_MOCK=1 cargo run          # mock vendor: no real credits, no real keys
+export KEYALA_MASTER_KEY=$(openssl rand -base64 32)    # keep it: it encrypts every stored API key
+KEYALA_DEV_LOGIN=1 KEYALA_VENDOR_MOCK=1 cargo run          # mock vendor: no real credits, no real keys
 cargo test && cargo clippy --all-targets -- -D warnings
 ```
 
@@ -15,22 +15,22 @@ cargo test && cargo clippy --all-targets -- -D warnings
 
 | Var | Default | Meaning |
 |---|---|---|
-| `MK_MASTER_KEY` | required | base64 of 32 bytes; AES-256-GCM key for stored API keys |
+| `KEYALA_MASTER_KEY` | required | base64 of 32 bytes; AES-256-GCM key for stored API keys |
 | `PORT` | `8080` | listen port (Render sets it) |
-| `MK_DATABASE_URL` | `sqlite://masterkey.db?mode=rwc` | SQLite file |
-| `MK_PUBLIC_URL` | `http://localhost:8080` | base of `connect_url` |
-| `MK_DEV_LOGIN` | off | `1` enables `POST /v1/auth/dev` (testing only) |
-| `MK_PASSWORD_LOGIN` | unset | `username:sha256hex(password)` enables `POST /v1/auth/password` for that one account. Use a random password, e.g. `P=$(openssl rand -base64 24); printf 'qa:%s' "$(printf %s "$P" \| shasum -a 256 \| cut -d' ' -f1)"`. Keep `$P` out of git and logs |
-| `MK_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
-| `MK_APPLE_BUNDLE_ID` | `app.sorevan.masterkey` | required `aud` of Apple identity tokens |
-| `MK_APPLE_JWKS_URL` | Apple's | override only for tests |
-| `MK_APNS_KEY_P8`, `MK_APNS_KEY_ID`, `MK_APNS_TEAM_ID` | unset | APNs token auth (.p8 PEM contents; `\n` escapes ok). All three needed, otherwise push is a no-op |
-| `MK_APNS_TOPIC` | `app.sorevan.masterkey` | `apns-topic` (bundle id) |
-| `MK_APNS_SANDBOX` | off | `1` = api.sandbox.push.apple.com |
-| `MK_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
-| `MK_PUBLIC_APPS` | unset | JSON array of browser apps `[{"id":"app_x","name":"X","homepage":null,"allowed_origins":["https://x.github.io"]}]`, upserted on every start (survives the free-plan DB reset) so a static page can ship a fixed `app_id` |
-| `MK_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
-| `MK_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `MK_MOCK_FAIL` yields a 500) |
+| `KEYALA_DATABASE_URL` | `sqlite://masterkey.db?mode=rwc` | SQLite file |
+| `KEYALA_PUBLIC_URL` | `http://localhost:8080` | base of `connect_url` |
+| `KEYALA_DEV_LOGIN` | off | `1` enables `POST /v1/auth/dev` (testing only) |
+| `KEYALA_PASSWORD_LOGIN` | unset | `username:sha256hex(password)` enables `POST /v1/auth/password` for that one account. Use a random password, e.g. `P=$(openssl rand -base64 24); printf 'qa:%s' "$(printf %s "$P" \| shasum -a 256 \| cut -d' ' -f1)"`. Keep `$P` out of git and logs |
+| `KEYALA_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
+| `KEYALA_APPLE_BUNDLE_ID` | `app.sorevan.masterkey` | required `aud` of Apple identity tokens |
+| `KEYALA_APPLE_JWKS_URL` | Apple's | override only for tests |
+| `KEYALA_APNS_KEY_P8`, `KEYALA_APNS_KEY_ID`, `KEYALA_APNS_TEAM_ID` | unset | APNs token auth (.p8 PEM contents; `\n` escapes ok). All three needed, otherwise push is a no-op |
+| `KEYALA_APNS_TOPIC` | `app.sorevan.masterkey` | `apns-topic` (bundle id) |
+| `KEYALA_APNS_SANDBOX` | off | `1` = api.sandbox.push.apple.com |
+| `KEYALA_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
+| `KEYALA_PUBLIC_APPS` | unset | JSON array of browser apps `[{"id":"app_x","name":"X","homepage":null,"allowed_origins":["https://x.github.io"]}]`, upserted on every start (survives the free-plan DB reset) so a static page can ship a fixed `app_id` |
+| `KEYALA_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
+| `KEYALA_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `KEYALA_MOCK_FAIL` yields a 500) |
 
 `POST /v1/auth/apple` verifies Apple identity tokens; Google sign-in is not implemented. APNs push is optional (see env).
 
@@ -48,8 +48,8 @@ CODE=$(curl -s $B/v1/connect -H "Authorization: Bearer $APP" -d '{"vendor":"open
 curl -s $B/v1/me/connect/$CODE/approve -H "Authorization: Bearer $S" -d '{"policy":{"mode":"ask"}}'
 # 4. developer: pick up the grant token (shown once)
 G=$(curl -s $B/v1/connect/$CODE -H "Authorization: Bearer $APP" | jq -r .grant_token)
-# 5. developer: call the model; X-MasterKey-Wait: 0 returns 202 immediately instead of holding
-curl -s -i $B/v1/openai/chat/completions -H "Authorization: Bearer $G" -H "X-MasterKey-Wait: 0" \
+# 5. developer: call the model; X-Keyala-Wait: 0 returns 202 immediately instead of holding
+curl -s -i $B/v1/openai/chat/completions -H "Authorization: Bearer $G" -H "X-Keyala-Wait: 0" \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}'
 # 6. user: see the pending request and approve it (optionally with a new policy)
 RID=$(curl -s "$B/v1/me/requests?status=pending" -H "Authorization: Bearer $S" | jq -r '.[0].id')
@@ -65,8 +65,8 @@ token as the API key. The Anthropic routes also accept the grant token in `x-api
 
 ```sh
 python3 -m venv /tmp/mk-venv && /tmp/mk-venv/bin/pip install openai anthropic
-# server running with MK_VENDOR_MOCK=1, plus two trust-mode grants (one per vendor)
-MK_URL=http://localhost:8080 MK_GRANT_OPENAI=mk_grant_... MK_GRANT_ANTHROPIC=mk_grant_... \
+# server running with KEYALA_VENDOR_MOCK=1, plus two trust-mode grants (one per vendor)
+KEYALA_URL=http://localhost:8080 KEYALA_GRANT_OPENAI=keyala_grant_... KEYALA_GRANT_ANTHROPIC=keyala_grant_... \
   /tmp/mk-venv/bin/python tests/sdk_smoke.py
 ```
 
@@ -81,11 +81,11 @@ body is `409 idempotency_conflict`. After a `202` (held) or `504` (uncertain), p
 
 ## Notes
 
-- Tokens (`mk_app_`, `mk_grant_`, `mk_sess_`) are stored as SHA-256 hashes only. The grant token is
+- Tokens (`keyala_app_`, `keyala_grant_`, `keyala_sess_`) are stored as SHA-256 hashes only. The grant token is
   generated and shown on the first poll after the user approves the connect code.
 - "Approve with next N calls" = `count` policy with N-1 remaining after the approved call.
 - Prices in `src/pricing.rs` are placeholders: verify against vendor pricing pages.
 - Deploy: repo-root `render.yaml` (Render Blueprint): `main` -> `masterkey-prod`, `staging` -> `masterkey-staging`,
   both free plan, deployed only after Backend CI passes. Free plan has no disk, so SQLite data resets on every
-  deploy/restart/spin-down; use `plan: starter` + a disk at `/data` to keep it. `MK_PUBLIC_URL` defaults to
+  deploy/restart/spin-down; use `plan: starter` + a disk at `/data` to keep it. `KEYALA_PUBLIC_URL` defaults to
   Render's `RENDER_EXTERNAL_URL`.

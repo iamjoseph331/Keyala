@@ -1,8 +1,8 @@
-<title>MasterKey Pairing Flows</title>
+<title>Keyala Pairing Flows</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
-/* Layout: scenario tabs on top, a stage (browser + phone mocks) beside a step rail, then the dashboard heatmap. MasterKey palette. */
+/* Layout: scenario tabs on top, a stage (browser + phone mocks) beside a step rail, then the dashboard heatmap. Keyala palette. */
 :root {
   --bg:#FAF7F2; --ink:#1F1B16; --mut:#7A7268; --acc:#3D7A57; --line:#ECE6DC; --card:#fff; --soft:#EFEAE1;
   --site:#2F5DA8; --siteSoft:#EAF0FA; --warn:#A8662F; --stage:#E9E4DA;
@@ -90,7 +90,7 @@ table { border-collapse:collapse; font-size:13px; width:100% } th,td { text-alig
 <div class="wrap">
   <header>
     <h1>開發者那一側的配對流程</h1>
-    <p class="lead">AI 服務商的網頁要怎麼讓使用者連上 MasterKey。五種情境都可以直接點畫面裡的按鈕（虛線框）或右邊的「下一步」走一遍，右側會算使用者要動幾次手。畫面文字用英文，是 SDK 元件預設會顯示的樣子。</p>
+    <p class="lead">AI 服務商的網頁要怎麼讓使用者連上 Keyala。五種情境都可以直接點畫面裡的按鈕（虛線框）或右邊的「下一步」走一遍，右側會算使用者要動幾次手。畫面文字用英文，是 SDK 元件預設會顯示的樣子。</p>
   </header>
 
   <div class="tabs" role="tablist" id="tabs"></div>
@@ -110,11 +110,11 @@ table { border-collapse:collapse; font-size:13px; width:100% } th,td { text-alig
   <section class="verdict">
     <h2>我的建議</h2>
     <ol>
-      <li><b>做一個 SDK 檔案 <code>masterkey.js</code>，兩種觸發共用同一個彈窗。</b>預設是「用到才問」：使用者第一次按「Run」時開發者呼叫 <code>MasterKey.connect()</code>，彈窗說明為什麼要連，連好後直接把剛剛那個動作送出去。想要固定按鈕的開發者放 <code>&lt;masterkey-connect&gt;</code>，按下去開的是同一個彈窗。</li>
+      <li><b>做一個 SDK 檔案 <code>keyala.js</code>，兩種觸發共用同一個彈窗。</b>預設是「用到才問」：使用者第一次按「Run」時開發者呼叫 <code>Keyala.connect()</code>，彈窗說明為什麼要連，連好後直接把剛剛那個動作送出去。想要固定按鈕的開發者放 <code>&lt;keyala-connect&gt;</code>，按下去開的是同一個彈窗。</li>
       <li><b>內嵌卡片當作選項，不當預設。</b>只適合第一頁本來就是設定頁的工具。放在一般首頁會在使用者還不知道要做什麼時就要他掃碼。</li>
-      <li><b>SDK 自己判斷是電腦還是手機。</b>手機上顯示 QR 沒有用（不能用同一支手機掃自己），改成一個大按鈕「Open MasterKey」。</li>
-      <li><b>沒裝 App 時不需要特殊機制。</b>掃碼或按按鈕會落到 MasterKey 伺服器的 <code>/connect/{code}</code> 頁，上面放 App Store 按鈕和代碼。代碼有效 10 分鐘，夠下載加用 Apple 登入。裝好之後：電腦情境回去再掃一次（QR 還在）；手機情境回 Safari 再按一次。</li>
-      <li><b>兩個要補的小東西（還沒做）：</b>(a) <code>/connect/{code}</code> 頁的「Open in MasterKey」必須用 <code>masterkey://connect/{code}</code>，因為同網域內的連結不會觸發 Universal Link；(b) 建議後端讓 <code>GET /v1/connect/{code}</code> 多回一個 <code>opened</code> 狀態（手機打開了網頁但還沒核准），電腦上的彈窗就能說「Install MasterKey on your phone, then scan again」，不會讓人乾等。</li>
+      <li><b>SDK 自己判斷是電腦還是手機。</b>手機上顯示 QR 沒有用（不能用同一支手機掃自己），改成一個大按鈕「Open Keyala」。</li>
+      <li><b>沒裝 App 時不需要特殊機制。</b>掃碼或按按鈕會落到 Keyala 伺服器的 <code>/connect/{code}</code> 頁，上面放 App Store 按鈕和代碼。代碼有效 10 分鐘，夠下載加用 Apple 登入。裝好之後：電腦情境回去再掃一次（QR 還在）；手機情境回 Safari 再按一次。</li>
+      <li><b>兩個要補的小東西（還沒做）：</b>(a) <code>/connect/{code}</code> 頁的「Open in Keyala」必須用 <code>keyala://connect/{code}</code>，因為同網域內的連結不會觸發 Universal Link；(b) 建議後端讓 <code>GET /v1/connect/{code}</code> 多回一個 <code>opened</code> 狀態（手機打開了網頁但還沒核准），電腦上的彈窗就能說「Install Keyala on your phone, then scan again」，不會讓人乾等。</li>
       <li><b>App Clip 先不做。</b>它能做到「掃了就直接用」，但存 API key、登入都會變複雜，等有實際流失數據再說。</li>
     </ol>
     <div class="tblwrap"><table>
@@ -149,79 +149,79 @@ function qr(seed) { // deterministic fake QR, enough for a mock
   }
   return `<div class="qr"><svg viewBox="0 0 ${n} ${n}" fill="#1F1B16" aria-label="QR code">${cells}</svg></div>`;
 }
-const MK = t => `<button class="mk" data-go>${'<span class="logo">MK</span>'}${t}</button>`;
+const MK = t => `<button class="mk" data-go>${'<span class="logo">🐨</span>'}${t}</button>`;
 const site = (url, body) => `<div class="browser"><div class="bar"><i></i><i></i><i></i><span>${url}</span></div><div class="site">${body}</div></div>`;
 const tool = (extra = '', run = false) => `<div class="brand">Resume Tailor</div><div class="field">Paste your resume…  (3 pages loaded)</div><div class="field">Job description: Senior iOS Engineer…</div>${run ? '<button class="sbtn" data-go>Tailor my resume</button>' : ''}${extra}`;
 const modal = (inner) => `<div class="shade"><div class="modal">${inner}</div></div>`;
-const qrModal = (msg = '<div class="wait">Waiting for your phone…</div>', top = '<h3>Connect MasterKey</h3><p class="small" style="margin:0">Scan with your iPhone camera. You approve on the phone, and your own OpenAI key pays.</p>') =>
-  modal(`${top}${qr(7)}<div class="code">MK-7Q4D</div>${msg}<a class="small" href="https://iamjoseph331.github.io/MasterKey/">No app yet? Get MasterKey</a>`);
+const qrModal = (msg = '<div class="wait">Waiting for your phone…</div>', top = '<h3>Connect Keyala</h3><p class="small" style="margin:0">Scan with your iPhone camera. You approve on the phone, and your own OpenAI key pays.</p>') =>
+  modal(`${top}${qr(7)}<div class="code">KY-7Q4D</div>${msg}<a class="small" href="https://iamjoseph331.github.io/Keyala/">No app yet? Get Keyala</a>`);
 const phone = (cls, body, tag = '') => `<div class="phone ${cls}">${tag ? `<div class="tag">${tag}</div>` : ''}${body}</div>`;
 const phoneOff = phone('off', '<div class="ttl">iPhone</div><p class="small">（在口袋裡）</p>');
 const review = (btnTxt = 'Allow, ask each time') => phone('', `<div class="ttl">Connect app?</div>
   <div class="row"><b>Resume Tailor</b><span class="small">from resume-tailor.example</span></div>
   <div class="row">Uses your <b>OpenAI</b> key<span class="small">First time: you approve every call</span></div>
-  <div class="spacer"></div><div class="pair"><button class="mk ghost">Deny</button>${MK(btnTxt).replace('<span class="logo">MK</span>','')}</div>`, 'MasterKey');
+  <div class="spacer"></div><div class="pair"><button class="mk ghost">Deny</button>${MK(btnTxt).replace('<span class="logo">🐨</span>','')}</div>`, 'Keyala');
 const allow = phone('', `<div class="ttl">Resume Tailor</div><div class="row"><span class="small">Estimated</span><b style="font-size:24px">$0.004</b></div>
   <div class="row">gpt-4o-mini<span class="small">Sends your resume + job post</span></div><div class="spacer"></div>
-  <div class="pair"><button class="mk ghost">Deny</button>${MK('Allow').replace('<span class="logo">MK</span>','')}</div>`, 'MasterKey');
-const done = phone('', '<div class="ttl">Inbox</div><div class="row"><b>Resume Tailor</b><span class="small">Completed, cost $0.003</span></div><div class="spacer"></div>', 'MasterKey');
+  <div class="pair"><button class="mk ghost">Deny</button>${MK('Allow').replace('<span class="logo">🐨</span>','')}</div>`, 'Keyala');
+const done = phone('', '<div class="ttl">Inbox</div><div class="row"><b>Resume Tailor</b><span class="small">Completed, cost $0.003</span></div><div class="spacer"></div>', 'Keyala');
 const camera = phone('', `<div class="cam">${qr(7)}<button class="pop" data-go><b>masterkey-prod…onrender.com</b><br>Open in Safari</button></div>`, 'Camera');
 
 const S = [
  { id:'jit', name:'用到才問', rec:true,
    why:'使用者先用工具，按下「Tailor」時才跳出連接彈窗。連好後剛剛的動作自動送出，不用再按一次。',
-   code:`btn.onclick = async () => {\n  const grant = await MasterKey.connect({\n    app: "app_resume_tailor", vendor: "openai" })\n  run(grant)   // continues the same job\n}`,
+   code:`btn.onclick = async () => {\n  const grant = await Keyala.connect({\n    app: "app_resume_tailor", vendor: "openai" })\n  run(grant)   // continues the same job\n}`,
    taps:'電腦 1 下、手機掃碼 + 2 下', cost:'開發者要在動作前呼叫 connect()',
    steps:[
     ['在頁面上填好內容，按 Tailor', () => [site('resume-tailor.example', tool('', true)), phoneOff]],
-    ['彈窗說明原因並顯示 QR', () => [site('resume-tailor.example', tool('', true) + qrModal(undefined, '<h3>Use your own OpenAI key</h3><p class="small" style="margin:0">To tailor this resume, connect MasterKey. Scan with your iPhone camera.</p>')), camera]],
+    ['彈窗說明原因並顯示 QR', () => [site('resume-tailor.example', tool('', true) + qrModal(undefined, '<h3>Use your own OpenAI key</h3><p class="small" style="margin:0">To tailor this resume, connect Keyala. Scan with your iPhone camera.</p>')), camera]],
     ['手機掃碼，App 打開核准頁', () => [site('resume-tailor.example', tool('', true) + qrModal()), review()]],
-    ['核准後彈窗自己關掉，工作繼續', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
-    ['手機核准這次呼叫，結果出現', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="field" style="color:var(--ink)">✓ Tailored resume ready (2 pages)</div>')), done]],
+    ['核准後彈窗自己關掉，工作繼續', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+    ['手機核准這次呼叫，結果出現', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span><div class="field" style="color:var(--ink)">✓ Tailored resume ready (2 pages)</div>')), done]],
    ]},
  { id:'button', name:'按鈕 → 彈窗',
-   why:'開發者在頁面放一顆「Connect MasterKey」按鈕。直觀，但使用者要先自己發現這顆按鈕、理解為什麼要按。',
-   code:`<script src="https://…/masterkey.js"><\/script>\n<masterkey-connect app="app_resume_tailor"\n  vendor="openai"></masterkey-connect>\n// el.addEventListener("connected", e => …)`,
+   why:'開發者在頁面放一顆「Connect Keyala」按鈕。直觀，但使用者要先自己發現這顆按鈕、理解為什麼要按。',
+   code:`<script src="https://…/keyala.js"><\/script>\n<keyala-connect app="app_resume_tailor"\n  vendor="openai"></keyala-connect>\n// el.addEventListener("connected", e => …)`,
    taps:'電腦 2 下、手機掃碼 + 2 下', cost:'使用者連完還要回頭按 Run',
    steps:[
-    ['使用者看到按鈕', () => [site('resume-tailor.example', tool('<div style="display:flex;gap:8px;flex-wrap:wrap">' + MK('Connect MasterKey') + '<button class="sbtn ghost">Tailor my resume</button></div>')), phoneOff]],
+    ['使用者看到按鈕', () => [site('resume-tailor.example', tool('<div style="display:flex;gap:8px;flex-wrap:wrap">' + MK('Connect Keyala') + '<button class="sbtn ghost">Tailor my resume</button></div>')), phoneOff]],
     ['按下去，彈窗顯示 QR', () => [site('resume-tailor.example', tool() + qrModal()), camera]],
     ['手機掃碼並核准', () => [site('resume-tailor.example', tool() + qrModal()), review()]],
-    ['按鈕變成已連接，回頭按 Tailor', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><button class="sbtn" data-go>Tailor my resume</button>')), phoneOff]],
-    ['手機核准這次呼叫', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+    ['按鈕變成已連接，回頭按 Tailor', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span><button class="sbtn" data-go>Tailor my resume</button>')), phoneOff]],
+    ['手機核准這次呼叫', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
    ]},
  { id:'inline', name:'內嵌卡片',
    why:'QR 直接嵌在頁面裡，不用按任何東西。連好後卡片縮成一個小標籤。適合第一頁就是設定頁的工具；放在一般頁面會太早要求掃碼，而且一直佔位置。',
-   code:`<masterkey-connect mode="inline"\n  app="app_resume_tailor" vendor="openai">\n</masterkey-connect>`,
+   code:`<keyala-connect mode="inline"\n  app="app_resume_tailor" vendor="openai">\n</keyala-connect>`,
    taps:'電腦 1 下、手機掃碼 + 2 下', cost:'一進頁面就要掃，還不知道工具好不好用',
    steps:[
-    ['一進頁面就看到 QR 卡片', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Scan with your iPhone. Your own OpenAI key pays; you approve each call.</span><span class="code">MK-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), camera]],
-    ['手機掃碼並核准', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Approve on your phone…</span><span class="code">MK-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), review()]],
-    ['卡片收起，變成小標籤', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span>', true)), phoneOff]],
-    ['按 Tailor，手機核准', () => [site('resume-tailor.example', tool('<span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
+    ['一進頁面就看到 QR 卡片', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Scan with your iPhone. Your own OpenAI key pays; you approve each call.</span><span class="code">KY-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), camera]],
+    ['手機掃碼並核准', () => [site('resume-tailor.example', `<div class="brand">Resume Tailor</div><div class="mkcard">${qr(7)}<b>Step 1: connect your key</b><span class="small">Approve on your phone…</span><span class="code">KY-7Q4D</span><div class="wait">Waiting for your phone…</div></div><div class="field">Paste your resume…</div>`), review()]],
+    ['卡片收起，變成小標籤', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span>', true)), phoneOff]],
+    ['按 Tailor，手機核准', () => [site('resume-tailor.example', tool('<span class="chip">Keyala connected, OpenAI</span><div class="wait">Waiting for approval on your phone…</div>')), allow]],
    ]},
  { id:'noapp', name:'還沒裝 App',
-   why:'電腦上掃碼，但手機沒有 MasterKey。相機會打開 MasterKey 伺服器的網頁，頁面帶使用者去 App Store。裝好登入後回到電腦再掃一次，代碼還有效（10 分鐘）。',
+   why:'電腦上掃碼，但手機沒有 Keyala。相機會打開 Keyala 伺服器的網頁，頁面帶使用者去 App Store。裝好登入後回到電腦再掃一次，代碼還有效（10 分鐘）。',
    code:`// nothing extra for the developer.\n// proposed backend: GET /v1/connect/{code}\n//   status: "pending" | "opened" | "approved"\n// so the modal can say "install, then scan again"`,
    taps:'掃碼 2 次、下載 + Apple 登入', cost:'要多掃一次；可用 opened 狀態提示',
    steps:[
     ['電腦彈窗顯示 QR，手機相機掃', () => [site('resume-tailor.example', tool('', true) + qrModal()), camera]],
-    ['手機落到 MasterKey 網頁', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install MasterKey, then scan again.</div>')), phone('safari', `<div class="small">masterkey-prod…onrender.com/connect/MK-7Q4D</div><div class="ttl">Resume Tailor wants to use your OpenAI key</div><p class="small" style="margin:0">Your key stays on your MasterKey account. You approve each call.</p><div class="spacer"></div>${MK('Download on the App Store')}<p class="small" style="margin:0;text-align:center">Code MK-7Q4D, valid 9 min</p>`, 'Safari')]],
-    ['App Store 下載', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install MasterKey, then scan again.</div>')), phone('store', `<div class="ttl">MasterKey</div><p class="small" style="margin:0">Pay for AI apps with your own key</p><div class="spacer"></div>${MK('Get')}`, 'App Store')]],
-    ['Apple 登入', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Welcome</div><p class="small">Approve AI apps that use your own key.</p><div class="spacer"></div>${MK(' Sign in with Apple').replace('<span class="logo">MK</span>','')}`, 'MasterKey')]],
-    ['登入後第一頁就是「掃描電腦上的碼」', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Connect an app</div><div class="cam">${qr(7)}</div><p class="small" style="margin:0">Point at the code on your computer.</p><button class="mk ghost" data-go>Enter code instead</button>`, 'MasterKey')]],
+    ['手機落到 Keyala 網頁', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install Keyala, then scan again.</div>')), phone('safari', `<div class="small">masterkey-prod…onrender.com/connect/KY-7Q4D</div><div class="ttl">Resume Tailor wants to use your OpenAI key</div><p class="small" style="margin:0">Your key stays on your Keyala account. You approve each call.</p><div class="spacer"></div>${MK('Download on the App Store')}<p class="small" style="margin:0;text-align:center">Code KY-7Q4D, valid 9 min</p>`, 'Safari')]],
+    ['App Store 下載', () => [site('resume-tailor.example', tool('', true) + qrModal('<div class="note">（建議）Your phone opened the link. Install Keyala, then scan again.</div>')), phone('store', `<div class="ttl">Keyala</div><p class="small" style="margin:0">Pay for AI apps with your own key</p><div class="spacer"></div>${MK('Get')}`, 'App Store')]],
+    ['Apple 登入', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Welcome</div><p class="small">Approve AI apps that use your own key.</p><div class="spacer"></div>${MK(' Sign in with Apple').replace('<span class="logo">🐨</span>','')}`, 'Keyala')]],
+    ['登入後第一頁就是「掃描電腦上的碼」', () => [site('resume-tailor.example', tool('', true) + qrModal()), phone('', `<div class="ttl">Connect an app</div><div class="cam">${qr(7)}</div><p class="small" style="margin:0">Point at the code on your computer.</p><button class="mk ghost" data-go>Enter code instead</button>`, 'Keyala')]],
     ['核准，電腦上的工作繼續', () => [site('resume-tailor.example', tool('', true) + qrModal()), review()]],
    ]},
  { id:'mobile', name:'同一支手機',
-   why:'使用者在手機瀏覽器上用 AI 工具。QR 沒用（不能用自己掃自己），SDK 改顯示「Open MasterKey」按鈕，透過 Universal Link 打開 App，核准後回到 Safari。',
-   code:`// same call; the SDK sees a phone and shows\n// a button instead of a QR:\n//   https://masterkey…/connect/MK-7Q4D  (universal link)\n// on the /connect page itself the button must be\n//   masterkey://connect/MK-7Q4D  (same-domain links\n//   don't trigger universal links)`,
+   why:'使用者在手機瀏覽器上用 AI 工具。QR 沒用（不能用自己掃自己），SDK 改顯示「Open Keyala」按鈕，透過 Universal Link 打開 App，核准後回到 Safari。',
+   code:`// same call; the SDK sees a phone and shows\n// a button instead of a QR:\n//   https://keyala…/connect/KY-7Q4D  (universal link)\n// on the /connect page itself the button must be\n//   keyala://connect/KY-7Q4D  (same-domain links\n//   don't trigger universal links)`,
    taps:'手機 3 下，沒有掃碼', cost:'沒裝 App 時要回 Safari 再按一次',
    steps:[
-    ['手機網頁按 Tailor，跳出底部面板', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><div class="row">Resume (3 pages)</div><div class="spacer"></div><div class="row" style="border:1px solid var(--line)"><b>Use your own OpenAI key</b><span class="small">Approve in the MasterKey app.</span>${MK('Open MasterKey')}<span class="small">No app? <u>Get MasterKey</u></span></div>`, 'Safari')]],
+    ['手機網頁按 Tailor，跳出底部面板', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><div class="row">Resume (3 pages)</div><div class="spacer"></div><div class="row" style="border:1px solid var(--line)"><b>Use your own OpenAI key</b><span class="small">Approve in the Keyala app.</span>${MK('Open Keyala')}<span class="small">No app? <u>Get Keyala</u></span></div>`, 'Safari')]],
     ['App 打開核准頁', () => [review()]],
-    ['回到 Safari（左上角「◀ Safari」或自動）', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">MasterKey connected, OpenAI</span><div class="wait">Waiting for approval…</div><div class="spacer"></div><button class="mk" data-go>Approve in MasterKey</button>`, 'Safari')]],
+    ['回到 Safari（左上角「◀ Safari」或自動）', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">Keyala connected, OpenAI</span><div class="wait">Waiting for approval…</div><div class="spacer"></div><button class="mk" data-go>Approve in Keyala</button>`, 'Safari')]],
     ['核准這次呼叫', () => [allow]],
-    ['結果出現在網頁', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">MasterKey connected, OpenAI</span><div class="row">✓ Tailored resume ready</div>`, 'Safari')]],
+    ['結果出現在網頁', () => [phone('safari', `<div class="small">resume-tailor.example</div><div class="ttl" style="color:var(--site)">Resume Tailor</div><span class="chip">Keyala connected, OpenAI</span><div class="row">✓ Tailored resume ready</div>`, 'Safari')]],
    ]},
 ];
 

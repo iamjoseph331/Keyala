@@ -1,4 +1,4 @@
-//! MasterKey server: lets users lend an API key to apps, approving calls from their phone.
+//! Keyala server: lets users lend an API key to apps, approving calls from their phone.
 mod apns;
 mod apple;
 mod enroll;
@@ -45,30 +45,30 @@ pub struct Config {
     pub dev_login: bool,
     pub vendor_mock: bool,
     pub public_url: String,
-    /// operator asserts pricing.rs was checked against vendor pricing (MK_PRICES_VERIFIED=1)
+    /// operator asserts pricing.rs was checked against vendor pricing (KEYALA_PRICES_VERIFIED=1)
     pub prices_verified: bool,
     pub apple_bundle_id: String,
-    /// Apple developer team, for the universal-link association file (MK_APPLE_TEAM_ID)
+    /// Apple developer team, for the universal-link association file (KEYALA_APPLE_TEAM_ID)
     pub apple_team_id: String,
-    /// Apple signing keys; overridable (MK_APPLE_JWKS_URL) so tests can serve their own
+    /// Apple signing keys; overridable (KEYALA_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
-    /// Browser apps declared by the operator (MK_PUBLIC_APPS), upserted on every start so they
+    /// Browser apps declared by the operator (KEYALA_PUBLIC_APPS), upserted on every start so they
     /// survive a database reset (Render free plan). Lets a static page ship a fixed app id.
     pub public_apps: Vec<PublicApp>,
-    /// Header a trusted edge in front of the server sets to the client's country (MK_COUNTRY_HEADER,
+    /// Header a trusted edge in front of the server sets to the client's country (KEYALA_COUNTRY_HEADER,
     /// e.g. cf-ipcountry). Unset = no country in reports; clients could otherwise forge it.
     pub country_header: Option<String>,
-    /// One operator-provisioned password account (MK_PASSWORD_LOGIN=`username:sha256hex(password)`),
+    /// One operator-provisioned password account (KEYALA_PASSWORD_LOGIN=`username:sha256hex(password)`),
     /// a fallback while Sign in with Apple is unavailable. Unset = `POST /v1/auth/password` is 404.
     pub password_login: Option<(String, [u8; 32])>,
     /// Sign in with Apple key for revoking tokens on account deletion: (key id, .p8 PEM). Optional.
     pub apple_signin_key: Option<(String, String)>,
     /// Apple's auth host, overridable so tests can serve a local one
     pub apple_auth_url: String,
-    /// Operator switch (MK_PAUSE_UPSTREAM=1, or a `PAUSE_UPSTREAM` file beside the database): no new upstream calls.
+    /// Operator switch (KEYALA_PAUSE_UPSTREAM=1, or a `PAUSE_UPSTREAM` file beside the database): no new upstream calls.
     pub pause_upstream: bool,
-    /// In-process backups: directory (MK_BACKUP_DIR), how many to keep, and how often.
+    /// In-process backups: directory (KEYALA_BACKUP_DIR), how many to keep, and how often.
     pub backup_dir: Option<std::path::PathBuf>,
     pub backup_keep: usize,
     pub backup_interval: Duration,
@@ -93,8 +93,13 @@ pub fn origin_ok(o: &str) -> bool {
         Some((h, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => h,
         _ => rest,
     };
-    let chars = rest.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-:[]".contains(&b));
-    o.len() <= 200 && !host.is_empty() && chars && (https || matches!(host, "localhost" | "127.0.0.1" | "[::1]"))
+    let chars = rest
+        .bytes()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-:[]".contains(&b));
+    o.len() <= 200
+        && !host.is_empty()
+        && chars
+        && (https || matches!(host, "localhost" | "127.0.0.1" | "[::1]"))
 }
 pub fn origins_ok(v: &[String]) -> bool {
     !v.is_empty() && v.len() <= 10 && v.iter().all(|o| origin_ok(o))
@@ -103,38 +108,63 @@ pub fn origins_ok(v: &[String]) -> bool {
 impl Config {
     pub fn from_env() -> Result<Config, String> {
         let env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
-        let mk = env("MK_MASTER_KEY").ok_or("MK_MASTER_KEY is required: generate one with `openssl rand -base64 32`")?;
+        let mk = env("KEYALA_MASTER_KEY")
+            .or_else(|| env("MK_MASTER_KEY"))
+            .ok_or("KEYALA_MASTER_KEY is required: generate one with `openssl rand -base64 32`")?;
         let master_key: [u8; 32] = STANDARD
             .decode(mk.trim())
             .ok()
             .and_then(|b| b.try_into().ok())
-            .ok_or("MK_MASTER_KEY must be base64 of exactly 32 bytes (`openssl rand -base64 32`)")?;
+            .ok_or(
+                "KEYALA_MASTER_KEY must be base64 of exactly 32 bytes (`openssl rand -base64 32`)",
+            )?;
         Ok(Config {
-            database_url: env("MK_DATABASE_URL").unwrap_or_else(|| "sqlite://masterkey.db?mode=rwc".into()),
+            database_url: env("KEYALA_DATABASE_URL")
+                .unwrap_or_else(|| "sqlite://keyala.db?mode=rwc".into()),
             master_key,
-            dev_login: env("MK_DEV_LOGIN").as_deref() == Some("1"),
-            vendor_mock: env("MK_VENDOR_MOCK").as_deref() == Some("1"),
-            prices_verified: env("MK_PRICES_VERIFIED").as_deref() == Some("1"),
-            apple_bundle_id: env("MK_APPLE_BUNDLE_ID").unwrap_or_else(|| "app.sorevan.masterkey".into()),
-            apple_team_id: env("MK_APPLE_TEAM_ID").unwrap_or_else(|| "83APHP8F76".into()),
-            apple_jwks_url: env("MK_APPLE_JWKS_URL").unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
+            dev_login: env("KEYALA_DEV_LOGIN").as_deref() == Some("1"),
+            vendor_mock: env("KEYALA_VENDOR_MOCK").as_deref() == Some("1"),
+            prices_verified: env("KEYALA_PRICES_VERIFIED").as_deref() == Some("1"),
+            apple_bundle_id: env("KEYALA_APPLE_BUNDLE_ID")
+                .unwrap_or_else(|| "app.sorevan.masterkey".into()),
+            apple_team_id: env("KEYALA_APPLE_TEAM_ID").unwrap_or_else(|| "83APHP8F76".into()),
+            apple_jwks_url: env("KEYALA_APPLE_JWKS_URL")
+                .unwrap_or_else(|| "https://appleid.apple.com/auth/keys".into()),
             apns: apns::ApnsCfg::from_env(&env),
-            apple_signin_key: match (env("MK_APPLE_SIGNIN_KEY_ID"), env("MK_APPLE_SIGNIN_KEY_P8")) {
+            apple_signin_key: match (
+                env("KEYALA_APPLE_SIGNIN_KEY_ID"),
+                env("KEYALA_APPLE_SIGNIN_KEY_P8"),
+            ) {
                 (Some(k), Some(p)) => Some((k, p.replace("\\n", "\n"))),
                 _ => None,
             },
-            apple_auth_url: env("MK_APPLE_AUTH_URL").unwrap_or_else(|| "https://appleid.apple.com".into()).trim_end_matches('/').to_string(),
-            pause_upstream: env("MK_PAUSE_UPSTREAM").as_deref() == Some("1"),
-            backup_dir: env("MK_BACKUP_DIR").map(Into::into),
-            backup_keep: env("MK_BACKUP_KEEP").and_then(|v| v.parse().ok()).filter(|k| *k >= 1).unwrap_or(7),
-            backup_interval: Duration::from_secs(env("MK_BACKUP_INTERVAL_SECS").and_then(|v| v.parse().ok()).filter(|s| *s >= 1).unwrap_or(86_400)),
-            country_header: env("MK_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
-            password_login: match env("MK_PASSWORD_LOGIN") {
+            apple_auth_url: env("KEYALA_APPLE_AUTH_URL")
+                .unwrap_or_else(|| "https://appleid.apple.com".into())
+                .trim_end_matches('/')
+                .to_string(),
+            pause_upstream: env("KEYALA_PAUSE_UPSTREAM").as_deref() == Some("1"),
+            backup_dir: env("KEYALA_BACKUP_DIR").map(Into::into),
+            backup_keep: env("KEYALA_BACKUP_KEEP")
+                .and_then(|v| v.parse().ok())
+                .filter(|k| *k >= 1)
+                .unwrap_or(7),
+            backup_interval: Duration::from_secs(
+                env("KEYALA_BACKUP_INTERVAL_SECS")
+                    .and_then(|v| v.parse().ok())
+                    .filter(|s| *s >= 1)
+                    .unwrap_or(86_400),
+            ),
+            country_header: env("KEYALA_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
+            password_login: match env("KEYALA_PASSWORD_LOGIN") {
                 None => None,
                 Some(v) => {
-                    let err = "MK_PASSWORD_LOGIN must be `username:<64 hex chars of sha256(password)>` (username 3-40 of a-z 0-9 . _ -)";
+                    let err = "KEYALA_PASSWORD_LOGIN must be `username:<64 hex chars of sha256(password)>` (username 3-40 of a-z 0-9 . _ -)";
                     let (u, h) = v.trim().split_once(':').ok_or(err)?;
-                    let hash: Vec<u8> = (0..h.len()).step_by(2).map(|i| h.get(i..i + 2).and_then(|b| u8::from_str_radix(b, 16).ok())).collect::<Option<_>>().ok_or(err)?;
+                    let hash: Vec<u8> = (0..h.len())
+                        .step_by(2)
+                        .map(|i| h.get(i..i + 2).and_then(|b| u8::from_str_radix(b, 16).ok()))
+                        .collect::<Option<_>>()
+                        .ok_or(err)?;
                     let hash: [u8; 32] = hash.try_into().map_err(|_| err)?;
                     if !username_ok(u) {
                         return Err(err.into());
@@ -142,20 +172,32 @@ impl Config {
                     Some((u.to_string(), hash))
                 }
             },
-            public_apps: match env("MK_PUBLIC_APPS") {
+            public_apps: match env("KEYALA_PUBLIC_APPS") {
                 None => vec![],
                 Some(j) => {
-                    let apps: Vec<PublicApp> = serde_json::from_str(&j).map_err(|_| "MK_PUBLIC_APPS must be a JSON array of {id, name, homepage?, allowed_origins}")?;
+                    let apps: Vec<PublicApp> = serde_json::from_str(&j).map_err(|_| "KEYALA_PUBLIC_APPS must be a JSON array of {id, name, homepage?, allowed_origins}")?;
                     for a in &apps {
-                        let id_ok = a.id.starts_with("app_") && a.id.len() <= 64 && a.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
-                        if !id_ok || a.name.trim().is_empty() || a.name.len() > 100 || !origins_ok(&a.allowed_origins) {
-                            return Err(format!("MK_PUBLIC_APPS: invalid app '{}' (id app_[A-Za-z0-9_-], name 1-100 chars, 1-10 origins like https://example.com)", a.id));
+                        let id_ok = a.id.starts_with("app_")
+                            && a.id.len() <= 64
+                            && a.id
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+                        if !id_ok
+                            || a.name.trim().is_empty()
+                            || a.name.len() > 100
+                            || !origins_ok(&a.allowed_origins)
+                        {
+                            return Err(format!("KEYALA_PUBLIC_APPS: invalid app '{}' (id app_[A-Za-z0-9_-], name 1-100 chars, 1-10 origins like https://example.com)", a.id));
                         }
                     }
                     apps
                 }
             },
-            public_url: env("MK_PUBLIC_URL").or_else(|| env("RENDER_EXTERNAL_URL")).unwrap_or_else(|| "http://localhost:8080".into()).trim_end_matches('/').to_string(),
+            public_url: env("KEYALA_PUBLIC_URL")
+                .or_else(|| env("RENDER_EXTERNAL_URL"))
+                .unwrap_or_else(|| "http://localhost:8080".into())
+                .trim_end_matches('/')
+                .to_string(),
         })
     }
 }
@@ -183,17 +225,25 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         .create_if_missing(true)
         .foreign_keys(true)
         .busy_timeout(Duration::from_secs(10));
-    let db = sqlx::sqlite::SqlitePoolOptions::new().max_connections(8).connect_with(opts).await?;
+    let db = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await?;
     sqlx::migrate!("./migrations").run(&db).await?;
     // a crash mid-send means we cannot know whether the vendor got it: never retry.
-    sqlx::query("UPDATE requests SET status='uncertain' WHERE status='sending'").execute(&db).await?;
+    sqlx::query("UPDATE requests SET status='uncertain' WHERE status='sending'")
+        .execute(&db)
+        .await?;
     // a crash mid-exchange: OpenRouter codes are single use, so never retry; say so instead
     sqlx::query("UPDATE oauth_flows SET status='failed', reason='interrupted', verifier=NULL WHERE status='exchanging'").execute(&db).await?;
     let state: AppState = Arc::new(Inner {
         db,
         cfg,
         events: broadcast::channel(256).0,
-        http: reqwest::Client::builder().timeout(Duration::from_secs(120)).redirect(reqwest::redirect::Policy::none()).build()?,
+        http: reqwest::Client::builder()
+            .timeout(Duration::from_secs(120))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?,
         app_limits: Mutex::new(HashMap::new()),
         jwks: Default::default(),
         apns_jwt: Default::default(),
@@ -201,14 +251,16 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
     for a in &state.cfg.public_apps {
         // the secret is random and discarded: declared apps are browser-only
         sqlx::query("INSERT INTO apps (id,name,homepage,secret_hash,allowed_origins,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, homepage=excluded.homepage, allowed_origins=excluded.allowed_origins")
-            .bind(&a.id).bind(a.name.trim()).bind(&a.homepage).bind(hash_token(&new_token("mk_app_"))).bind(serde_json::to_string(&a.allowed_origins)?).bind(now())
+            .bind(&a.id).bind(a.name.trim()).bind(&a.homepage).bind(hash_token(&new_token("keyala_app_"))).bind(serde_json::to_string(&a.allowed_origins)?).bind(now())
             .execute(&state.db).await?;
     }
     if state.cfg.apns.is_none() {
-        tracing::info!("APNs not configured (MK_APNS_*): push notifications are disabled");
+        tracing::info!("APNs not configured (KEYALA_APNS_*): push notifications are disabled");
     }
     // approved but never claimed = never sent, so sending is safe.
-    let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved'").fetch_all(&state.db).await?;
+    let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM requests WHERE status='approved'")
+        .fetch_all(&state.db)
+        .await?;
     for id in ids {
         tokio::spawn(send_request(state.clone(), id));
     }
@@ -221,12 +273,15 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
 
 /// CORS for developer endpoints only. They authenticate with bearer tokens, never cookies, so
 /// allowing any origin exposes nothing a token holder couldn't already do; it lets static pages
-/// (public clients) call MasterKey directly. User endpoints (/v1/me) stay same-origin.
+/// (public clients) call Keyala directly. User endpoints (/v1/me) stay same-origin.
 async fn cors(req: Request, next: Next) -> Response {
     let mut r = if req.method() == Method::OPTIONS {
         let mut r = StatusCode::NO_CONTENT.into_response();
         let h = r.headers_mut();
-        h.insert("access-control-allow-methods", HeaderValue::from_static("GET, POST, OPTIONS"));
+        h.insert(
+            "access-control-allow-methods",
+            HeaderValue::from_static("GET, POST, OPTIONS"),
+        );
         h.insert("access-control-max-age", HeaderValue::from_static("600"));
         if let Some(v) = req.headers().get("access-control-request-headers") {
             h.insert("access-control-allow-headers", v.clone());
@@ -237,7 +292,10 @@ async fn cors(req: Request, next: Next) -> Response {
     };
     let h = r.headers_mut();
     h.insert("access-control-allow-origin", HeaderValue::from_static("*"));
-    h.insert("access-control-expose-headers", HeaderValue::from_static("x-masterkey-request-id"));
+    h.insert(
+        "access-control-expose-headers",
+        HeaderValue::from_static("x-keyala-request-id"),
+    );
     r
 }
 
@@ -267,6 +325,7 @@ pub fn router(state: AppState) -> Router {
         .route("/connect/{code}", get(connect_page))
         .route("/.well-known/apple-app-site-association", get(enroll::aasa))
         .route("/add-key", get(enroll::add_key_page))
+        .route("/sdk/keyala.js", get(enroll::sdk_js))
         .route("/about", get(enroll::trust_page))
         .route("/privacy", get(enroll::trust_page))
         .route("/v1/me/logout", post(ops::logout))
@@ -281,12 +340,16 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/me/enroll/{id}/cancel", post(enroll::cancel))
         .route("/v1/me/oauth/openrouter", post(oauth::start))
         .route("/v1/me/oauth/openrouter/flows/{id}", get(oauth::status))
-        .route("/v1/me/oauth/openrouter/flows/{id}/cancel", post(oauth::cancel))
+        .route(
+            "/v1/me/oauth/openrouter/flows/{id}/cancel",
+            post(oauth::cancel),
+        )
         .route("/oauth/openrouter/callback", get(oauth::callback))
         .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
         .route("/v1/auth/password", post(password_login))
+        .route("/v1/me/preferences", get(get_prefs).patch(patch_prefs))
         .route("/v1/me/keys", get(list_keys))
         .route("/v1/me/keys/{vendor}", put(put_key).delete(delete_key))
         .route("/v1/me/devices", post(add_device))
@@ -294,7 +357,10 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/me/connect/{code}/approve", post(approve_connect))
         .route("/v1/me/connect/{code}/deny", post(deny_connect))
         .route("/v1/me/grants", get(list_grants))
-        .route("/v1/me/grants/{id}", patch(patch_grant).delete(revoke_grant))
+        .route(
+            "/v1/me/grants/{id}",
+            patch(patch_grant).delete(revoke_grant),
+        )
         .route("/v1/me/requests", get(list_requests))
         .route("/v1/me/requests/{id}", get(get_request))
         .route("/v1/me/requests/{id}/approve", post(proxy::approve_request))
@@ -317,7 +383,11 @@ pub fn bad(msg: impl Into<String>) -> ApiError {
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.0, Json(json!({"error": {"type": self.1, "message": self.2}}))).into_response()
+        (
+            self.0,
+            Json(json!({"error": {"type": self.1, "message": self.2}})),
+        )
+            .into_response()
     }
 }
 impl From<sqlx::Error> for ApiError {
@@ -332,10 +402,14 @@ pub struct J<T>(pub T);
 impl<S: Send + Sync, T: DeserializeOwned> FromRequest<S> for J<T> {
     type Rejection = ApiError;
     async fn from_request(req: Request, st: &S) -> Result<Self, ApiError> {
-        let b = Bytes::from_request(req, st).await.map_err(|_| bad("unreadable body"))?;
+        let b = Bytes::from_request(req, st)
+            .await
+            .map_err(|_| bad("unreadable body"))?;
         let b: &[u8] = if b.is_empty() { b"{}" } else { &b };
         // generic message on purpose: serde errors can echo values (e.g. api keys).
-        serde_json::from_slice(b).map(J).map_err(|_| bad("invalid JSON body (check field names and types)"))
+        serde_json::from_slice(b)
+            .map(J)
+            .map_err(|_| bad("invalid JSON body (check field names and types)"))
     }
 }
 
@@ -345,7 +419,8 @@ pub fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 pub fn after(secs: i64) -> String {
-    (chrono::Utc::now() + chrono::Duration::seconds(secs)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    (chrono::Utc::now() + chrono::Duration::seconds(secs))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 pub fn rand_b64(n: usize) -> String {
     let mut b = vec![0u8; n];
@@ -359,7 +434,9 @@ pub fn new_id(prefix: &str) -> String {
     format!("{prefix}_{}", rand_b64(12))
 }
 pub fn username_ok(u: &str) -> bool {
-    (3..=40).contains(&u.len()) && u.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
+    (3..=40).contains(&u.len())
+        && u.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
 }
 /// Equal-length byte compare whose time does not depend on where the inputs differ.
 pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
@@ -375,7 +452,15 @@ pub fn usd(micro: i64) -> f64 {
 pub fn encrypt(master: &[u8; 32], aad: &str, plain: &str) -> (Vec<u8>, Vec<u8>) {
     let c = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(master));
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let ct = c.encrypt(&nonce, Payload { msg: plain.as_bytes(), aad: aad.as_bytes() }).expect("aes-gcm encrypt");
+    let ct = c
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plain.as_bytes(),
+                aad: aad.as_bytes(),
+            },
+        )
+        .expect("aes-gcm encrypt");
     (ct, nonce.to_vec())
 }
 pub fn decrypt(master: &[u8; 32], aad: &str, ct: &[u8], nonce: &[u8]) -> Option<String> {
@@ -383,7 +468,15 @@ pub fn decrypt(master: &[u8; 32], aad: &str, ct: &[u8], nonce: &[u8]) -> Option<
         return None;
     }
     let c = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(master));
-    let p = c.decrypt(Nonce::from_slice(nonce), Payload { msg: ct, aad: aad.as_bytes() }).ok()?;
+    let p = c
+        .decrypt(
+            Nonce::from_slice(nonce),
+            Payload {
+                msg: ct,
+                aad: aad.as_bytes(),
+            },
+        )
+        .ok()?;
     String::from_utf8(p).ok()
 }
 /// AAD binds a ciphertext to its (user, vendor) row.
@@ -394,14 +487,23 @@ pub fn key_aad(user: &str, vendor: &str) -> String {
 // ---------- auth ----------
 
 pub(crate) fn bearer<'a>(h: &'a HeaderMap, prefix: &str) -> Option<&'a str> {
-    h.get("authorization")?.to_str().ok()?.strip_prefix("Bearer ").map(str::trim).filter(|t| t.starts_with(prefix))
+    h.get("authorization")?
+        .to_str()
+        .ok()?
+        .strip_prefix("Bearer ")
+        .map(str::trim)
+        .filter(|t| t.starts_with(prefix))
 }
 fn unauthorized() -> ApiError {
     api(401, "unauthorized", "missing or invalid bearer token")
 }
 pub async fn auth_session(s: &AppState, h: &HeaderMap) -> R<String> {
-    let t = bearer(h, "mk_sess_").ok_or_else(unauthorized)?;
-    sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
+    let t = bearer(h, "keyala_sess_").ok_or_else(unauthorized)?;
+    sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash=?")
+        .bind(hash_token(t))
+        .fetch_optional(&s.db)
+        .await?
+        .ok_or_else(unauthorized)
 }
 /// What an app secret carries: the app record, sealed (AES-GCM) with the master key.
 #[derive(Serialize, Deserialize)]
@@ -415,11 +517,20 @@ pub struct AppRecord {
 }
 const APP_AAD: &str = "app-secret";
 pub fn seal_app(master: &[u8; 32], a: &AppRecord) -> String {
-    let (ct, nonce) = encrypt(master, APP_AAD, &serde_json::to_string(a).unwrap_or_default());
-    format!("mk_app_{}", URL_SAFE_NO_PAD.encode([nonce, ct].concat()))
+    let (ct, nonce) = encrypt(
+        master,
+        APP_AAD,
+        &serde_json::to_string(a).unwrap_or_default(),
+    );
+    format!(
+        "keyala_app_{}",
+        URL_SAFE_NO_PAD.encode([nonce, ct].concat())
+    )
 }
 fn open_app(master: &[u8; 32], t: &str) -> Option<AppRecord> {
-    let b = URL_SAFE_NO_PAD.decode(t.strip_prefix("mk_app_")?).ok()?;
+    let b = URL_SAFE_NO_PAD
+        .decode(t.strip_prefix("keyala_app_")?)
+        .ok()?;
     if b.len() < 13 {
         return None;
     }
@@ -429,23 +540,47 @@ fn open_app(master: &[u8; 32], t: &str) -> Option<AppRecord> {
 /// plan), so re-create the app from the token. A rotated secret (higher gen) supersedes older ones;
 /// an older one is refused once a newer one has been seen since the reset.
 pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
-    let t = bearer(h, "mk_app_").ok_or_else(unauthorized)?;
-    if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?").bind(hash_token(t)).fetch_optional(&s.db).await? {
+    let t = bearer(h, "keyala_app_").ok_or_else(unauthorized)?;
+    if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?")
+        .bind(hash_token(t))
+        .fetch_optional(&s.db)
+        .await?
+    {
         return Ok(id);
     }
     let a = open_app(&s.cfg.master_key, t).ok_or_else(unauthorized)?;
-    let origins = a.allowed_origins.as_ref().map(|o| serde_json::to_string(o).unwrap_or_default());
+    let origins = a
+        .allowed_origins
+        .as_ref()
+        .map(|o| serde_json::to_string(o).unwrap_or_default());
     let r = sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,secret_gen,created_at) VALUES (?,?,?,?,?,?,?,?) \
                          ON CONFLICT(id) DO UPDATE SET secret_hash=excluded.secret_hash, secret_gen=excluded.secret_gen WHERE excluded.secret_gen > apps.secret_gen")
         .bind(&a.id).bind(&a.name).bind(&a.homepage).bind(&a.icon_url).bind(hash_token(t)).bind(&origins).bind(a.gen).bind(now())
         .execute(&s.db).await?;
-    if r.rows_affected() == 1 { Ok(a.id) } else { Err(unauthorized()) }
+    if r.rows_affected() == 1 {
+        Ok(a.id)
+    } else {
+        Err(unauthorized())
+    }
 }
 /// `x_api_key`: Anthropic proxy routes also accept the grant token in `x-api-key` (official SDK).
 pub async fn auth_grant(s: &AppState, h: &HeaderMap, x_api_key: bool) -> R<GrantRow> {
-    let xk = || h.get("x-api-key").and_then(|v| v.to_str().ok()).map(str::trim).filter(|t| t.starts_with("mk_grant_"));
-    let t = bearer(h, "mk_grant_").or_else(|| if x_api_key { xk() } else { None }).ok_or_else(unauthorized)?;
-    sqlx::query_as(&format!("{GRANT_SELECT} WHERE g.token_hash=? AND g.revoked_at IS NULL")).bind(hash_token(t)).fetch_optional(&s.db).await?.ok_or_else(unauthorized)
+    let xk = || {
+        h.get("x-api-key")
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|t| t.starts_with("keyala_grant_"))
+    };
+    let t = bearer(h, "keyala_grant_")
+        .or_else(|| if x_api_key { xk() } else { None })
+        .ok_or_else(unauthorized)?;
+    sqlx::query_as(&format!(
+        "{GRANT_SELECT} WHERE g.token_hash=? AND g.revoked_at IS NULL"
+    ))
+    .bind(hash_token(t))
+    .fetch_optional(&s.db)
+    .await?
+    .ok_or_else(unauthorized)
 }
 
 // ---------- policy ----------
@@ -477,11 +612,30 @@ fn to_micro(usd: f64) -> R<i64> {
 
 impl PolicyIn {
     pub fn parse(self) -> R<Policy> {
-        let mut p = Policy { mode: self.mode, count: None, micro: None, alert: None, expires_at: None };
+        let mut p = Policy {
+            mode: self.mode,
+            count: None,
+            micro: None,
+            alert: None,
+            expires_at: None,
+        };
         match p.mode.as_str() {
             "ask" | "trust" => {}
-            "count" => p.count = Some(self.remaining_count.filter(|c| (0..=1_000_000).contains(c)).ok_or_else(|| bad("count policy needs remaining_count between 0 and 1000000"))?),
-            "budget" => p.micro = Some(to_micro(self.remaining_usd.ok_or_else(|| bad("budget policy needs remaining_usd"))?)?),
+            "count" => {
+                p.count = Some(
+                    self.remaining_count
+                        .filter(|c| (0..=1_000_000).contains(c))
+                        .ok_or_else(|| {
+                            bad("count policy needs remaining_count between 0 and 1000000")
+                        })?,
+                )
+            }
+            "budget" => {
+                p.micro = Some(to_micro(
+                    self.remaining_usd
+                        .ok_or_else(|| bad("budget policy needs remaining_usd"))?,
+                )?)
+            }
             _ => return Err(bad("policy.mode must be ask, count, budget or trust")),
         }
         p.alert = self.alert_usd_per_day.map(to_micro).transpose()?;
@@ -498,7 +652,13 @@ impl PolicyIn {
     }
 }
 
-pub fn policy_json(mode: &str, count: Option<i64>, micro: Option<i64>, alert: Option<i64>, exp: &Option<String>) -> Value {
+pub fn policy_json(
+    mode: &str,
+    count: Option<i64>,
+    micro: Option<i64>,
+    alert: Option<i64>,
+    exp: &Option<String>,
+) -> Value {
     let mut m = Map::new();
     m.insert("mode".into(), mode.into());
     if mode == "count" {
@@ -514,7 +674,11 @@ pub fn policy_json(mode: &str, count: Option<i64>, micro: Option<i64>, alert: Op
     Value::Object(m)
 }
 
-pub async fn set_policy(c: &mut SqliteConnection, grant_id: &str, p: &Policy) -> Result<(), sqlx::Error> {
+pub async fn set_policy(
+    c: &mut SqliteConnection,
+    grant_id: &str,
+    p: &Policy,
+) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE grants SET policy_gen=policy_gen+1, mode=?, remaining_count=?, remaining_micro=?, alert_micro=?, expires_at=? WHERE id=?")
         .bind(&p.mode).bind(p.count).bind(p.micro).bind(p.alert).bind(&p.expires_at).bind(grant_id)
         .execute(c).await?;
@@ -523,8 +687,8 @@ pub async fn set_policy(c: &mut SqliteConnection, grant_id: &str, p: &Policy) ->
 
 // ---------- row types & JSON ----------
 
-pub const GRANT_SELECT: &str = "SELECT g.id, g.user_id, g.app_id, g.vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM grants g JOIN apps a ON a.id=g.app_id";
-pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
+pub const GRANT_SELECT: &str = "SELECT g.id, g.user_id, g.app_id, g.vendor, COALESCE(g.billing_vendor, g.vendor) AS billing_vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM grants g JOIN apps a ON a.id=g.app_id";
+pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, COALESCE(r.billing_vendor, r.vendor) AS billing_vendor, r.upstream_model, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
 
 pub fn app_json(id: &str, name: &str, homepage: &Option<String>, icon: &Option<String>) -> Value {
     json!({"id": id, "name": name, "homepage": homepage, "icon_url": icon})
@@ -536,6 +700,8 @@ pub struct GrantRow {
     pub user_id: String,
     pub app_id: String,
     pub vendor: String,
+    /// who is billed: the same as `vendor` (direct) or `openrouter` (routed); frozen at approval
+    pub billing_vendor: String,
     mode: String,
     remaining_count: Option<i64>,
     remaining_micro: Option<i64>,
@@ -555,7 +721,7 @@ impl GrantRow {
     }
     pub fn json(&self) -> Value {
         json!({"id": self.id, "app": app_json(&self.app_id, &self.app_name, &self.app_homepage, &self.app_icon_url),
-               "vendor": self.vendor,
+               "vendor": self.vendor, "billing_vendor": self.billing_vendor,
                "policy": policy_json(&self.mode, self.remaining_count, self.remaining_micro, self.alert_micro, &self.expires_at),
                "created_at": self.created_at, "last_used_at": self.last_used_at,
                "spent_usd": usd(self.spent_micro), "request_count": self.request_count})
@@ -569,6 +735,9 @@ pub struct RequestRow {
     pub user_id: String,
     pub app_id: String,
     pub vendor: String,
+    pub billing_vendor: String,
+    /// exact OpenRouter slug actually sent when routed (the original model stays in `model`); None = direct
+    pub upstream_model: Option<String>,
     pub model: String,
     pub endpoint: String,
     pub status: String,
@@ -594,7 +763,8 @@ impl RequestRow {
     pub fn json(&self, detail: bool) -> Value {
         let mut v = json!({"id": self.id, "grant_id": self.grant_id,
             "app": app_json(&self.app_id, &self.app_name, &self.app_homepage, &self.app_icon_url),
-            "vendor": self.vendor, "model": self.model, "endpoint": self.endpoint, "status": self.status,
+            "vendor": self.vendor, "billing_vendor": self.billing_vendor, "model": self.model, "upstream_model": self.upstream_model,
+            "endpoint": self.endpoint, "status": self.status,
             "estimated_usd": usd(self.estimated_micro), "actual_usd": self.actual_micro.map(usd),
             "created_at": self.created_at, "decided_at": self.decided_at, "completed_at": self.completed_at});
         if detail {
@@ -609,13 +779,18 @@ impl RequestRow {
 }
 
 pub async fn request_row(s: &AppState, id: &str) -> Result<Option<RequestRow>, sqlx::Error> {
-    sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?")).bind(id).fetch_optional(&s.db).await
+    sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?"))
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await
 }
 
 // ---------- events ----------
 
 pub fn emit(s: &AppState, user: &str, event: &str, data: &Value) {
-    let _ = s.events.send((user.to_string(), event.to_string(), data.to_string()));
+    let _ = s
+        .events
+        .send((user.to_string(), event.to_string(), data.to_string()));
 }
 pub async fn emit_request(s: &AppState, event: &str, id: &str) {
     if let Ok(Some(r)) = request_row(s, id).await {
@@ -623,7 +798,11 @@ pub async fn emit_request(s: &AppState, event: &str, id: &str) {
     }
 }
 pub async fn emit_grant(s: &AppState, id: &str) {
-    if let Ok(Some(g)) = sqlx::query_as::<_, GrantRow>(&format!("{GRANT_SELECT} WHERE g.id=?")).bind(id).fetch_optional(&s.db).await {
+    if let Ok(Some(g)) = sqlx::query_as::<_, GrantRow>(&format!("{GRANT_SELECT} WHERE g.id=?"))
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await
+    {
         emit(s, &g.user_id, "grant.updated", &g.json());
     }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Starts the MasterKey backend in mock + dev mode, registers the demo app, logs in a demo user,
+# Starts the Keyala backend in mock + dev mode, registers the demo app, logs in a demo user,
 # stores a FAKE key, and prints how to run the example.
-#   sdk/demo.sh                    # then approve on the iPhone app (dev login: demo@masterkey.dev)
+#   sdk/demo.sh                    # then approve on the iPhone app (dev login: demo@keyala.dev)
 #   sdk/demo.sh --simulate-phone   # a script plays the phone: approves connects and requests
 # Env: PORT (8080), SIM_DELAY seconds before the fake phone approves a request (3).
 set -euo pipefail
@@ -20,9 +20,9 @@ for c in cargo curl jq; do command -v "$c" >/dev/null || { echo "missing: $c" >&
 
 TMP="$(mktemp -d)"; DB="$TMP/demo.db"
 (cd "$ROOT/backend" && cargo build -q)
-MK_MASTER_KEY="$(openssl rand -base64 32)" MK_DATABASE_URL="sqlite://$DB?mode=rwc" PORT="$PORT" \
-  MK_PUBLIC_URL="$B" MK_DEV_LOGIN=1 MK_VENDOR_MOCK=1 \
-  MK_PUBLIC_APPS='[{"id":"app_resume_tailor","name":"Resume Tailor","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]}]' "$ROOT/backend/target/debug/masterkey-server" >"$TMP/server.log" 2>&1 &
+KEYALA_MASTER_KEY="$(openssl rand -base64 32)" KEYALA_DATABASE_URL="sqlite://$DB?mode=rwc" PORT="$PORT" \
+  KEYALA_PUBLIC_URL="$B" KEYALA_DEV_LOGIN=1 KEYALA_VENDOR_MOCK=1 \
+  KEYALA_PUBLIC_APPS='[{"id":"app_resume_tailor","name":"Resume Tailor","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]}]' "$ROOT/backend/target/debug/keyala-server" >"$TMP/server.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER ${SIMPID:-} 2>/dev/null; rm -rf "$TMP"' EXIT
 READY=0
@@ -38,24 +38,24 @@ if [[ $READY != 1 ]] || ! kill -0 "$SERVER" 2>/dev/null; then
   exit 1
 fi
 
-SESS=$(curl -s "$B/v1/auth/dev" -d '{"email":"demo@masterkey.dev"}' | jq -r .session_token)
+SESS=$(curl -s "$B/v1/auth/dev" -d '{"email":"demo@keyala.dev"}' | jq -r .session_token)
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/openai" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-FAKE-demo-key-0000"}'
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/anthropic" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-ant-FAKE-demo-key-0000"}'
 APP=$(curl -s "$B/v1/apps" -d '{"name":"Chat with your key"}' | jq -r .app_secret)
 
 cat <<EOF
 
-MasterKey demo server: $B   (mock vendor: no real credits, fake key stored)
-User login for the iPhone app (dev login): demo@masterkey.dev
+Keyala demo server: $B   (mock vendor: no real credits, fake key stored)
+User login for the iPhone app (dev login): demo@keyala.dev
 
 Run the example in another terminal:
   cd $ROOT/sdk/examples/chat-with-your-key && npm install
-  MK_URL=$B MK_APP_SECRET=$APP npm start
+  KEYALA_URL=$B KEYALA_APP_SECRET=$APP npm start
   open http://localhost:3000
 
 Or the resume tailor, a static page with no server of its own (OpenAI + Anthropic models):
   cd $ROOT/examples/resume-tailor && python3 -m http.server 3001
-  open "http://localhost:3001/?mk=$B"
+  open "http://localhost:3001/?ky=$B"
 EOF
 
 if [[ $SIM == 1 ]]; then
@@ -76,6 +76,6 @@ if [[ $SIM == 1 ]]; then
   ) &
   SIMPID=$!
 else
-  echo; echo "Approve connections and requests in the MasterKey iPhone app. Ctrl-C to stop."
+  echo; echo "Approve connections and requests in the Keyala iPhone app. Ctrl-C to stop."
 fi
 wait $SERVER

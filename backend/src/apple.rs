@@ -21,33 +21,58 @@ fn invalid() -> ApiError {
 }
 
 async fn fetch(s: &AppState) -> R<JwkSet> {
-    let r = s.http.get(&s.cfg.apple_jwks_url).timeout(Duration::from_secs(10)).send().await;
+    let r = s
+        .http
+        .get(&s.cfg.apple_jwks_url)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await;
     match r {
         Ok(r) if r.status().is_success() => {
             let b = r.text().await.unwrap_or_default();
-            serde_json::from_str::<JwkSet>(&b).map_err(|_| api(502, "apple_unreachable", "bad JWKS from Apple"))
+            serde_json::from_str::<JwkSet>(&b)
+                .map_err(|_| api(502, "apple_unreachable", "bad JWKS from Apple"))
         }
-        _ => Err(api(502, "apple_unreachable", "could not fetch Apple signing keys")),
+        _ => Err(api(
+            502,
+            "apple_unreachable",
+            "could not fetch Apple signing keys",
+        )),
     }
 }
 
 pub async fn verify(s: &AppState, id_token: &str) -> R<Claims> {
-    let kid = decode_header(id_token).ok().and_then(|h| h.kid).ok_or_else(invalid)?;
+    let kid = decode_header(id_token)
+        .ok()
+        .and_then(|h| h.kid)
+        .ok_or_else(invalid)?;
     let mut cache = s.jwks.lock().await;
     let fresh = cache.as_ref().is_some_and(|(t, _)| t.elapsed() < TTL);
-    if !(fresh && cache.as_ref().is_some_and(|(_, set)| set.find(&kid).is_some())) {
+    if !(fresh
+        && cache
+            .as_ref()
+            .is_some_and(|(_, set)| set.find(&kid).is_some()))
+    {
         // refetch when stale or kid unknown (Apple rotates keys), but at most once a minute.
-        if cache.as_ref().is_none_or(|(t, _)| t.elapsed() > MIN_REFETCH) {
+        if cache
+            .as_ref()
+            .is_none_or(|(t, _)| t.elapsed() > MIN_REFETCH)
+        {
             *cache = Some((Instant::now(), fetch(s).await?));
         }
     }
-    let jwk = cache.as_ref().and_then(|(_, set)| set.find(&kid)).ok_or_else(invalid)?;
+    let jwk = cache
+        .as_ref()
+        .and_then(|(_, set)| set.find(&kid))
+        .ok_or_else(invalid)?;
     let key = DecodingKey::from_jwk(jwk).map_err(|_| invalid())?;
     let mut v = Validation::new(Algorithm::RS256); // header alg must be RS256 (no `none`/HS256 tricks)
     v.set_issuer(&[ISSUER]);
     v.set_audience(&[s.cfg.apple_bundle_id.as_str()]);
     v.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
-    let c = decode::<Claims>(id_token, &key, &v).map_err(|_| invalid())?.claims;
+    let c = decode::<Claims>(id_token, &key, &v)
+        .map_err(|_| invalid())?
+        .claims;
     if c.sub.is_empty() || c.sub.len() > 200 {
         return Err(invalid());
     }

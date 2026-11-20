@@ -2,20 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDisplayName</key><string>MasterKey</string>
+	<key>CFBundleDisplayName</key><string>Keyala</string>
 	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleName</key><string>MasterKey</string>
+	<key>CFBundleName</key><string>Keyala</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
-	<key>NSCameraUsageDescription</key><string>Scan an app’s MasterKey QR code to review and approve its connection.</string>
+	<key>NSCameraUsageDescription</key><string>Scan an app’s Keyala QR code to review and approve its connection.</string>
 	<key>NSFaceIDUsageDescription</key><string>Confirm request approvals with Face ID before an app can use your provider account.</string>
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>UILaunchScreen</key><dict/>
 	<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
 	<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 	<key>CFBundleURLTypes</key>
-	<array><dict><key>CFBundleURLName</key><string>app.masterkey.connect</string><key>CFBundleURLSchemes</key><array><string>masterkey</string></array></dict></array>
+	<array><dict><key>CFBundleURLName</key><string>app.keyala.connect</string><key>CFBundleURLSchemes</key><array><string>keyala</string></array></dict></array>
 </dict>
 </plist>

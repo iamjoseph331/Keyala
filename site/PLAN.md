@@ -1,14 +1,14 @@
-# MasterKey developer site plan
+# Keyala developer site plan
 
 ## Purpose
 
-Help developers understand the MasterKey approval flow, evaluate its trust boundary,
+Help developers understand the Keyala approval flow, evaluate its trust boundary,
 and try the developer experience without connecting to a server or sending a request.
 
 ## Visitor path
 
 1. The hero introduces the product and shows the user approval moment on a phone.
-2. The flow explains where the developer, MasterKey server, phone, and model provider
+2. The flow explains where the developer, Keyala server, phone, and model provider
    sit in one request.
 3. A browser-only approval simulator shows the request payload, fictional estimate,
    choice of approval scope, and inspectable simulated response.
@@ -21,7 +21,7 @@ and try the developer experience without connecting to a server or sending a req
 ## Implementation constraints
 
 - Plain HTML, CSS, and JavaScript with no build step or runtime dependencies. The console makes explicit API requests to the server the developer selects.
-- All assets use relative paths so the site works at GitHub Pages `/MasterKey/`.
+- All assets use relative paths so the site works at GitHub Pages `/Keyala/`.
 - The demo is explicitly simulated and stores nothing. It uses no credentials and makes
   no network requests.
 - Code examples use placeholder environment variables and the documented v1 routes.
@@ -36,7 +36,7 @@ and try the developer experience without connecting to a server or sending a req
 
 ## Acceptance checks
 
-- Open `index.html` directly and from a `/MasterKey/` project site path.
+- Open `index.html` directly and from a `/Keyala/` project site path.
 - Verify simulator approve, deny, inspect, scope changes, and reset work without network
   activity or a key.
 - Check narrow viewport layout, keyboard focus, and reduced-motion styling.

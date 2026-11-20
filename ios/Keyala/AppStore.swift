@@ -11,6 +11,10 @@ import LocalAuthentication
     @Published var isLoadingOlderRequests = false
     @Published var olderRequestsError: String?
     @Published var keys: [KeyRecord] = []
+    @Published private(set) var routingPreferences = RoutingPreferences()
+    @Published private(set) var routingPreferencesLoaded = false
+    @Published private(set) var updatingRoutingPreferences = false
+    private var routingRevision = 0
     @Published var grants: [GrantRecord] = []
     @Published var demoMode: Bool
     @Published var developerOptions: Bool
@@ -107,6 +111,10 @@ import LocalAuthentication
         contextGeneration += 1
         try? vault.write(nil, origin: origin)
         session = nil
+        routingRevision += 1
+        routingPreferences = RoutingPreferences()
+        routingPreferencesLoaded = false
+        updatingRoutingPreferences = false
         connected = false
         resetRequestPaging()
         keys = []
@@ -167,7 +175,7 @@ import LocalAuthentication
             pendingConnectCode = nil; pendingEnrollmentID = nil; pendingRequestID = nil; keySetupReturnCode = nil
             linkGeneration += 1
             infoMessage = localized(result.appleRevoked == false
-                ? "Account deleted. You can also remove MasterKey in iPhone Settings > Apple Account > Sign in with Apple."
+                ? "Account deleted. You can also remove Keyala in iPhone Settings > Apple Account > Sign in with Apple."
                 : "Account deleted. Your provider accounts and subscriptions are unchanged.")
         } catch { if generation == contextGeneration { report(error) } }
     }
@@ -209,6 +217,30 @@ import LocalAuthentication
             report(error)
         }
     }
+    func loadRoutingPreferences() async {
+        guard account != nil, !demoMode, !updatingRoutingPreferences else { return }
+        let generation = contextGeneration, revision = routingRevision, api = client
+        do {
+            let result = try await api.routingPreferences()
+            guard generation == contextGeneration, revision == routingRevision else { return }
+            routingPreferences = result; routingPreferencesLoaded = true
+        } catch {
+            guard generation == contextGeneration, revision == routingRevision else { return }
+            routingPreferencesLoaded = false
+        }
+    }
+    func setOpenRouterRouting(_ enabled: Bool) async {
+        guard account != nil, !demoMode, routingPreferencesLoaded, !updatingRoutingPreferences else { return }
+        routingRevision += 1
+        let generation = contextGeneration, revision = routingRevision, api = client
+        updatingRoutingPreferences = true
+        defer { if generation == contextGeneration, revision == routingRevision { updatingRoutingPreferences = false } }
+        do {
+            let result = try await api.updateRoutingPreferences(enabled)
+            guard generation == contextGeneration, revision == routingRevision else { return }
+            routingPreferences = result
+        } catch { if generation == contextGeneration, revision == routingRevision { report(error) } }
+    }
     func loadOlderRequests() async {
         guard !demoMode, !isLoadingOlderRequests, hasOlderRequests else { return }
         guard let cursor = requestHistoryCursor.beforeID else { hasOlderRequests = false; return }
@@ -233,7 +265,7 @@ import LocalAuthentication
             guard let index = requests.firstIndex(where: { $0.id == request.id }) else { return }
             requests[index].status = approve ? "completed" : "denied"
             infoMessage = approve ? "Demo only: request marked approved on this device. No provider call was sent." : "Demo only: request marked denied on this device."
-            if approve { requests[index].response = .object(["demo_note": .string("Simulated approval. No provider was contacted."), "choices": .array([.object(["message": .object(["role": .string("assistant"), "content": .string("This is a clearly labeled MasterKey demo response.")])])])]) }
+            if approve { requests[index].response = .object(["demo_note": .string("Simulated approval. No provider was contacted."), "choices": .array([.object(["message": .object(["role": .string("assistant"), "content": .string("This is a clearly labeled Keyala demo response.")])])])]) }
             return
         }
         guard !approve || request.payload != nil else { report(APIError.http(0, "The full request payload has not loaded. Open the request details and refresh before deciding.")); return }
@@ -366,7 +398,7 @@ import LocalAuthentication
     @discardableResult func acceptPairing(_ value: String) -> Bool {
         guard let code = PairingLink.code(from: value) else { return false }
         if let server = PairingLink.serverURL(from: value), server != origin {
-            errorMessage = "This connection belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
+            errorMessage = "This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false
         }
@@ -384,7 +416,7 @@ import LocalAuthentication
             return false
         }
         if let server = PairingLink.serverURL(from: value), server != origin {
-            errorMessage = "This key setup belongs to a different MasterKey server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
+            errorMessage = "This key setup belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false
         }
@@ -396,7 +428,7 @@ import LocalAuthentication
     @discardableResult func handleOpenURL(_ url: URL) -> Bool {
         if EnrollmentLink.id(from: url.absoluteString) != nil { return acceptEnrollment(url.absoluteString) }
         if PairingLink.code(from: url.absoluteString) != nil { return acceptPairing(url.absoluteString) }
-        guard url.scheme?.lowercased() == "masterkey", url.user == nil, url.password == nil, url.port == nil,
+        guard url.scheme?.lowercased() == "keyala", url.user == nil, url.password == nil, url.port == nil,
               url.query == nil, url.fragment == nil, url.pathComponents.count == 2,
               url.host?.lowercased() == "requests" else { return false }
         let id = url.lastPathComponent
@@ -469,14 +501,14 @@ import LocalAuthentication
         guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
         if pendingEnrollmentID == id { pendingEnrollmentID = nil }
     }
-    func connectDecision(code: String, approve: Bool, policy: Policy) async -> Bool {
+    func connectDecision(code: String, approve: Bool, policy: Policy, billingVendor: Provider? = nil) async -> Bool {
         if demoMode {
             infoMessage = "Demo pairing action is local only. No grant token or connection was created."
             return true
         }
         let generation = contextGeneration; let api = client
         do {
-            try await api.connectDecision(code: code, approve: approve, policy: policy)
+            try await api.connectDecision(code: code, approve: approve, policy: policy, billingVendor: billingVendor)
             guard generation == contextGeneration else { return false }
             infoMessage = approve ? "App connected." : "Connection denied."
             await refresh()
@@ -491,7 +523,7 @@ import LocalAuthentication
         let center = UNUserNotificationCenter.current()
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
-            guard granted else { infoMessage = "Notifications are off. MasterKey refreshes requests whenever the app opens."; return }
+            guard granted else { infoMessage = "Notifications are off. Keyala refreshes requests whenever the app opens."; return }
             UIApplication.shared.registerForRemoteNotifications()
             infoMessage = "Push registration requested. Foreground refresh remains available."
         } catch { report(error) }
@@ -531,33 +563,33 @@ final class APNSDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCen
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.setNotificationCategories([UNNotificationCategory(identifier: "MK_REQUEST", actions: [], intentIdentifiers: [])])
+        center.setNotificationCategories([UNNotificationCategory(identifier: "KEYALA_REQUEST", actions: [], intentIdentifiers: [])])
         return true
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
               let id = response.notification.request.content.userInfo["request_id"] as? String,
               id.hasPrefix("req_"), id.count < 100 else { return }
-        await MainActor.run { NotificationCenter.default.post(name: .masterKeyRequestTapped, object: id) }
+        await MainActor.run { NotificationCenter.default.post(name: .keyalaRequestTapped, object: id) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        Task { @MainActor in NotificationCenter.default.post(name: .masterKeyAPNSToken, object: token) }
+        Task { @MainActor in NotificationCenter.default.post(name: .keyalaAPNSToken, object: token) }
     }
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        NotificationCenter.default.post(name: .masterKeyAPNSError, object: error.localizedDescription)
+        NotificationCenter.default.post(name: .keyalaAPNSError, object: error.localizedDescription)
     }
 }
 extension Notification.Name {
-    static let masterKeyAddFromComputer = Notification.Name("masterKeyAddFromComputer")
-    static let masterKeyOpenKeys = Notification.Name("masterKeyOpenKeys")
-    static let masterKeyConnectApp = Notification.Name("masterKeyConnectApp")
-    static let masterKeyAPNSToken = Notification.Name("masterKeyAPNSToken")
-    static let masterKeyAPNSError = Notification.Name("masterKeyAPNSError")
-    static let masterKeyRequestTapped = Notification.Name("masterKeyRequestTapped")
+    static let keyalaAddFromComputer = Notification.Name("keyalaAddFromComputer")
+    static let keyalaOpenKeys = Notification.Name("keyalaOpenKeys")
+    static let keyalaConnectApp = Notification.Name("keyalaConnectApp")
+    static let keyalaAPNSToken = Notification.Name("keyalaAPNSToken")
+    static let keyalaAPNSError = Notification.Name("keyalaAPNSError")
+    static let keyalaRequestTapped = Notification.Name("keyalaRequestTapped")
 }
 
 @MainActor private final class ProviderAuthenticationBrowser: NSObject, ASWebAuthenticationPresentationContextProviding {
@@ -571,7 +603,7 @@ extension Notification.Name {
             let attempt = UUID()
             attemptID = attempt
             completion = continuation
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "masterkey") { [weak self] url, error in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "keyala") { [weak self] url, error in
                 Task { @MainActor in
                     if let error { self?.finish(.failure(error), attempt: attempt) }
                     else if let url { self?.finish(.success(url), attempt: attempt) }
@@ -580,7 +612,7 @@ extension Notification.Name {
             }
             session.presentationContextProvider = self
             browserSession = session
-            if !session.start() { finish(.failure(APIError.http(0, "Open MasterKey in the foreground, then try connecting again.")), attempt: attempt) }
+            if !session.start() { finish(.failure(APIError.http(0, "Open Keyala in the foreground, then try connecting again.")), attempt: attempt) }
         }
     }
     func cancel() {

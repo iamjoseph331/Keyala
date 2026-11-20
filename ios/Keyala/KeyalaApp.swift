@@ -2,10 +2,11 @@ import SwiftUI
 import UIKit
 
 @main
-struct MasterKeyApp: App {
+struct KeyalaApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @UIApplicationDelegateAdaptor(APNSDelegate.self) private var appDelegate
     @StateObject private var store = AppStore()
+    @AppStorage("appLanguage") private var appLanguage = AppLanguage.system.rawValue
     @AppStorage("appearance") private var appearance = AppearancePreference.system.rawValue
 
     private var preferredScheme: ColorScheme? {
@@ -20,8 +21,9 @@ struct MasterKeyApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
+                .environment(\.locale, (AppLanguage(rawValue: appLanguage) ?? .system).locale)
                 .preferredColorScheme(preferredScheme)
-                .tint(MKStyle.teal)
+                .tint(KeyalaStyle.teal)
                 .task { await store.start() }
                 .task(id: scenePhase) {
                     guard scenePhase == .active else { return }
@@ -31,23 +33,23 @@ struct MasterKeyApp: App {
                         catch { return }
                     }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .masterKeyAPNSToken)) { note in
+                .onReceive(NotificationCenter.default.publisher(for: .keyalaAPNSToken)) { note in
                     if let token = note.object as? String { Task { await store.uploadDeviceToken(token) } }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .masterKeyRequestTapped)) { note in
+                .onReceive(NotificationCenter.default.publisher(for: .keyalaRequestTapped)) { note in
                     if let id = note.object as? String {
                         store.pendingRequestID = id
                         Task { await store.refresh() }
                     }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .masterKeyAPNSError)) { note in
+                .onReceive(NotificationCenter.default.publisher(for: .keyalaAPNSError)) { note in
                     if let message = note.object as? String { store.infoMessage = "Push registration unavailable: \(message). Foreground refresh still works." }
                 }
         }
     }
 }
 
-enum MKStyle {
+enum KeyalaStyle {
     static let navy = adaptive(dark: 0.09, 0.085, 0.075, light: 250 / 255, 247 / 255, 242 / 255)
     static let panel = adaptive(dark: 0.14, 0.135, 0.12, light: 1, 1, 1)
     static let teal = adaptive(dark: 0.55, 0.76, 0.62, light: 61 / 255, 122 / 255, 87 / 255)
@@ -79,7 +81,7 @@ struct AppearancePicker: View {
     var body: some View {
         Picker("Appearance", selection: $appearance) {
             ForEach(AppearancePreference.allCases) { option in
-                Text(option.title).tag(option.rawValue)
+                Text(LocalizedStringKey(option.title)).tag(option.rawValue)
             }
         }
         .pickerStyle(.segmented)
@@ -114,20 +116,20 @@ struct RootView: View {
             } else {
                 TabView(selection: $selection) {
                     NavigationStack { InboxView().toolbar { actions } }
-                        .tabItem { Label("Inbox", systemImage: "tray") }.tag(0)
+                        .tabItem { LanguageTabLabel(title: "Inbox", systemImage: "tray") }.tag(0)
                     NavigationStack { GrantsView().toolbar { actions } }
-                        .tabItem { Label("Apps", systemImage: "square.grid.2x2") }.tag(1)
+                        .tabItem { LanguageTabLabel(title: "Apps", systemImage: "square.grid.2x2") }.tag(1)
                     NavigationStack { VaultView().toolbar { actions } }
-                        .tabItem { Label("Keys", systemImage: "key.horizontal") }.tag(2)
+                        .tabItem { LanguageTabLabel(title: "Keys", systemImage: "key.horizontal") }.tag(2)
                     NavigationStack { SettingsView() }
-                        .tabItem { Label("Settings", systemImage: "gearshape") }.tag(3)
+                        .tabItem { LanguageTabLabel(title: "Settings", systemImage: "gearshape") }.tag(3)
                 }
             }
         }
-        .background(MKStyle.navy)
-        .toolbarBackground(MKStyle.navy, for: .tabBar)
+        .background(KeyalaStyle.navy)
+        .toolbarBackground(KeyalaStyle.navy, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .alert("MasterKey", isPresented: $store.showError) {
+        .alert("Keyala", isPresented: $store.showError) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.errorMessage) }
         .sheet(item: $activeSheet) { sheet in
@@ -148,12 +150,12 @@ struct RootView: View {
             if let url = activity.webpageURL, store.handleOpenURL(url) { presentPendingLink() }
         }
         .onChange(of: store.linkGeneration) { _, _ in presentPendingLink() }
-        .onReceive(NotificationCenter.default.publisher(for: .masterKeyAddFromComputer)) { note in
+        .onReceive(NotificationCenter.default.publisher(for: .keyalaAddFromComputer)) { note in
             store.beginComputerKeySetup(returnTo: note.object as? String)
             activeSheet = .computer
         }
-        .onReceive(NotificationCenter.default.publisher(for: .masterKeyOpenKeys)) { _ in selection = 2 }
-        .onReceive(NotificationCenter.default.publisher(for: .masterKeyConnectApp)) { _ in activeSheet = .connect }
+        .onReceive(NotificationCenter.default.publisher(for: .keyalaOpenKeys)) { _ in selection = 2 }
+        .onReceive(NotificationCenter.default.publisher(for: .keyalaConnectApp)) { _ in activeSheet = .connect }
         .onChange(of: store.pendingRequestID) { _, id in if id != nil { selection = 0 } }
     }
 
@@ -172,4 +174,31 @@ struct RootView: View {
             }
         }
     }
+}
+
+struct LanguagePicker: View {
+    @AppStorage("appLanguage") private var language = AppLanguage.system.rawValue
+    var body: some View {
+        Picker("Language", selection: $language) {
+            ForEach(AppLanguage.allCases) { option in
+                Text(option.title).tag(option.rawValue)
+            }
+        }
+        .accessibilityIdentifier("app-language")
+    }
+}
+
+private struct LanguageNavigationTitle: ViewModifier {
+    @Environment(\.locale) private var locale
+    let title: String
+    func body(content: Content) -> some View { content.navigationTitle(localized(title, locale: locale)) }
+}
+extension View {
+    func localizedNavigationTitle(_ title: String) -> some View { modifier(LanguageNavigationTitle(title: title)) }
+}
+private struct LanguageTabLabel: View {
+    @Environment(\.locale) private var locale
+    let title: String
+    let systemImage: String
+    var body: some View { Label(localized(title, locale: locale), systemImage: systemImage) }
 }

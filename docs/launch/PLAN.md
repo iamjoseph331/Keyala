@@ -1,4 +1,4 @@
-# MasterKey launch readiness
+# Keyala launch readiness
 
 Owner decision 2026-11-18: free, invite-only TestFlight first; English, Traditional Chinese (zh-Hant), Japanese. Public App Store release follows beta evidence. Operations contact: josephchen637@gmail.com. Joseph handles OpenAI/Anthropic/OpenRouter top-ups. Resume Tailor rework is separate, owned by Joseph + Claude.
 
@@ -26,7 +26,7 @@ Existing uncommitted Xcode signing/workspace edits belong to Joseph and stay uns
 
 ## Privacy decisions
 
-No new automatic history expiration is introduced: the original product promises later inspection. Define deletion and backup retention with the implemented backend; do not publish a deletion deadline unsupported by the restore process. Hosted MasterKey handles keys and request contents; encryption at rest does not hide them from its operator. No advertising tracker or third-party analytics is added for this launch.
+No new automatic history expiration is introduced: the original product promises later inspection. Define deletion and backup retention with the implemented backend; do not publish a deletion deadline unsupported by the restore process. Hosted Keyala handles keys and request contents; encryption at rest does not hide them from its operator. No advertising tracker or third-party analytics is added for this launch.
 
 ## Sources checked 2026-11-18
 

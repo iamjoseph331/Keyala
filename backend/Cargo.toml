@@ -1,14 +1,14 @@
 [package]
-name = "masterkey-server"
-version = "0.1.0"
+name = "keyala-server"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
-name = "masterkey_server"
+name = "keyala_server"
 path = "src/lib.rs"
 
 [[bin]]
-name = "masterkey-server"
+name = "keyala-server"
 path = "src/main.rs"
 
 [dependencies]

@@ -1,4 +1,4 @@
-# MasterKey iOS
+# Keyala iOS
 
 Native SwiftUI client, iOS 17 or newer. Fresh installs connect to the built-in production service and start with Sign in with Apple. Existing explicit staging/custom server choices are preserved. No server URL entry is needed for normal use. HTTPS is required; HTTP is accepted only for loopback hosts when the development option is enabled.
 
@@ -14,35 +14,35 @@ Pasting a key directly on this phone remains a fallback: provider-specific forma
 
 ## Signing and device services
 
-The release bundle identifier is `app.sorevan.masterkey`. Register it on the paid team with **Sign in with Apple** and **Push Notifications** enabled, and set the same value for `MK_APPLE_BUNDLE_ID` and `MK_APNS_TOPIC` on the server. Xcode development builds use sandbox APNs. TestFlight and App Store builds use production APNs.
+The release bundle identifier is `app.sorevan.masterkey`. Register it on the paid team with **Sign in with Apple** and **Push Notifications** enabled, and set the same value for `KEYALA_APPLE_BUNDLE_ID` and `KEYALA_APNS_TOPIC` on the server. Xcode development builds use sandbox APNs. TestFlight and App Store builds use production APNs.
 
-For a Personal Team preview, select **Settings → Developer options → Enable developer options → Use sample data** explicitly. Samples are offline and cannot send keys or model calls. This is separate from server mock mode. For a real approval round trip without provider charges, turn samples off and connect to a private backend with `MK_DEV_LOGIN=1`, `MK_VENDOR_MOCK=1`, and fake keys. The phone cannot enable mock mode on a server. Restrict network access to test devices because development login lets anyone claim any email address. Staging and custom server controls are also under Developer options.
+For a Personal Team preview, select **Settings → Developer options → Enable developer options → Use sample data** explicitly. Samples are offline and cannot send keys or model calls. This is separate from server mock mode. For a real approval round trip without provider charges, turn samples off and connect to a private backend with `KEYALA_DEV_LOGIN=1`, `KEYALA_VENDOR_MOCK=1`, and fake keys. The phone cannot enable mock mode on a server. Restrict network access to test devices because development login lets anyone claim any email address. Staging and custom server controls are also under Developer options.
 
 ### Temporary physical-device build with a Personal Team
 
 Install the matching iOS component from **Xcode → Settings → Components** if Xcode reports it missing. Connect and unlock the iPhone, trust the Mac if prompted, and enable Developer Mode on the phone. Sign in under **Xcode → Settings → Accounts** and use the Personal Team's ID in the build command. Find the build destination and installation device identifiers with:
 
 ```sh
-xcodebuild -project ios/MasterKey/MasterKey.xcodeproj -scheme MasterKey -showdestinations
+xcodebuild -project ios/Keyala/Keyala.xcodeproj -scheme Keyala -showdestinations
 xcrun devicectl list devices
 ```
 
 Build from a temporary copy so the shipping target keeps its paid capabilities. From the repository root:
 
 ```sh
-preview_dir=$(mktemp -d /private/tmp/masterkey-preview.XXXXXXXX)
-cp -R ios/MasterKey "$preview_dir/MasterKey"
-preview_project="$preview_dir/MasterKey/MasterKey.xcodeproj"
+preview_dir=$(mktemp -d /private/tmp/keyala-preview.XXXXXXXX)
+cp -R ios/Keyala "$preview_dir/Keyala"
+preview_project="$preview_dir/Keyala/Keyala.xcodeproj"
 plutil -convert xml1 "$preview_project/project.pbxproj"
 /usr/libexec/PlistBuddy \
   -c 'Delete :objects:A10000000000000000000001:attributes:TargetAttributes:A10000000000000000000002:SystemCapabilities' \
   -c 'Delete :objects:A10000000000000000000042:buildSettings:CODE_SIGN_ENTITLEMENTS' \
   -c 'Delete :objects:A10000000000000000000043:buildSettings:CODE_SIGN_ENTITLEMENTS' \
   "$preview_project/project.pbxproj"
-/usr/libexec/PlistBuddy -c 'Clear dict' "$preview_dir/MasterKey/MasterKey.entitlements"
+/usr/libexec/PlistBuddy -c 'Clear dict' "$preview_dir/Keyala/Keyala.entitlements"
 
 xcodebuild -project "$preview_project" \
-  -scheme MasterKey -configuration Debug \
+  -scheme Keyala -configuration Debug \
   -destination 'id=YOUR_XCODE_DESTINATION_ID' \
   -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
   CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=YOUR_TEAM_ID \
@@ -55,22 +55,22 @@ The preview uses `app.sorevan.masterkey.preview` and omits the paid-team entitle
 ```sh
 xcrun devicectl device install app \
   --device YOUR_COREDEVICE_ID \
-  "$preview_dir/build/Build/Products/Debug-iphoneos/MasterKey.app"
+  "$preview_dir/build/Build/Products/Debug-iphoneos/Keyala.app"
 ```
 
-Open MasterKey on the iPhone. If iOS asks you to trust your developer profile, select your Apple Account under **Settings → General → VPN & Device Management** and follow the prompts.
+Open Keyala on the iPhone. If iOS asks you to trust your developer profile, select your Apple Account under **Settings → General → VPN & Device Management** and follow the prompts.
 
 Personal Team provisioning expires after seven days. Rebuild and reinstall when it expires.
 
 ## Build
 
 ```sh
-xcodebuild -project ios/MasterKey/MasterKey.xcodeproj \
-  -target MasterKey -configuration Debug -sdk iphonesimulator \
+xcodebuild -project ios/Keyala/Keyala.xcodeproj \
+  -target Keyala -configuration Debug -sdk iphonesimulator \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
-  CONFIGURATION_BUILD_DIR=/private/tmp/masterkey-ios-products \
-  OBJROOT=/private/tmp/masterkey-ios-obj \
-  SYMROOT=/private/tmp/masterkey-ios-sym build
+  CONFIGURATION_BUILD_DIR=/private/tmp/keyala-ios-products \
+  OBJROOT=/private/tmp/keyala-ios-obj \
+  SYMROOT=/private/tmp/keyala-ios-sym build
 ```
 
 An ad-hoc signature enables Keychain sessions in the simulator without an Apple
@@ -79,18 +79,18 @@ the icon compiler may require a matching runtime. For local UI testing without
 that download, append `EXCLUDED_SOURCE_FILE_NAMES=Assets.xcassets`; this skips
 the icon catalog only. Install a matching runtime to validate the full icon build.
 
-The `masterkey://connect/<code>` URL and HTTPS `/connect/<code>` links on the exact production/staging hosts open the pairing preview. A link for another server is rejected with guidance to change it explicitly in Developer options; scanning never silently switches the server.
-`masterkey://requests/<request_id>` opens the authenticated request inspector;
-notification taps use the same route. Enrollment accepts `masterkey://enroll/en_<22 base64url characters>` and HTTPS `/enroll/<id>` on the exact production/staging hosts. Universal links arrive through `NSUserActivityTypeBrowsingWeb`; both QR scanning and link taps enforce the same parser and explicit server matching. Enrollment links remain pending through sign-in. Polling stops when the candidate is submitted, terminal, the view closes, or the session changes; the submitted candidate must be immutable on the backend before a final confirmation is accepted. App identity in the pairing preview is
-developer-provided and is not verified by MasterKey.
+The `keyala://connect/<code>` URL and HTTPS `/connect/<code>` links on the exact production/staging hosts open the pairing preview. A link for another server is rejected with guidance to change it explicitly in Developer options; scanning never silently switches the server.
+`keyala://requests/<request_id>` opens the authenticated request inspector;
+notification taps use the same route. Enrollment accepts `keyala://enroll/en_<22 base64url characters>` and HTTPS `/enroll/<id>` on the exact production/staging hosts. Universal links arrive through `NSUserActivityTypeBrowsingWeb`; both QR scanning and link taps enforce the same parser and explicit server matching. Enrollment links remain pending through sign-in. Polling stops when the candidate is submitted, terminal, the view closes, or the session changes; the submitted candidate must be immutable on the backend before a final confirmation is accepted. App identity in the pairing preview is
+developer-provided and is not verified by Keyala.
 
 Contract checks run without the simulator:
 
 ```sh
-swiftc -module-cache-path /private/tmp/masterkey-swift-modules \
-  ios/MasterKey/Models.swift ios/MasterKey/Networking.swift \
-  ios/Tests/ContractTests.swift -o /private/tmp/masterkey-contract-tests
-/private/tmp/masterkey-contract-tests
+swiftc -module-cache-path /private/tmp/keyala-swift-modules \
+  ios/Keyala/Models.swift ios/Keyala/Networking.swift \
+  ios/Tests/ContractTests.swift -o /private/tmp/keyala-contract-tests
+/private/tmp/keyala-contract-tests
 ```
 
 
@@ -114,12 +114,25 @@ Run the native API client account checks against an isolated localhost mock with
 development login enabled (never a shared or real-key server):
 
 ```sh
-swiftc -module-cache-path /private/tmp/masterkey-swift-modules \
-  ios/MasterKey/Models.swift ios/MasterKey/Networking.swift \
-  ios/Tests/AccountLifecycleChecks.swift -o /private/tmp/masterkey-account-checks
-/private/tmp/masterkey-account-checks http://127.0.0.1:8094
+swiftc -module-cache-path /private/tmp/keyala-swift-modules \
+  ios/Keyala/Models.swift ios/Keyala/Networking.swift \
+  ios/Tests/AccountLifecycleChecks.swift -o /private/tmp/keyala-account-checks
+/private/tmp/keyala-account-checks http://127.0.0.1:8094
 ```
 
 The check uses a unique fictional identity and covers other-session revocation,
 stop-all, logout, failed reauthentication, deletion and fresh account recreation.
 It does not prove live Apple token revocation or physical-device behavior.
+
+## App language and OpenRouter routing
+
+Choose Follow system, English, 繁體中文 or 日本語 in Settings > Language, or on
+the first-use guide. The choice takes effect immediately, survives relaunch, and
+does not sign out or recreate the current request review. OS-owned Apple sign-in
+and permission dialogs follow the iPhone's language settings.
+
+Settings > OpenRouter credits controls a server-side account preference, off by
+default. The guide explains data forwarding and billing, can be hidden, and can
+be reopened. Existing app connections keep their billing route; reconnect to
+apply a different route. Pairing and request details show OpenRouter billing.
+Only the server's supported models and text-only API features are eligible.

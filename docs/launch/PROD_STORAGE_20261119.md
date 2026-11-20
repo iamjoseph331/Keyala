@@ -1,59 +1,48 @@
-# Production-first storage: reviewed approach
+# Production storage: verified 2026-11-19
 
-Joseph requested on 2026-11-19: try using the staging disk for both services;
-otherwise prioritize production. No storage changes have been applied yet.
+Joseph approved the production data reset and personally completed the Starter
+compute upgrade and disk purchase. Production and staging cannot share a Render
+disk; production now has its own storage. No staging accounts or keys were copied.
 
-## Platform findings
+## Live state
 
-- One Render disk is accessible to exactly one service instance. Sharing it
-  between prod and staging is unsupported, and would also mix their SQLite state.
-- The disk-update API accepts name, sizeGB and mountPath, not a new service ID.
-  There is no supported reassignment in that API. Moving capacity therefore means
-  provisioning production storage and retiring staging storage after recovery is
-  secured, rather than attaching the same disk twice.
-- Disks require paid compute. Current checkout declares staging starter + 1 GB,
-  prod free. The live plan, price and actual resource IDs still need inspection.
+- Production: `srv-dbsm5m0ae00c738euic0`, Starter, 1 GB disk
+  `dsk-dbvggvl9el5s73bqe9k0`, mounted at `/var/data`.
+- SQLite: `sqlite:///var/data/masterkey.db?mode=rwc`. Existing master key preserved.
+- Daily consistent SQLite backups: `/var/data/backups`, newest seven retained.
+- Staging: `srv-dbsm5m0ae00c738euib0`, compute suspended, original 1 GB disk
+  `dsk-dbuielgm7kps73cgk420` retained. It is unavailable until deliberately resumed.
+- Approximate baseline: production US$7.25/month plus retained staging disk
+  US$0.25/month. This excludes overlap, additional usage and taxes.
 
-Sources read: https://render.com/docs/disks.md and
-https://api-docs.render.com/reference/update-disk on 2026-11-19.
+## Evidence
 
-## Concrete intended end state
+PR #12 promoted to staging (`15c5da0`); PR #13 promoted to main (`a60c9b7`).
+Production deploy `dep-dbvgnanf3r2c73fv463g` became live at 14:49:38 UTC.
+A pending connection created before deployment remained accessible afterward.
+This checks a stored row, rather than only an app secret that can reconstruct an app.
 
-Production: one paid instance with 1 GB mounted at /var/data;
-MK_DATABASE_URL=sqlite:///var/data/masterkey.db?mode=rwc;
-MK_BACKUP_DIR=/var/data/backups; MK_BACKUP_KEEP=7; daily consistent SQLite backups.
-Keep its existing MK_MASTER_KEY and keep public dev login disabled.
+Production automatic backup existed with mode 600 and size 135168 bytes. It was
+restored into `/tmp/prod-restore-check.db`, leaving the live database untouched.
+`PRAGMA integrity_check` returned `ok`; users, requests and api_keys counts matched
+the backup. No credentials or request contents were printed.
 
-Staging: return to free/ephemeral storage only after saving and verifying a
-consistent backup plus its deletion log and retaining its separate encryption
-master key. Its own MK_DATABASE_URL then points to /data/masterkey.db. Never
-restore staging accounts or keys into production, and never share master keys.
+Before staging suspension, a consistent `VACUUM INTO` backup was saved at
+`/var/data/backups/pre-prod-20261119T1443.db`. It survived a service restart and
+passed the same sidecar restore integrity/count checks. The original staging disk
+and separate master-key configuration remain in place. No disk was deleted.
 
-This aims to move the existing paid allocation to production, rather than leave
-two paid services running. A short overlap may be needed for safe migration;
-verify exact dashboard charges before any paid mutation.
+Production `/v1/status` reports database and service healthy. `/about`, `/privacy`,
+`/add-key` and AASA return successfully; `/add-key` links to privacy. A valid-shaped
+public dev-login request returns 404. GitHub Pages privacy and support return 200.
 
-## Data safety before applying
+## Remaining recovery limits
 
-The existing production database must be inventoried and preserved if accessible.
-Do not call free-plan data disposable merely because it is ephemeral. Adding a
-disk, changing compute or deploying can restart the instance. If free-service
-Shell/SSH access prevents exporting existing state, explain that limitation and
-obtain a decision about any data reset before proceeding.
+Same-disk backups do not protect against losing the disk. An encrypted off-disk
+copy and independently retained encryption master key still need operator setup.
+This rehearsal did not replace the live database or prove an end-to-end recovery
+with deletion-record replay. Follow `docs/ops/RUNBOOK.md` before any real restore.
+Do not delete staging storage or downgrade it to ephemeral storage as a shortcut.
 
-After production is on persistent storage, prove a write survives a controlled
-restart, run a consistent backup/restore rehearsal, and replay deletion records
-before serving restored data. Only then retire the staging disk. Disk deletion
-must not happen before its backup and restore evidence are verified.
-
-Same-disk backups do not protect against losing the entire disk. Off-disk
-encrypted recovery copies and separately held master keys remain an operator
-responsibility; no stronger durability claim is published.
-
-## Current blockers
-
-The Render connector returned no selected workspace and explicitly required user
-confirmation of Joseph's workspace (tea-d9e7jnj7uimc73f4jf0g). A confirmation
-question is pending. The Mac is locked, blocking Dashboard disk/compute controls
-that the connector does not expose. Source work and local verification can finish
-without either action; live mutations and publication remain pending.
+Platform references read: https://render.com/docs/disks.md and
+https://api-docs.render.com/reference/update-disk.

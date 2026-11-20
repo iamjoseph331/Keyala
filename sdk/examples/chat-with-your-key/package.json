@@ -2,7 +2,7 @@
   "name": "chat-with-your-key",
   "version": "0.1.0",
   "private": true,
-  "description": "MasterKey demo: a chat app that never sees your API key",
+  "description": "Keyala demo: a chat app that never sees your API key",
   "type": "commonjs",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=20" },
