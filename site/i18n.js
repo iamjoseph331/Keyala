@@ -31,6 +31,8 @@
       apply(picker.value);
     });
     apply(initial);
+    // hidden language blocks shift the page after load, so re-land on #anchor links
+    if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
   }
   window.KeyalaLang = { get: () => document.documentElement.lang, apply };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', start) : start();

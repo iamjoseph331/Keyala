@@ -1,0 +1,26 @@
+.docs { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; padding-top: 28px; }
+.toc-wrap { position: sticky; top: 76px; align-self: start; max-height: calc(100vh - 92px); overflow-y: auto; font-size: 14px; }
+.toc-wrap summary { font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+#toc a { display: block; color: var(--muted); text-decoration: none; padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
+#toc a.h3 { padding-left: 22px; font-size: 13px; }
+#toc a:hover { color: var(--ink); }
+#toc a.on { color: var(--green); border-left-color: var(--green); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.ai-note { background: var(--green-soft); border-radius: 12px; padding: 10px 14px; font-size: 15px; }
+.md { min-width: 0; overflow-wrap: anywhere; }
+.md h1 { font-size: clamp(2rem, 5vw, 2.8rem); }
+.md h2 { margin-top: 2em; padding-top: .6em; border-top: 1px solid var(--line); scroll-margin-top: 76px; }
+.md h3 { margin-top: 1.6em; scroll-margin-top: 76px; }
+.md h2 .anchor, .md h3 .anchor { margin-left: .4em; color: var(--muted); text-decoration: none; opacity: 0; font-weight: 400; }
+.md h2:hover .anchor, .md h3:hover .anchor, .md .anchor:focus { opacity: 1; }
+.md table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 15px; margin: 0 0 1.2em; }
+.md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+.md th { background: var(--code); }
+.md pre { overflow-x: auto; max-width: 100%; }
+.md .codebox { position: relative; }
+.md .codebox button { position: absolute; top: 8px; right: 8px; font: 600 12px var(--font); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.md .codebox pre { padding-top: 40px; }
+@media (max-width: 800px) {
+  .docs { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .toc-wrap { position: static; max-height: none; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+}
