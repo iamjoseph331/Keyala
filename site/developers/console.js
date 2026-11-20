@@ -10,6 +10,8 @@ const status = node("console-status");
 const rotateButton = node("rotate-token");
 const rotateDialog = node("rotate-confirmation");
 const hostedServers = new Set([
+  "https://app.keyala.io",
+  "https://staging.keyala.io",
   "https://masterkey-prod-vkgm.onrender.com",
   "https://masterkey-staging-vkgm.onrender.com",
 ]);
@@ -358,7 +360,7 @@ apiInput.addEventListener("change", () => {
   message(status, "");
   try {
     const origin = serverOrigin();
-    node("hosted-storage-note").hidden = !hostedServers.has(origin);
+    node("hosted-storage-note").hidden = !origin.includes("staging");
     message(node("api-url-status"), `Using ${origin}`);
   } catch (error) {
     node("hosted-storage-note").hidden = true;

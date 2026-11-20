@@ -19,6 +19,8 @@ Developer DX goal: **change one line — the base URL** — and use the official
 - User's key is write-only: encrypted at rest (AES-256-GCM, server master key from env), never
   returned by any API, never sent to the developer. Only `last4` is ever shown.
 - The developer never sees the key; the user sees every payload and response.
+- Payloads and responses are encrypted at rest with a per-user data key (see § Storage at rest) and
+  kept 30 days, then removed; cost, model and token counts stay.
 - The user still trusts whoever runs the Keyala server → server is open source and
   self-hostable (one binary + one SQLite file). That is the answer, and the README says so.
 
@@ -50,7 +52,8 @@ Developer DX goal: **change one line — the base URL** — and use the official
 4. **Approve on phone** — options: *once*, *next N calls*, *up to $X*, *trust (with alert at
    $Y/day)*. Approval updates the grant policy. Deny → developer gets `403 keyala_denied`.
 5. **Audit** — every request stores payload, estimated + actual cost (from vendor `usage`),
-   response, timestamps. User browses it any time.
+   response, timestamps. The user browses it any time; payload and response are kept 30 days after
+   the request is decided, then removed (`purged: true`), metadata stays.
 
 ### Cost & money safety (per Codex security review)
 - Estimate is a **reservation ceiling, not a guarantee**: input tokens = UTF-8 byte length of the
@@ -86,10 +89,26 @@ Grant    { "id", "app": App, "vendor": "openai"|"anthropic"|"openrouter", "polic
 Request  { "id", "grant_id", "app": App, "vendor", "model", "endpoint",
            "status": "pending"|"approved"|"sending"|"denied"|"expired"|"completed"|"failed"|"uncertain",
            "estimated_usd", "actual_usd", "created_at", "decided_at", "completed_at",
-           "payload": {...},            // full request body (detail view only)
-           "response": {...} }          // full vendor response (detail view only)
+           "purged": false,             // true = payload/response removed by the 30-day retention
+           "payload": {...},            // full request body (detail view only; null when purged)
+           "response": {...} }          // full vendor response (detail view only; null when purged)
 Key      { "vendor", "last4", "created_at" }
 ```
+
+### Storage at rest (SQLite)
+- One SQLite file, `secure_delete` on (deleted rows are zeroed in the file, not left in free pages).
+- Tokens (session, grant, app, connect, enroll, OAuth state) are stored only as SHA-256 hashes.
+- Provider keys: AES-256-GCM with the master key (`KEYALA_MASTER_KEY`, env, never in the DB), AAD `user|vendor`.
+- Each user has a data key (32 random bytes) stored wrapped with the master key (AAD `dek|{user_id}`).
+  `requests.payload` and `requests.response` are `enc1:` + base64url(nonce‖ciphertext) under it, AAD
+  `req|{id}|payload` / `req|{id}|response`. Rows from before migration 0013 are encrypted at the next start.
+- Token counts are columns (`input_tokens`, `output_tokens`), so reports never read content.
+- Retention: content of `completed|failed|denied|expired` requests is removed 30 days after the decision
+  (`purged=1`); `pending`, `approved`, `sending`, `uncertain` keep theirs.
+- Plaintext columns: emails, Apple `sub`, APNs tokens, app names/origins, connect codes, policies, costs, models, timestamps, country codes.
+- Wrong master key for a database: requests and history answer `503 data_key_unreadable` and nothing is written.
+- Backups (`VACUUM INTO`) hold the same encrypted content; they are NOT crypto-erased on deletion, because
+  the wrapped data key is in them too and the master key opens it. They roll off after `KEYALA_BACKUP_KEEP` days.
 
 ### Developer-facing
 | Method | Path | Auth | Notes |

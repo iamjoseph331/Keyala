@@ -62,10 +62,12 @@ check "restored: key decrypts (mock saw last4)" "$(curl -s "$B/v1/me/requests/$R
 
 echo "== 4. restore with a DIFFERENT master key"
 cp "$BK" "$TMP/c.db"; start_server "$TMP/c.db" "$MK2"
-R3=$(run_request "$TOKEN" "$SESS")
-D=$(curl -s "$B/v1/me/requests/$R3" -H "Authorization: Bearer $SESS")
-check "wrong master key: request fails" "$(jq -r .status <<<"$D")" failed
-check "wrong master key: error is no_key" "$(jq -r .response.error.type <<<"$D")" no_key
+# provider keys AND each user's data key are sealed with the master key: the server refuses clearly, writes nothing
+D=$(curl -s "$B/v1/openai/chat/completions" -H "Authorization: Bearer $TOKEN" -H 'X-Keyala-Wait: 0' \
+      -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"drill"}],"max_tokens":16}')
+check "wrong master key: new request refused" "$(jq -r .error.type <<<"$D")" data_key_unreadable
+check "wrong master key: history refused" "$(curl -s "$B/v1/me/requests/$R1" -H "Authorization: Bearer $SESS" | jq -r .error.type)" data_key_unreadable
+check "wrong master key: nothing stored" "$(sqlite3 "$TMP/c.db" "SELECT COUNT(*) FROM requests WHERE payload LIKE '%drill%'")" 0
 
 echo "== 5. replay of deletions recorded after the backup"
 echo "deleted $UID_ 2026-01-01T00:00:00.000Z" >"$TMP/deleted-accounts.log"

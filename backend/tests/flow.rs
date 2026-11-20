@@ -3717,7 +3717,7 @@ async fn trust_pages_are_served_and_linked() {
         let body = r.text().await.unwrap();
         assert!(
             body.contains("personal experimental project")
-                && body.contains("josephchen637@gmail.com")
+                && body.contains("support@keyala.io")
                 && body.contains("decrypts"),
             "{p}"
         );
@@ -4165,4 +4165,215 @@ async fn routed_request_is_at_most_once_never_falls_back_to_a_direct_key_and_mis
     let r = t.chat(&tok, 5, msg()).await;
     assert_eq!(r.status(), 400);
     assert_eq!(json_of(r).await["error"]["type"], "no_key");
+}
+
+// ---------- content at rest: per-user key, retention, no residue ----------
+
+async fn raw_content(s: &AppState, id: &str) -> (String, Option<String>) {
+    sqlx::query_as("SELECT payload, response FROM requests WHERE id=?")
+        .bind(id)
+        .fetch_one(&s.db)
+        .await
+        .unwrap()
+}
+
+fn secret_msg(word: &str) -> Value {
+    json!({"model": "gpt-4o-mini", "messages": [{"role": "user", "content": word}], "max_tokens": 50})
+}
+
+#[tokio::test]
+async fn request_content_is_encrypted_at_rest_and_reads_back() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let r = t.chat(&tok, 0, secret_msg("PROMPT-SECRET-7731")).await;
+    assert_eq!(r.status(), 200);
+    let rid = r.headers()["x-keyala-request-id"]
+        .to_str()
+        .unwrap()
+        .to_string();
+    let (p, resp) = raw_content(&t.state, &rid).await;
+    let resp = resp.unwrap();
+    assert!(p.starts_with("enc1:") && resp.starts_with("enc1:"));
+    assert!(!p.contains("PROMPT-SECRET") && !resp.contains("mock vendor"));
+    // the user, the developer poll and the report still see what they did before
+    let d = t.user_get(&format!("/v1/me/requests/{rid}")).await;
+    assert_eq!(d["payload"]["messages"][0]["content"], "PROMPT-SECRET-7731");
+    assert_eq!(d["response"]["object"], "chat.completion");
+    assert_eq!(d["purged"], false);
+    let p = json_of(
+        t.c.get(format!("{}/v1/requests/{rid}", t.base))
+            .bearer_auth(&tok)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(p["response"]["object"], "chat.completion");
+    let (i, o): (Option<i64>, Option<i64>) =
+        sqlx::query_as("SELECT input_tokens, output_tokens FROM requests WHERE id=?")
+            .bind(&rid)
+            .fetch_one(&t.state.db)
+            .await
+            .unwrap();
+    assert!(i.unwrap() > 0 && o.unwrap() > 0);
+    // the data key itself is stored wrapped, never as raw bytes
+    let n: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM users WHERE dek_ct IS NOT NULL AND length(dek_ct) > 32",
+    )
+    .fetch_one(&t.state.db)
+    .await
+    .unwrap();
+    assert_eq!(n, 1, "one wrapped key (ciphertext + GCM tag)");
+}
+
+#[tokio::test]
+async fn plaintext_rows_from_before_encryption_are_sealed_at_startup() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let r = t.chat(&tok, 0, msg()).await;
+    let rid = r.headers()["x-keyala-request-id"]
+        .to_str()
+        .unwrap()
+        .to_string();
+    // simulate a row written by a build without encryption
+    sqlx::query("UPDATE requests SET payload=?, response=? WHERE id=?")
+        .bind(r#"{"model":"gpt-4o-mini","note":"LEGACY-PLAIN"}"#)
+        .bind(r#"{"object":"chat.completion","note":"LEGACY-RESP"}"#)
+        .bind(&rid)
+        .execute(&t.state.db)
+        .await
+        .unwrap();
+    // legacy plaintext stays readable before the pass
+    let d = t.user_get(&format!("/v1/me/requests/{rid}")).await;
+    assert_eq!(d["payload"]["note"], "LEGACY-PLAIN");
+    // restart on the same file and master key
+    let s2 = build_state(Config {
+        database_url: t.state.cfg.database_url.clone(),
+        ..test_cfg()
+    })
+    .await
+    .unwrap();
+    let (p, resp) = raw_content(&s2, &rid).await;
+    assert!(p.starts_with("enc1:") && resp.unwrap().starts_with("enc1:"));
+    let row = keyala_server::request_row(&s2, &rid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row.payload.contains("LEGACY-PLAIN"));
+    assert!(row.response.unwrap().contains("LEGACY-RESP"));
+}
+
+#[tokio::test]
+async fn retention_removes_content_and_keeps_metadata() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let r = t.chat(&tok, 0, msg()).await;
+    let rid = r.headers()["x-keyala-request-id"]
+        .to_str()
+        .unwrap()
+        .to_string();
+    // a pending one, just as old, is kept: nobody has decided it yet
+    let pending = json_of(
+        t.chat(&t.grant("openai", json!({"mode": "ask"})).await, 0, msg())
+            .await,
+    )
+    .await["request_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let old = chrono_days_ago(keyala_server::RETENTION_DAYS + 1);
+    sqlx::query("UPDATE requests SET completed_at=?, decided_at=?, created_at=?")
+        .bind(&old)
+        .bind(&old)
+        .bind(&old)
+        .execute(&t.state.db)
+        .await
+        .unwrap();
+    assert_eq!(
+        keyala_server::purge_expired_content(&t.state)
+            .await
+            .unwrap(),
+        1
+    );
+    let d = t.user_get(&format!("/v1/me/requests/{rid}")).await;
+    assert_eq!(d["purged"], true);
+    assert!(d["payload"].is_null() && d["response"].is_null());
+    assert_eq!(d["status"], "completed");
+    assert!(d["actual_usd"].as_f64().unwrap() > 0.0);
+    let (p, resp) = raw_content(&t.state, &rid).await;
+    assert!(p.is_empty() && resp.is_none());
+    let i: Option<i64> = sqlx::query_scalar("SELECT input_tokens FROM requests WHERE id=?")
+        .bind(&rid)
+        .fetch_one(&t.state.db)
+        .await
+        .unwrap();
+    assert!(i.unwrap() > 0, "token counts survive the purge");
+    let pd = t.user_get(&format!("/v1/me/requests/{pending}")).await;
+    assert_eq!(pd["purged"], false);
+    assert!(pd["payload"].is_object());
+}
+
+fn chrono_days_ago(days: i64) -> String {
+    let t = std::time::SystemTime::now() - Duration::from_secs((days * 86_400) as u64);
+    let secs = t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    // RFC3339 UTC with milliseconds, like the server writes
+    let (d, s) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
+    let (y, m, dd) = civil(d);
+    format!(
+        "{y:04}-{m:02}-{dd:02}T{:02}:{:02}:{:02}.000Z",
+        s / 3600,
+        s % 3600 / 60,
+        s % 60
+    )
+}
+/// days since 1970-01-01 -> (year, month, day) (Howard Hinnant's algorithm)
+fn civil(z: i64) -> (i64, i64, i64) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (yoe + era * 400 + i64::from(m <= 2), m, d)
+}
+
+#[tokio::test]
+async fn deleted_account_leaves_no_content_in_the_database_file() {
+    let t = T::new().await;
+    let tok = t.grant("openai", json!({"mode": "trust"})).await;
+    let r = t.chat(&tok, 0, msg()).await;
+    let rid = r.headers()["x-keyala-request-id"]
+        .to_str()
+        .unwrap()
+        .to_string();
+    let (sealed_payload, _) = raw_content(&t.state, &rid).await;
+    let key_ct: Vec<u8> = sqlx::query_scalar("SELECT ciphertext FROM api_keys")
+        .fetch_one(&t.state.db)
+        .await
+        .unwrap();
+    let r = t
+        .user_post(
+            "/v1/me/delete",
+            json!({"confirm": "DELETE", "email": "a@b.co"}),
+        )
+        .await;
+    assert_eq!(r.status(), 200);
+    sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+        .execute(&t.state.db)
+        .await
+        .unwrap();
+    let path = t.state.cfg.database_url.trim_start_matches("sqlite://");
+    let path = path.split('?').next().unwrap();
+    let mut file = std::fs::read(path).unwrap();
+    if let Ok(w) = std::fs::read(format!("{path}-wal")) {
+        file.extend(w);
+    }
+    let has = |needle: &[u8]| file.windows(needle.len()).any(|w| w == needle);
+    assert!(
+        !has(&sealed_payload.as_bytes()[..40]),
+        "request content left in free pages"
+    );
+    assert!(!has(&key_ct[..16]), "API key ciphertext left in free pages");
 }

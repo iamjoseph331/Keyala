@@ -1,7 +1,7 @@
 # Keyala runbook
 
 Services: `masterkey-prod` (branch `main`), `masterkey-staging` (branch `staging`) on Render. Data is one SQLite
-file (`KEYALA_DATABASE_URL`); provider keys in it are AES-GCM encrypted with `KEYALA_MASTER_KEY` (env var, never in the DB).
+file (`KEYALA_DATABASE_URL`); provider keys in it are AES-GCM encrypted with `KEYALA_MASTER_KEY` (env var, never in the DB), and request payloads/responses with a per-user data key that is itself sealed with the master key (PLAN.md § Storage at rest). Content is removed 30 days after each request is decided.
 
 ## Checks
 - `curl https://HOST/healthz` -> `ok` (process is up).
@@ -16,7 +16,7 @@ sent after unpausing (the sweeper retries every 30 s); `sending` ones finish. Us
 
 ## Incidents
 - **Provider outage.** Calls fail with 502/5xx or `uncertain` (never retried by design). Optionally pause; tell users nothing is charged for `failed` calls, and `uncertain` ones keep their reservation.
-- **Suspected key leak / abuse.** Per user: they use Stop everything (`POST /v1/me/stop-all`) and rotate the key at the provider. Server side: pause upstream first. **Never rotate `KEYALA_MASTER_KEY` casually:** every stored provider key becomes undecryptable (requests then fail `no_key`) and users must re-add all keys. Rotating needs a re-encrypt migration that does not exist yet; if the master key itself leaked, plan: pause, tell users, delete stored keys (`DELETE FROM api_keys`), set a new master key, users re-add keys.
+- **Suspected key leak / abuse.** Per user: they use Stop everything (`POST /v1/me/stop-all`) and rotate the key at the provider. Server side: pause upstream first. **Never rotate `KEYALA_MASTER_KEY` casually:** every stored provider key and every user's data key become undecryptable, and requests and history then answer `503 data_key_unreadable`. Rotating needs a re-encrypt migration that does not exist yet; if the master key itself leaked, plan: pause, tell users, then in one transaction `DELETE FROM api_keys; UPDATE users SET dek_ct=NULL, dek_nonce=NULL; UPDATE requests SET payload='', response=NULL, purged=1;` (request history content is lost, metadata stays), set a new master key, `VACUUM`, unpause; users re-add keys.
 - **Disk full.** SQLite writes fail (500s, `db:false`). Delete old files in `/var/data/backups`, then grow the disk in the dashboard (disks can grow, not shrink). Restart.
 - **Bad deploy.** Render dashboard -> service -> Events -> redeploy the last good deploy (or revert the commit on `main`). Migrations only add things, so an older binary still opens a newer database; if a migration itself is the problem, restore the pre-deploy backup.
 - **Restore from backup.** (1) pause upstream; (2) stop the service or work on a copy; (3) keep the current `deleted-accounts.log`; (4) put the chosen `masterkey-*.db` in place of `masterkey.db` (remove stale `-wal`/`-shm` files); (5) `docs/ops/replay-deletions.sh /var/data/masterkey.db /path/to/deleted-accounts.log`; (6) start with the SAME `KEYALA_MASTER_KEY`; (7) check `/v1/status`, unpause. Drill: `docs/ops/RESTORE_DRILL.md`.

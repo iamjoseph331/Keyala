@@ -3,7 +3,7 @@
 One script, served by every Keyala server. It talks to the server it was loaded from.
 
 ```html
-<script src="https://masterkey-prod-vkgm.onrender.com/sdk/keyala.js"></script>
+<script src="https://app.keyala.io/sdk/keyala.js"></script>
 ```
 
 Source: [backend/src/keyala.js](../../backend/src/keyala.js) (built into the server).

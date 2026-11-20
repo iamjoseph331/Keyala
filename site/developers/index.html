@@ -43,9 +43,9 @@
       </div>
       <div class="api-setting">
         <label for="api-url">Keyala API</label>
-        <div class="api-input-wrap"><input id="api-url" name="api_url" type="url" value="https://masterkey-prod-vkgm.onrender.com" autocomplete="url" spellcheck="false" aria-describedby="api-help api-url-status"></div>
+        <div class="api-input-wrap"><input id="api-url" name="api_url" type="url" value="https://app.keyala.io" autocomplete="url" spellcheck="false" aria-describedby="api-help api-url-status"></div>
         <p id="api-help" class="field-help">Use the same server that issued your app token. For local testing, use http://127.0.0.1:8080.</p>
-        <p id="hosted-storage-note" class="field-help">The hosted free service clears report history, user grants, and provider keys when it restarts.</p>
+        <p id="hosted-storage-note" class="field-help" hidden>Staging is a free test server: it clears report history, user grants, and provider keys when it restarts. Production keeps them.</p>
         <p id="api-url-status" class="inline-status" aria-live="polite"></p>
       </div>
       <form id="register-form" class="form-grid" novalidate>
