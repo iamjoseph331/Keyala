@@ -197,7 +197,20 @@ All errors are JSON: `{"error":{"type":"...","message":"..."}}`.
 
 ## 5. Dashboard and analytics
 
-Today, open the developer console at `https://keyala.io/developers/`, paste your app secret and read the report. Soon the same view moves into the Keyala console at `https://app.keyala.io/console` with sign-in. Both read the API below.
+Open the Keyala console at `https://app.keyala.io/console` (or `https://staging.keyala.io/console`). Sign in by scanning its QR with the Keyala app and tapping **Approve web sign-in**, or with your account email and a password set in the app under **Settings > Web password**. A web session lasts 12 hours and can only read, revoke grants and manage your own apps; approving calls and changing keys stay on the phone.
+
+Under **My apps** you can create an app (the secret is shown once), add an existing app by pasting its secret (the app becomes owned by your account), open each app's report for 7, 30 or 90 days (calls, cost from reported usage, completed calls with no usage reported, models, countries, a weekday x hour heatmap in your time zone) and rotate its secret. The older token-only page at `https://keyala.io/developers/` still works with just an app secret.
+
+The same data is available from the API, with either the app secret or a signed-in account that owns the app:
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /v1/app/report?days=N` | `Bearer keyala_app_...` | report for the app the secret names |
+| `GET /v1/me/apps` | session | your apps with 7-day calls and cost |
+| `POST /v1/me/apps` `{name, homepage?, allowed_origins?}` | session | create an app you own; returns `app_secret` once |
+| `POST /v1/me/apps/claim` `{app_secret}` | session | attach an existing unowned app (409 if owned by someone else) |
+| `GET /v1/me/apps/{id}/report?days=N` | session | same shape as `/v1/app/report`; 404 if you do not own it |
+| `POST /v1/me/apps/{id}/secret` | session | rotate; the old secret stops working at once |
 
 ```sh
 curl 'https://app.keyala.io/v1/app/report?days=30' -H "Authorization: Bearer $KEYALA_APP_SECRET"
