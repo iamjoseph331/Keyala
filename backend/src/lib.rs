@@ -318,6 +318,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(developer)
         .route("/healthz", get(|| async { "ok" }))
+        .route("/", get(|| async { axum::response::Redirect::to(routes::GET_APP_URL) }))
         .route("/v1/status", get(ops::status))
         .route("/v1/me/sessions/revoke-all", post(ops::revoke_sessions))
         .route("/v1/me/stop-all", post(ops::stop_all))

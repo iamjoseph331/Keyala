@@ -260,7 +260,7 @@ pub async fn connect_page(
 }
 
 /// Where "Get Keyala" points until there is an App Store listing.
-pub const GET_APP_URL: &str = "https://iamjoseph331.github.io/Keyala/";
+pub const GET_APP_URL: &str = "https://keyala.io/";
 
 // ---------- user: auth, keys, devices ----------
 
