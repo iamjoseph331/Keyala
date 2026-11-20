@@ -258,8 +258,23 @@ struct AuthenticatedSession: Codable {
 
 
 struct AppPreferences {
-    static let productionURL = "https://masterkey-prod-vkgm.onrender.com"
-    static let stagingURL = "https://masterkey-staging-vkgm.onrender.com"
+    static let productionURL = "https://app.keyala.io"
+    static let legacyProductionURL = "https://masterkey-prod-vkgm.onrender.com"
+    static let stagingURL = "https://staging.keyala.io"
+    static let legacyStagingURL = "https://masterkey-staging-vkgm.onrender.com"
+
+    // Keep exact same-service aliases for the first custom-domain release only.
+    static func builtInURL(for value: String) -> String? {
+        guard let url = URLComponents(string: value), url.scheme?.lowercased() == "https",
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil, url.path.isEmpty || url.path == "/",
+              let host = url.host?.lowercased() else { return nil }
+        switch "https://" + host {
+        case productionURL, legacyProductionURL: return productionURL
+        case stagingURL, legacyStagingURL: return stagingURL
+        default: return nil
+        }
+    }
     let serverURL: String
     let sampleData: Bool
     let developerOptions: Bool
@@ -273,7 +288,8 @@ struct AppPreferences {
                   url.scheme?.lowercased() == "https" || (url.scheme?.lowercased() == "http" && ["localhost", "127.0.0.1", "::1"].contains(host.lowercased())) else { return nil }
             return value
         }
-        let server = usable ?? productionURL
+        let server = usable.map { builtInURL(for: $0) ?? $0 } ?? productionURL
+        if let usable, usable != server { defaults.set(server, forKey: "serverURL") }
         // The old demoMode default was on; only the new explicit setting enables sample data.
         let sample = defaults.bool(forKey: "developerSampleData")
         return AppPreferences(serverURL: server, sampleData: sample,
@@ -300,11 +316,16 @@ enum PairingLink {
         return String(path.dropFirst()).uppercased()
     }
 
+    static func matchesServer(_ text: String, activeServer: String) -> Bool {
+        guard let server = serverURL(from: text) else { return true }
+        return server == (AppPreferences.builtInURL(for: activeServer) ?? activeServer)
+    }
+
     static func serverURL(from text: String) -> String? {
         guard let url = URLComponents(string: text), url.scheme?.lowercased() == "https",
               url.user == nil, url.password == nil, url.port == nil, let host = url.host?.lowercased() else { return nil }
         let server = "https://" + host
-        return [AppPreferences.productionURL, AppPreferences.stagingURL].contains(server) ? server : nil
+        return AppPreferences.builtInURL(for: server)
     }
 }
 
@@ -448,8 +469,8 @@ extension RequestRecord {
 }
 
 enum SupportContact {
-    static let email = "josephchen637@gmail.com"
-    static let mailURL = URL(string: "mailto:josephchen637@gmail.com?subject=Keyala%20support")!
+    static let email = "support@keyala.io"
+    static let mailURL = URL(string: "mailto:support@keyala.io?subject=Keyala%20support")!
 }
 
 enum AppLanguage: String, CaseIterable, Identifiable {

@@ -7476,25 +7476,25 @@
         }
       }
     },
-    "Joseph Chen operates the hosted Keyala service. Contact josephchen637@gmail.com with privacy questions.": {
+    "Joseph Chen operates the hosted Keyala service. Contact support@keyala.io with privacy questions.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Joseph Chen operates the hosted Keyala service. Contact josephchen637@gmail.com with privacy questions."
+            "value": "Joseph Chen operates the hosted Keyala service. Contact support@keyala.io with privacy questions."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "託管的 Keyala 服務由 Joseph Chen 營運。隱私相關問題請聯絡 josephchen637@gmail.com。"
+            "value": "託管的 Keyala 服務由 Joseph Chen 營運。隱私相關問題請聯絡 support@keyala.io。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ホスト型 Keyala サービスは Joseph Chen が運営しています。プライバシーに関するお問い合わせは josephchen637@gmail.com までご連絡ください。"
+            "value": "ホスト型 Keyala サービスは Joseph Chen が運営しています。プライバシーに関するお問い合わせは support@keyala.io までご連絡ください。"
           }
         }
       }
@@ -8741,25 +8741,25 @@
         }
       }
     },
-    "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions.": {
+    "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact support@keyala.io with questions.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact josephchen637@gmail.com with questions."
+            "value": "Keyala is an experimental personal project operated by Joseph Chen. I am actively developing and testing it, but cannot promise uninterrupted service or immediate support. Contact support@keyala.io with questions."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keyala 是 Joseph Chen 個人營運的實驗性專案。我持續認真開發與測試，但無法保證服務不中斷或立即回覆。問題可寄至 josephchen637@gmail.com。"
+            "value": "Keyala 是 Joseph Chen 個人營運的實驗性專案。我持續認真開發與測試，但無法保證服務不中斷或立即回覆。問題可寄至 support@keyala.io。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keyala は Joseph Chen が個人で運営する実験的なプロジェクトです。開発と検証を続けていますが、常時稼働や即時対応は保証できません。ご質問は josephchen637@gmail.com へお送りください。"
+            "value": "Keyala は Joseph Chen が個人で運営する実験的なプロジェクトです。開発と検証を続けていますが、常時稼働や即時対応は保証できません。ご質問は support@keyala.io へお送りください。"
           }
         }
       }

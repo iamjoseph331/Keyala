@@ -38,8 +38,7 @@ import LocalAuthentication
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
     var supportsStagingPassword: Bool {
-        (try? client.resolvedURL(for: "/v1/auth/password").absoluteString)
-            == "https://masterkey-staging-vkgm.onrender.com/v1/auth/password"
+        AppPreferences.builtInURL(for: serverURL) == AppPreferences.stagingURL
     }
     private var demoLoaded = false
     @Published private(set) var contextGeneration = 0
@@ -397,7 +396,7 @@ import LocalAuthentication
     }
     @discardableResult func acceptPairing(_ value: String) -> Bool {
         guard let code = PairingLink.code(from: value) else { return false }
-        if let server = PairingLink.serverURL(from: value), server != origin {
+        if !PairingLink.matchesServer(value, activeServer: origin) {
             errorMessage = "This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false
@@ -415,7 +414,7 @@ import LocalAuthentication
             showError = true
             return false
         }
-        if let server = PairingLink.serverURL(from: value), server != origin {
+        if !PairingLink.matchesServer(value, activeServer: origin) {
             errorMessage = "This key setup belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed."
             showError = true
             return false

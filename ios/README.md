@@ -2,7 +2,7 @@
 
 Native SwiftUI client, iOS 17 or newer. Fresh installs connect to the built-in production service and start with Sign in with Apple. Existing explicit staging/custom server choices are preserved. No server URL entry is needed for normal use. HTTPS is required; HTTP is accepted only for loopback hosts when the development option is enabled.
 
-The four tabs are **Inbox**, **Apps**, **Keys**, and **Settings**. Inbox has Waiting and Activity lists and a primary scanner action. Scan the app website’s connection QR or tap its link on this phone, review the source, then approve. The existing MK code remains a fallback. Camera denial and unsupported devices retain code entry. Settings contains account, appearance, notifications and Developer options. In **Inbox → Activity**, tap a past request to inspect its full payload and any recorded provider response.
+The four tabs are **Inbox**, **Apps**, **Keys**, and **Settings**. Inbox has Waiting and Activity lists and a primary scanner action. Scan the app website’s connection QR or tap its link on this phone, review the source, then approve. The KY- code remains a fallback. Camera denial and unsupported devices retain code entry. Settings contains account, appearance, notifications and Developer options. In **Inbox → Activity**, tap a past request to inspect its full payload and any recorded provider response.
 
 The request review sheet puts the requester and estimated cost first, followed by readable messages and expandable exact JSON. “This call only” is the default access. Optional device verification uses Face ID, Touch ID or the device passcode before sending an approval. **Swipe to allow** starts off and requires accepting a warning in Settings. It only permits once-only approval of an already-loaded request with an estimate of $0.05 or less; other rows open review. Estimates are not guaranteed final charges. Full swipe is disabled.
 
@@ -136,3 +136,17 @@ default. The guide explains data forwarding and billing, can be hidden, and can
 be reopened. Existing app connections keep their billing route; reconnect to
 apply a different route. Pairing and request details show OpenRouter billing.
 Only the server's supported models and text-only API features are eligible.
+
+## keyala.io cutover
+
+Production and staging now default to `https://app.keyala.io` and `https://staging.keyala.io`.
+Previously saved built-in Render URLs move to the corresponding new domain on launch and are saved.
+Custom servers remain unchanged. Sessions are scoped to their actual origin, so sign in again after
+this built-in cutover; tokens are not copied between domains. For the first custom-domain release,
+HTTPS connect/enrollment links on each service's old Render host are recognized as that same service.
+Production and staging remain isolated, including manually pasted pairing URLs. Apple bundle ID and APNs topic stay `app.sorevan.masterkey`.
+
+The temporary koala app icon and in-app mark use Claude's existing artwork. Getting started fits
+one page per step at standard text size on iPhone 17 Pro; accessibility sizes can scroll.
+Validation, recording locations and remaining device/account gates are in
+[Phase 2 QA](../docs/qa/domain-phase2-20261120/README.md).

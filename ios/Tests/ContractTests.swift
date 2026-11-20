@@ -15,6 +15,34 @@ enum ContractTests {
         precondition(AppPreferences.load(preferences).serverURL == AppPreferences.productionURL)
         preferences.set(AppPreferences.stagingURL, forKey: "serverURL")
         precondition(AppPreferences.load(preferences).serverURL == AppPreferences.stagingURL && AppPreferences.load(preferences).developerOptions)
+        for (old, new) in [(AppPreferences.legacyProductionURL, AppPreferences.productionURL), (AppPreferences.legacyStagingURL, AppPreferences.stagingURL)] {
+            preferences.set(old, forKey: "serverURL")
+            precondition(AppPreferences.load(preferences).serverURL == new)
+            precondition(preferences.string(forKey: "serverURL") == new, "Persist the built-in domain cutover")
+            precondition(PairingLink.serverURL(from: old + "/connect/KY-4F7Q") == new)
+            precondition(PairingLink.code(from: old + "/connect/KY-4F7Q") == "KY-4F7Q")
+            precondition(EnrollmentLink.id(from: old + "/enroll/en_abcdefghijklmnopqrstuv") == "en_abcdefghijklmnopqrstuv")
+        }
+        for host in [AppPreferences.productionURL, AppPreferences.legacyProductionURL] {
+            let link = host + "/connect/KY-4F7Q"
+            precondition(PairingLink.matchesServer(link, activeServer: AppPreferences.productionURL))
+            precondition(PairingLink.matchesServer(link, activeServer: AppPreferences.legacyProductionURL))
+            precondition(!PairingLink.matchesServer(link, activeServer: AppPreferences.stagingURL))
+            precondition(!PairingLink.matchesServer(link, activeServer: "http://127.0.0.1:8095"))
+        }
+        for host in [AppPreferences.stagingURL, AppPreferences.legacyStagingURL] {
+            precondition(PairingLink.matchesServer(host + "/enroll/en_abcdefghijklmnopqrstuv", activeServer: AppPreferences.stagingURL))
+            precondition(!PairingLink.matchesServer(host + "/connect/KY-4F7Q", activeServer: AppPreferences.productionURL))
+        }
+        preferences.set("https://private.example/api", forKey: "serverURL")
+        precondition(AppPreferences.load(preferences).serverURL == "https://private.example/api")
+        precondition(preferences.string(forKey: "serverURL") == "https://private.example/api")
+        preferences.set(AppPreferences.legacyProductionURL, forKey: "serverURL")
+        precondition(!AppPreferences.load(preferences).developerOptions, "Migrated production stays normal production")
+        precondition(AppPreferences.builtInURL(for: AppPreferences.productionURL) != AppPreferences.builtInURL(for: AppPreferences.stagingURL))
+        for invalid in ["https://staging.keyala.io.evil", "http://staging.keyala.io", "https://user@staging.keyala.io", "https://staging.keyala.io:443", "https://staging.keyala.io/custom", "https://staging.keyala.io?x=1"] {
+            precondition(AppPreferences.builtInURL(for: invalid) == nil)
+        }
         preferences.set(true, forKey: "developerSampleData")
         precondition(AppPreferences.load(preferences).sampleData)
         precondition(PairingLink.code(from: "keyala://connect/KY-4F7Q") == "KY-4F7Q")
@@ -61,7 +89,7 @@ enum ContractTests {
         let routerKey = try decoder.decode(KeyRecord.self, from: Data(#"{"vendor":"openrouter","last4":"O123","created_at":"2026-11-18T00:00:00Z"}"#.utf8))
         precondition(routerKey.provider == .openRouter && routerKey.provider.title == "OpenRouter")
         precondition(Provider.openRouter.keyPlaceholder == "sk-or-v1-...")
-        let callbackURL = URL(string: "https://masterkey-staging-vkgm.onrender.com/oauth/openrouter/callback")!
+        let callbackURL = URL(string: "https://staging.keyala.io/oauth/openrouter/callback")!
         let oauthState = String(repeating: "a", count: 22)
         let oauthFlowID = "of_" + String(repeating: "c", count: 22)
         var authURL = URLComponents(string: "https://openrouter.ai/auth")!
