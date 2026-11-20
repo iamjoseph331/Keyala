@@ -83,9 +83,6 @@
   .prov .state { margin-left:auto; font-size:.8rem; font-weight:600; color:var(--muted); white-space:nowrap }
   .prov.on { border-color:color-mix(in srgb, var(--ok) 45%, var(--line)); background:color-mix(in srgb, var(--okbg) 45%, var(--card)) }
   .prov.on .state { color:var(--ok) }
-  .pairing { text-align:center; padding:6px 0 }
-  .pairing img { display:block; width:184px; height:184px; margin:10px auto; background:#fff; border-radius:12px; border:1px solid var(--line) }
-  .pairing .code { font:700 1.5rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; margin:6px 0 }
   .wait { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--warn); font-size:.9rem; margin:10px 0 }
   .st { flex:none; width:8px; height:8px; border-radius:50%; background:var(--line) }
   .st.waiting { background:var(--warn); animation:p 1.2s infinite } .st.done { background:var(--ok) } .st.error { background:var(--bad) }
@@ -217,15 +214,6 @@
         <div class="connect">
           <div>
             <div class="providers" id="providers"></div>
-            <div class="pairing hidden" id="pairing" aria-live="polite">
-              <div data-i18n="pair.scan"></div>
-              <img id="p-qr" alt="" width="184" height="184">
-              <div class="sub" style="margin:0"><span data-i18n="pair.phone"></span> <a id="p-url" href="#" data-i18n="pair.open"></a></div>
-              <div class="sub" style="margin:8px 0 0" data-i18n="pair.code"></div>
-              <div class="code" id="p-code">MK-----</div>
-              <div class="wait"><span class="st waiting"></span><span data-i18n="pair.wait"></span></div>
-              <button type="button" id="p-cancel" data-i18n="pair.cancel"></button>
-            </div>
             <p class="err hidden" id="c-err" role="alert"></p>
           </div>
           <aside class="mk" aria-labelledby="mk-title">
@@ -371,10 +359,7 @@ const I18N = {
     's1.title': 'Connect your AI', 's1.sub': 'Pick the account that pays for the AI. Your key stays in MasterKey; this page never sees it.',
     'prov.openai': 'GPT models', 'prov.anthropic': 'Claude models', 'prov.openrouter': 'Claude and GPT, one sign-in in the app',
     'prov.connect': 'Connect', 'prov.on': 'Connected', 'prov.off': 'Disconnect',
-    'pair.scan': 'Scan with your iPhone camera', 'pair.phone': 'On this iPhone?', 'pair.open': 'Open MasterKey', 'pair.code': 'or enter this code in the app',
-    'pair.wait': 'Waiting for you to approve on your phone…', 'pair.cancel': 'Cancel',
     'err.denied': 'You declined the connection on your phone.', 'err.expired': 'The code expired. Try again.', 'err.reach': 'Could not reach MasterKey.',
-    'err.waking': 'Waking up the MasterKey server, this can take up to a minute…',
     'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'This app has no API key and no subscription. You use your own OpenAI, Anthropic or OpenRouter account.',
     'mk.s1t': 'Get the MasterKey app.', 'mk.s1d': 'Scan the code below to join the beta.',
     'mk.s2t': 'Connect once.', 'mk.s2d': 'OpenRouter is one tap; OpenAI and Anthropic keys are pasted from your computer.',
@@ -416,10 +401,7 @@ const I18N = {
     's1.title': '連接你的 AI', 's1.sub': '選擇要付費的 AI 帳戶。金鑰保存在 MasterKey，這個網頁看不到。',
     'prov.openai': 'GPT 模型', 'prov.anthropic': 'Claude 模型', 'prov.openrouter': 'Claude 與 GPT，在 App 裡一鍵登入',
     'prov.connect': '連接', 'prov.on': '已連接', 'prov.off': '中斷連接',
-    'pair.scan': '用 iPhone 相機掃描', 'pair.phone': '正在用 iPhone？', 'pair.open': '開啟 MasterKey', 'pair.code': '或在 App 中輸入這組代碼',
-    'pair.wait': '等待你在手機上核准…', 'pair.cancel': '取消',
     'err.denied': '你在手機上拒絕了連接。', 'err.expired': '代碼已過期，請再試一次。', 'err.reach': '無法連線到 MasterKey。',
-    'err.waking': '正在喚醒 MasterKey 伺服器，最多約需一分鐘…',
     'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': '這個 App 沒有 API 金鑰，也不用訂閱。你使用自己的 OpenAI、Anthropic 或 OpenRouter 帳戶。',
     'mk.s1t': '下載 MasterKey App。', 'mk.s1d': '掃描下方 QR code 加入測試版。',
     'mk.s2t': '連接一次。', 'mk.s2d': 'OpenRouter 一鍵完成；OpenAI 與 Anthropic 的金鑰從電腦貼上。',
@@ -461,10 +443,7 @@ const I18N = {
     's1.title': 'AI を接続する', 's1.sub': '料金を払う AI アカウントを選びます。キーは MasterKey に保管され、このページからは見えません。',
     'prov.openai': 'GPT モデル', 'prov.anthropic': 'Claude モデル', 'prov.openrouter': 'Claude と GPT、アプリでワンタップ接続',
     'prov.connect': '接続', 'prov.on': '接続済み', 'prov.off': '接続を解除',
-    'pair.scan': 'iPhone のカメラでスキャン', 'pair.phone': 'この iPhone で見ている場合は', 'pair.open': 'MasterKey を開く', 'pair.code': 'またはアプリでこのコードを入力',
-    'pair.wait': 'スマートフォンでの承認を待っています…', 'pair.cancel': 'キャンセル',
     'err.denied': 'スマートフォンで接続が拒否されました。', 'err.expired': 'コードの有効期限が切れました。もう一度お試しください。', 'err.reach': 'MasterKey に接続できませんでした。',
-    'err.waking': 'MasterKey サーバーを起動しています。最大1分ほどかかります…',
     'mk.badge': 'Powered by', 'mk.title': 'MasterKey', 'mk.p': 'このアプリには API キーもサブスクリプションもありません。あなたの OpenAI、Anthropic、OpenRouter アカウントを使います。',
     'mk.s1t': 'MasterKey アプリを入手。', 'mk.s1d': '下のコードをスキャンしてベータに参加。',
     'mk.s2t': '一度だけ接続。', 'mk.s2d': 'OpenRouter はワンタップ。OpenAI と Anthropic のキーはパソコンから貼り付け。',
@@ -633,7 +612,6 @@ function renderProviders() {
     if (on) b.title = t('prov.off');
     return b;
   }));
-  $('providers').classList.toggle('hidden', !!pairing);
   $('step1').classList.toggle('done', activeVendors().some((v) => connected[v]));
 }
 
@@ -644,35 +622,23 @@ function disconnect(v) {
 
 function connErr(msg) { $('c-err').textContent = msg; $('c-err').classList.toggle('hidden', !msg); }
 
+// Pairing is MasterKey's web SDK (served by the MasterKey server itself): a dialog with the QR on a computer,
+// an "Open MasterKey" button on a phone, and install hints when the app is missing.
+const sdk = new Promise((ok, no) => document.head.append(el('script', { src: MK_URL + '/sdk/masterkey.js', onload: ok, onerror: no })));
+
 async function connect(vendor) {
   connErr('');
-  const slow = setTimeout(() => connErr(t('err.waking')), 3000);
-  let res;
-  try { res = await mk('/v1/connect', { body: { app_id: APP_ID, vendor } }); }
-  catch { clearTimeout(slow); return connErr(t('err.reach') + ' ' + MK_URL); }
-  clearTimeout(slow); connErr('');
-  if (res.status !== 200) return connErr(res.json.error?.message || `MasterKey ${res.status}`);
-  const c = res.json, me = (pairing = { vendor, code: c.connect_code });
-  $('p-code').textContent = c.connect_code;
-  $('p-url').href = c.connect_url;
-  $('p-qr').hidden = !c.connect_qr_url; // older servers have no QR
-  if (c.connect_qr_url) { $('p-qr').src = c.connect_qr_url; $('p-qr').alt = 'QR ' + c.connect_code; }
-  $('pairing').classList.remove('hidden');
-  renderProviders();
+  if (pairing) return;
+  pairing = vendor; renderProviders();
   try {
-    for (;;) {
-      await sleep(1500);
-      if (pairing !== me) return; // cancelled or replaced
-      const s = (await mk('/v1/connect/' + encodeURIComponent(c.connect_code), { token: c.connect_secret })).json;
-      if (pairing !== me) return;
-      if (s.status === 'approved' && s.grant_token) store.set(vendor, s.grant_token);
-      if (s.status === 'approved') { connected[vendor] = !!store.get(vendor); break; }
-      if (s.status !== 'pending') { connErr(s.status === 'denied' ? t('err.denied') : t('err.expired')); break; }
-    }
-  } catch { connErr(t('err.reach')); }
-  if (pairing === me) { pairing = null; $('pairing').classList.add('hidden'); renderAll(); }
+    await sdk;
+    const g = await MasterKey.connect({ app: APP_ID, vendor, server: MK_URL, lang: ui });
+    store.set(vendor, g.grant_token); connected[vendor] = true;
+  } catch (e) {
+    if (e && e.code !== 'cancelled') connErr(e.code === 'denied' ? t('err.denied') : e.code ? e.message : t('err.reach') + ' ' + MK_URL);
+  }
+  pairing = null; renderAll();
 }
-$('p-cancel').onclick = () => { pairing = null; $('pairing').classList.add('hidden'); renderProviders(); };
 
 // ---------- inputs ----------
 function addJd(value = '') {

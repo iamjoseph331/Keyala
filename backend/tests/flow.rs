@@ -1600,3 +1600,24 @@ async fn trust_pages_are_served_and_linked() {
         assert!(r.text().await.unwrap().contains("/privacy"), "{p} links to the disclosure");
     }
 }
+
+#[tokio::test]
+async fn connect_reports_where_the_link_was_seen_and_serves_the_sdk() {
+    let t = T::new().await;
+    let b = &t.base;
+    let app = json_of(t.c.post(format!("{b}/v1/apps")).json(&json!({"name": "Seen", "allowed_origins": [ORIGIN]})).send().await.unwrap()).await;
+    let c = json_of(t.c.post(format!("{b}/v1/connect")).header("origin", ORIGIN).json(&json!({"vendor": "openai", "app_id": app["app_id"]})).send().await.unwrap()).await;
+    let (code, cs) = (c["connect_code"].as_str().unwrap(), c["connect_secret"].as_str().unwrap());
+    let seen = || async { json_of(t.c.get(format!("{b}/v1/connect/{code}")).bearer_auth(cs).send().await.unwrap()).await["seen"].clone() };
+    assert_eq!(seen().await, Value::Null);
+    // phone without the app: the browser lands on the page, which offers the install path and the app scheme
+    let page = t.c.get(format!("{b}/connect/{code}")).send().await.unwrap().text().await.unwrap();
+    assert!(page.contains(&format!("masterkey://connect/{code}")) && page.contains("Get MasterKey"));
+    assert_eq!(seen().await, "web");
+    // after installing, the app previews it
+    assert_eq!(t.user_get(&format!("/v1/me/connect/{code}")).await["vendor"], "openai");
+    assert_eq!(seen().await, "app");
+    let r = t.c.get(format!("{b}/sdk/masterkey.js")).send().await.unwrap();
+    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/javascript"));
+    assert!(r.text().await.unwrap().contains("MasterKey.connect"));
+}

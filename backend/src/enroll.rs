@@ -217,6 +217,13 @@ pub async fn aasa(State(s): State<AppState>) -> Response {
     ([(header::CONTENT_TYPE, "application/json")], v.to_string()).into_response()
 }
 
+const SDK_JS: &str = include_str!("masterkey.js");
+
+/// The web SDK, served by each server so `<script src="{server}/sdk/masterkey.js">` talks to that same server.
+pub async fn sdk_js() -> Response {
+    ([(header::CONTENT_TYPE, "text/javascript; charset=utf-8"), (header::CACHE_CONTROL, "public, max-age=300"), (header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")], SDK_JS).into_response()
+}
+
 const ADD_KEY_HTML: &str = include_str!("add_key.html");
 
 pub async fn add_key_page() -> Response {
