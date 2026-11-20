@@ -23,9 +23,6 @@ button.danger{color:var(--bad)}
 button:disabled{opacity:.5;cursor:default}
 input{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 12px;min-height:40px}
 label{display:block;margin:10px 0 4px;font-size:.9rem;color:var(--muted)}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
-.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none}
-.tabs button[aria-selected=true]{border-bottom-color:var(--green);font-weight:600}
 .row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row>div{min-width:0;overflow-wrap:anywhere}
@@ -40,9 +37,18 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--paper);border:1
 .heat span{aspect-ratio:1;border-radius:2px;background:rgba(var(--heat),var(--a,0));min-width:0}
 .heat em{font-style:normal;color:var(--muted);align-self:center}
 .err{color:var(--bad);margin:8px 0}
+.top{border-bottom:1px solid var(--line);background:var(--card)}
+.top div{max-width:920px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.top a{color:var(--ink);text-decoration:none;font-size:.95rem}
+.top .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.05rem;margin-right:auto}
+.top .brand svg{border-radius:7px}
+.tabs{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{border:0;border-radius:999px;background:none;min-height:36px}
+.tabs button[aria-selected=true]{background:var(--green);color:var(--green-ink);font-weight:600}
 </style>
 </head>
 <body>
+<nav class="top"><div><a class="brand" href="https://keyala.io/"><svg width="30" height="30" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="224" fill="#3D7A57"/><circle cx="250" cy="370" r="170" fill="#D8D2C6"/><circle cx="774" cy="370" r="170" fill="#D8D2C6"/><circle cx="262" cy="382" r="100" fill="#FAF7F2"/><circle cx="762" cy="382" r="100" fill="#FAF7F2"/><ellipse cx="512" cy="560" rx="300" ry="270" fill="#D8D2C6"/><circle cx="392" cy="500" r="26" fill="#1F1B16"/><circle cx="632" cy="500" r="26" fill="#1F1B16"/><circle cx="400" cy="491" r="8" fill="#FAF7F2"/><circle cx="640" cy="491" r="8" fill="#FAF7F2"/><circle cx="340" cy="610" r="34" fill="#E9B8A6" opacity=".7"/><circle cx="684" cy="610" r="34" fill="#E9B8A6" opacity=".7"/><path d="M512 470a72 72 0 0 1 40 132l22 118h-124l22-118a72 72 0 0 1 40-132Z" fill="#1F1B16"/></svg> Keyala</a><a href="https://keyala.io/docs/">Docs</a><a href="https://keyala.io/guide/">Guide</a></div></nav>
 <main id="app"><p class="muted">Loading…</p></main>
 <script src="/console.js"></script>
 </body>

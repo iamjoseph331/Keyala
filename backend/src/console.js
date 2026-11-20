@@ -53,7 +53,7 @@ const money = n => '$' + (n || 0).toFixed(!n ? 2 : n < 0.01 ? 6 : n < 1 ? 4 : 2)
 const when = s => s ? new Date(s).toLocaleString() : L.never;
 function tabs(items, sel, on) {
   return h('div', { class: 'tabs', role: 'tablist' }, items.map(([k, label]) =>
-    h('button', { role: 'tab', 'aria-selected': k === sel, onclick: () => on(k) }, label)));
+    h('button', { role: 'tab', 'aria-selected': String(k === sel), onclick: () => on(k) }, label)));
 }
 function fail(box) { return e => { if (e.message !== 'expired') box.textContent = e.message; }; }
 
@@ -231,7 +231,7 @@ function reportView(a, r, days, again, notice, secretBox, err) {
     if (!confirm(L.rotateAsk)) return;
     try { const s = await api('POST', '/v1/me/apps/' + encodeURIComponent(a.id) + '/secret'); notice.replaceChildren(secretBox(s.app_secret, L.secretOnce)); notice.scrollIntoView(); } catch (e) { fail(err)(e); }
   } }, L.rotate);
-  const sel = h('div', { class: 'tabs' }, [7, 30, 90].map(d => h('button', { 'aria-selected': d === days, onclick: () => again(d) }, d + ' ' + L.days)));
+  const sel = h('div', { class: 'tabs' }, [7, 30, 90].map(d => h('button', { 'aria-selected': String(d === days), onclick: () => again(d) }, d + ' ' + L.days)));
   return h('div', {}, h('h2', {}, a.name + ' · ' + L.report), sel,
     h('div', { class: 'grid' }, stat(L.requests, t.requests), stat(L.completed, t.completed), stat(L.denied, t.denied), stat(L.failed, t.failed),
       stat(L.cost, money(t.cost_usd)), stat(L.users, t.users + ' (' + t.new_users + ' ' + L.newUsers + ')')),
