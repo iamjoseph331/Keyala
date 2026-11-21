@@ -75,6 +75,8 @@ application.
 
 [Resume Tailor](examples/resume-tailor/) is a static browser app that tailors a resume to a job description. Visitors connect OpenAI, Anthropic or OpenRouter through Keyala and choose a supported model. The site operator needs neither a vendor key nor a separate app server. [Try Resume Tailor](https://keyala.io/examples/resume-tailor/)
 
+[Interview Prepper](https://github.com/iamjoseph331/interview_prepper) is an AI/ML/data-science mock-interview app on GitHub Pages: Claude writes questions for your level, categories or a pasted job description, then grades each answer. Visitors can paste an Anthropic key as before, or press **Connect Keyala** and approve each generation and grading call on their phone; the page only ever holds a grant token. The integration is one `Keyala.connect()` call plus the same Messages request sent to `/v1/anthropic/messages` with the grant (see `callKeyala` in its `app.js`). [Try Interview Prepper](https://iamjoseph331.github.io/interview_prepper/)
+
 ## On the iPhone
 
 Fresh installs show a three-step guide covering the operator trust boundary,
