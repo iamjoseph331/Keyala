@@ -52,7 +52,7 @@ services:
       - key: KEYALA_COUNTRY_HEADER # Render sits behind Cloudflare; developer reports group users by this
         value: cf-ipcountry
       - key: KEYALA_PUBLIC_APPS # browser apps re-created on every start
-        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://keyala.io/examples/resume-tailor/","allowed_origins":["https://keyala.io","https://iamjoseph331.github.io"]}]'
+        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://keyala.io/examples/resume-tailor/","allowed_origins":["https://keyala.io","https://iamjoseph331.github.io"]},{"id":"app_interview_prepper","name":"Interview Prepper","homepage":"https://iamjoseph331.github.io/interview_prepper/","allowed_origins":["https://iamjoseph331.github.io"]}]'
       - key: KEYALA_APNS_TOPIC
         value: app.sorevan.masterkey
       - key: KEYALA_APNS_SANDBOX # App Store / TestFlight builds use production APNs
@@ -92,7 +92,7 @@ services:
       - key: KEYALA_COUNTRY_HEADER # Render sits behind Cloudflare; developer reports group users by this
         value: cf-ipcountry
       - key: KEYALA_PUBLIC_APPS # browser apps re-created on every start (data resets on free plan)
-        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://keyala.io/examples/resume-tailor/","allowed_origins":["https://keyala.io","https://iamjoseph331.github.io"]}]'
+        value: '[{"id":"app_resume_tailor","name":"Resume Tailor","homepage":"https://keyala.io/examples/resume-tailor/","allowed_origins":["https://keyala.io","https://iamjoseph331.github.io"]},{"id":"app_interview_prepper","name":"Interview Prepper","homepage":"https://iamjoseph331.github.io/interview_prepper/","allowed_origins":["https://iamjoseph331.github.io"]}]'
       - key: KEYALA_APNS_TOPIC
         value: app.sorevan.masterkey
       - key: KEYALA_APNS_SANDBOX # Xcode-installed development builds use sandbox APNs
