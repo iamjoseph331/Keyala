@@ -62,9 +62,10 @@ en: {
   "faq.3q": "How do I know it worked?",
   "faq.3a": "The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus \"from\" your site for a website. After the first approved call, the app's numbers in the console go up.",
   "faq.4q": "The page says \"this origin is not allowed for this app\".",
-  "faq.4a": "The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Origins cannot be edited yet, so create a new app with the right one and use its App ID.",
+  "faq.4a": "The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Fix it in My apps with <b>Edit</b>; the change applies to new connections at once and the App ID stays the same.",
   "faq.5q": "I lost the secret, or it leaked.",
   "faq.5a": "In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.",
+  "faq.7q": "Can I change or delete an app?", "faq.7a": "Yes, in My apps. <b>Edit</b> changes the name, homepage and allowed origins; people already connected keep working. <b>Delete</b> asks you to type the app name, then stops the secret, cuts off every connected user at once and refuses waiting calls. It cannot be undone; users keep their history.",
   "faq.6q": "Do I need the secret for a website?",
   "faq.6a": "Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.",
   'usr.h': 'For users',
@@ -131,9 +132,10 @@ en: {
   "faq.3q": "怎麼知道登錄成功了？",
   "faq.3a": "應用程式會出現在 My apps，並顯示 App ID。接著打開你的網頁試著連線：Keyala 的對話框會顯示 QR code（而不是錯誤），手機上會顯示你的應用程式名稱；如果是網站，還會顯示「來自」你的網址。第一次核准的呼叫完成後，控制台裡的數字就會增加。",
   "faq.4q": "網頁顯示「this origin is not allowed for this app」。",
-  "faq.4a": "網頁的 origin 不在你登錄的清單裡。請比對網址列的通訊協定與主機，和應用程式的 allowed origins 是否一致。目前 origin 還不能修改，請用正確的 origin 建立一個新的應用程式，改用它的 App ID。",
+  "faq.4a": "網頁的 origin 不在你登錄的清單裡。請比對網址列的通訊協定與主機，和應用程式的 allowed origins 是否一致。在 My apps 按 <b>Edit</b> 修正即可，新的連線立刻套用，App ID 不變。",
   "faq.5q": "secret 遺失或外流了。",
   "faq.5a": "在 My apps 打開該應用程式，選 <b>Rotate secret</b>。舊的 secret 會立刻失效。使用者的連線不受影響，因為它們從來不依賴 secret。",
+  "faq.7q": "可以修改或刪除應用程式嗎？", "faq.7a": "可以，在 My apps 裡。<b>Edit</b> 可修改名稱、首頁和 allowed origins，已經連線的使用者不受影響。<b>Delete</b> 會要求你輸入應用程式名稱確認，接著 secret 失效、所有已連線的使用者立刻失去權限、等待中的呼叫被拒絕。刪除無法復原；使用者的紀錄會保留。",
   "faq.6q": "網站需要 secret 嗎？",
   "faq.6a": "網頁裡不需要。網站只需要 App ID 和它的 allowed origin。secret 留著看使用報表和更換用。",
   'usr.h': '給使用者',
@@ -200,9 +202,10 @@ ja: {
   "faq.3q": "登録できたかどうかはどう確かめますか？",
   "faq.3a": "My apps にアプリが App ID 付きで表示されます。次に自分のページで接続してみてください。Keyalaのダイアログに（エラーではなく）QRコードが表示され、スマホにアプリ名が出ます。Webサイトなら、あなたのサイト「から」の接続であることも表示されます。最初の呼び出しが承認されると、コンソールの数字が増えます。",
   "faq.4q": "「this origin is not allowed for this app」と表示されます。",
-  "faq.4a": "ページの origin が登録したものと一致していません。アドレスバーのスキームとホストを、アプリの allowed origins と見比べてください。origin はまだ編集できないので、正しい origin で新しいアプリを作り、その App ID を使ってください。",
+  "faq.4a": "ページの origin が登録したものと一致していません。アドレスバーのスキームとホストを、アプリの allowed origins と見比べてください。My apps の <b>Edit</b> で直せます。新しい接続にはすぐ反映され、App ID は変わりません。",
   "faq.5q": "secret をなくした、または漏れてしまいました。",
   "faq.5a": "My apps でアプリを開き、<b>Rotate secret</b> を選びます。古い secret はすぐに使えなくなります。ユーザーの接続は secret に依存していないので、そのまま使えます。",
+  "faq.7q": "アプリを変更・削除できますか？", "faq.7a": "はい、My apps でできます。<b>Edit</b> で名前、ホームページ、allowed origins を変更でき、接続済みのユーザーはそのまま使えます。<b>Delete</b> はアプリ名の入力で確認したうえで、secret を無効にし、接続中の全ユーザーのアクセスをすぐに止め、待機中の呼び出しを拒否します。元に戻せません。ユーザーの履歴は残ります。",
   "faq.6q": "Webサイトに secret は必要ですか？",
   "faq.6a": "ページの中には不要です。Webサイトに必要なのは App ID と allowed origin だけです。secret は利用レポートと交換のために保管しておきます。",
   'usr.h': 'ユーザー向け',
@@ -293,7 +296,7 @@ ja: {
     <div class="card"><h3><span data-i18n="sec.h">App secret</span> <span class="tag priv" data-i18n="sec.tag">private</span></h3><p data-i18n-html="sec.p">Starts with <code>keyala_app_</code>. It proves you own the app: a server uses it to start connections, and it opens your usage report. Never put it in a web page, an iPhone app or Git. It never gives access to anyone's API key.</p></div>
   </div>
   <h3 class="faq-h" data-i18n="faq.h">Questions</h3>
-  <div class="faq"><details><summary data-i18n="faq.1q">What happens if I do not register?</summary><p data-i18n-html="faq.1a">Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.</p></details><details><summary data-i18n="faq.2q">Why register in the console rather than with the API?</summary><p data-i18n-html="faq.2a">Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.</p></details><details><summary data-i18n="faq.3q">How do I know it worked?</summary><p data-i18n-html="faq.3a">The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus "from" your site for a website. After the first approved call, the app's numbers in the console go up.</p></details><details><summary data-i18n="faq.4q">The page says "this origin is not allowed for this app".</summary><p data-i18n-html="faq.4a">The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Origins cannot be edited yet, so create a new app with the right one and use its App ID.</p></details><details><summary data-i18n="faq.5q">I lost the secret, or it leaked.</summary><p data-i18n-html="faq.5a">In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.</p></details><details><summary data-i18n="faq.6q">Do I need the secret for a website?</summary><p data-i18n-html="faq.6a">Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.</p></details></div>
+  <div class="faq"><details><summary data-i18n="faq.1q">What happens if I do not register?</summary><p data-i18n-html="faq.1a">Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.</p></details><details><summary data-i18n="faq.2q">Why register in the console rather than with the API?</summary><p data-i18n-html="faq.2a">Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.</p></details><details><summary data-i18n="faq.3q">How do I know it worked?</summary><p data-i18n-html="faq.3a">The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus "from" your site for a website. After the first approved call, the app's numbers in the console go up.</p></details><details><summary data-i18n="faq.4q">The page says "this origin is not allowed for this app".</summary><p data-i18n-html="faq.4a">The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Fix it in My apps with <b>Edit</b>; the change applies to new connections at once and the App ID stays the same.</p></details><details><summary data-i18n="faq.5q">I lost the secret, or it leaked.</summary><p data-i18n-html="faq.5a">In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.</p></details><details><summary data-i18n="faq.6q">Do I need the secret for a website?</summary><p data-i18n-html="faq.6a">Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.</p></details><details><summary data-i18n="faq.7q">Can I change or delete an app?</summary><p data-i18n-html="faq.7a">Yes, in My apps. <b>Edit</b> changes the name, homepage and allowed origins; people already connected keep working. <b>Delete</b> asks you to type the app name, then stops the secret, cuts off every connected user at once and refuses waiting calls. It cannot be undone; users keep their history.</p></details></div>
 </div></section>
 
 <section><div class="wrap">
