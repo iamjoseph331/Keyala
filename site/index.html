@@ -346,6 +346,14 @@ window.KEYALA_STRINGS = {
   </div>
 </div></section>
 
+<section class="film"><div class="wrap">
+  <video controls playsinline preload="metadata" poster="media/keyala-launch-16x9.jpg" width="1920" height="1080" aria-label="Keyala in 30 seconds">
+    <source src="media/keyala-launch-4x5.mp4" type="video/mp4" media="(max-width: 600px)">
+    <source src="media/keyala-launch-16x9.mp4" type="video/mp4">
+  </video>
+  <script>if (matchMedia('(max-width: 600px)').matches) document.currentScript.previousElementSibling.poster = 'media/keyala-launch-4x5.jpg';</script>
+</div></section>
+
 <section class="white rounded-top"><div class="wrap center">
   <h2 data-i18n="roles.h">Who does what</h2>
   <p class="lead" data-i18n="roles.lead">Three parts, one simple deal. Nobody pays for someone else, and nobody gets your key.</p>
