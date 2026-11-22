@@ -99,8 +99,8 @@ phone's import review never downloads the full key.
 The redesigned Inbox and review sheet below ran against the local Rust mock
 server. The identities, prompts and keys are fictional QA data.
 
-<img src="docs/qa/ux-20261118/inbox-redesign.png" width="320" alt="Native Inbox with estimated costs and a Scan to connect action">
-<img src="docs/qa/ux-20261118/review-sheet.png" width="320" alt="Native review sheet with readable request content and explicit Deny and Allow controls">
+<img src="site/media/keyala-activity.jpg" width="320" alt="Native Inbox with estimated costs and a Scan to connect action">
+<img src="site/media/keyala-request-review.jpg" width="320" alt="Native review sheet with readable request content and explicit Deny and Allow controls">
 
 ```text
 Your AI app             Keyala                  User's iPhone
@@ -187,9 +187,10 @@ any deployment, review authentication, key management, request visibility,
 retention, and the implementation's documented limitations. Use separate,
 restricted provider keys where available.
 
-The server stores prompts, responses, permissions and usage history for later
-inspection; there is no automatic history expiration. Allowed requests go to the
-selected provider, and the calling app receives the response and may keep a copy.
+The server encrypts prompts and responses at rest. Content of completed, failed,
+denied and expired requests is removed after 30 days; usage metadata stays.
+Unresolved requests retain their content. Allowed requests go to the selected
+provider, and the calling app receives the response and may keep a copy.
 Removing a provider key or app permission does not erase those external copies.
 
 **Settings → Account** separates signing out this device, signing out other
@@ -197,8 +198,10 @@ devices, stopping all app permissions and deleting the account. Account deletion
 requires fresh identity verification and removes the live account, stored keys,
 permissions and history. It does not close provider accounts or cancel their
 subscriptions. Backups can contain older copies until expiration; operators must
-replay deletion records before serving a restored database. See the [operations
-runbook](docs/ops/RUNBOOK.md) for the configured backup and recovery procedure.
+replay deletion records before serving a restored database. Self-hosting helpers
+include [backup](docs/ops/backup.sh), [deletion replay](docs/ops/replay-deletions.sh),
+and [restore checks](docs/ops/restore-drill.sh). Deployment-specific runbooks are
+kept locally by the operator.
 
 Cost estimates are estimates, not a provider-enforced monetary guarantee.
 Reservations, token limits, pricing snapshots, and vendor-reported actual usage
