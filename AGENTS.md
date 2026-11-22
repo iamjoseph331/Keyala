@@ -50,3 +50,4 @@ Append handoffs, decisions and validation records to `.local/coordination/LOG.md
 using `- YYYY-MM-DD [agent] message`, newest at the bottom. Keep existing entries
 intact. The complete earlier `AGENTS.md` snapshot is retained locally as
 `.local/coordination/AGENTS-history-20261122.md`; do not add it to Git.
+- 2026-11-22 [claude] INTERVIEW PREPPER NOW AN OWNED APP (Joseph): he created `app_Rpn-CSztda_eFOZa` in the prod console (origin https://iamjoseph331.github.io; prod connect from that Origin verified 200). interview_prepper b43c3b5 uses it. render.yaml drops the operator-declared `app_interview_prepper` (its secret was random and discarded, so it could not be claimed). Startup only upserts declared apps, so the old row stays in the prod DB, ownerless and unused. The page now works on prod only (staging has no copy of the owned app).
