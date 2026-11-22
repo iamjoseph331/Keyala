@@ -18,3 +18,15 @@ provider charge.**
 The short clip is raw interface footage, without narration or tutorial captions.
 The guided tutorial videos remain future work. Original recording and internal
 QA notes are kept locally.
+
+## Launch video (2026-11-22)
+
+Made in Kario from real recordings of Interview Prepper and the Keyala iOS app on
+production. Prices shown ($0.035426 estimated, $0.019130 paid) are from that real
+call. Has music.
+
+| Asset | Content | Format |
+|---|---|---|
+| keyala-launch-16x9.mp4 | Homepage launch video | 1920 x 1080, 30 seconds, 5.2 MB |
+| keyala-launch-4x5.mp4 | LinkedIn and narrow screens | 1080 x 1350, 30 seconds, 4.9 MB |
+| keyala-launch-16x9.jpg, keyala-launch-4x5.jpg | Posters, frame at ~15 s | JPEG |
