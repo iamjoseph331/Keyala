@@ -47,6 +47,13 @@
   <a href="#-documentation-map">Docs</a>
 </p>
 
+<p align="center">
+  <a href="https://keyala.io/media/keyala-launch-16x9.mp4">
+    <img src="site/media/keyala-launch-16x9.jpg" width="720" alt="Keyala in 30 seconds: play the launch video">
+  </a><br>
+  <sub>▶ <a href="https://keyala.io/media/keyala-launch-16x9.mp4">Watch Keyala in 30 seconds</a></sub>
+</p>
+
 ---
 
 ## 💡 The problem
