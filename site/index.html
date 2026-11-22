@@ -3,39 +3,75 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Keyala: bring your own AI key, without handing it over</title>
-<meta name="description" content="Keyala lets people use their own OpenAI, Anthropic or OpenRouter key in AI apps without giving the key away. Approve each request on your iPhone. Free for developers.">
-<meta property="og:title" content="Keyala: bring your own AI key, without handing it over">
-<meta property="og:description" content="The app asks, you approve on your iPhone, the call runs on your key.">
+<title>Keyala: use AI apps with your own key, pay only for what you use</title>
+<meta name="description" content="Use AI apps with your own OpenAI, Anthropic or OpenRouter key. See the prompt and price on your iPhone before anything runs, and pay your provider only for what you approve. Free and open source.">
+<meta property="og:title" content="Keyala: use AI apps with your own key, pay only for what you use">
+<meta property="og:description" content="Approve each AI call on your iPhone and get a receipt. The app never sees your key.">
 <meta property="og:image" content="https://keyala.io/social.svg">
-<meta name="theme-color" content="#3D7A57">
+<meta name="theme-color" content="#245E3E">
 <link rel="icon" href="brand/koala.svg">
 <link rel="canonical" href="https://keyala.io/">
+<link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="home.css">
 <script>
 window.KEYALA_STRINGS = {
-en: {
-  _title: 'Keyala: bring your own AI key, without handing it over',
+"en": {
+  "_title": "Keyala: use AI apps with your own key, pay only for what you use",
+  "hero.tag": "Free beta · open source",
+  "hero.h1": "Use AI apps. Pay only for what you use.",
+  "hero.lead": "Bring your own AI key. Before anything runs, you see the prompt and the price on your phone. Say yes, and you get a receipt. The app never sees your key.",
+  "beta": "Join the beta TestFlight today",
+  "hero.dev": "I build AI apps →",
+  "rc.h": "Receipt",
+  "rc.ex": "example",
+  "rc.app": "App",
+  "rc.by": "Approved by",
+  "rc.byv": "you, 12:38",
+  "rc.key": "Key shared with app",
+  "rc.keyv": "never",
+  "rc.paid": "You paid",
+  "rc.fee": "Keyala fee",
+  "roles.h": "Who does what",
+  "roles.lead": "Three parts, one simple deal. Nobody pays for someone else, and nobody gets your key.",
+  "roles.1h": "The builder makes the app",
+  "roles.1p": "One line of code to connect. No keys to guard, no token bill.",
+  "roles.2h": "Keyala asks you first",
+  "roles.2p": "Shows the request and its price, waits for your yes, keeps the receipt.",
+  "roles.3h": "You decide and pay",
+  "roles.3p": "Approve on your iPhone. Your provider bills only the calls you allowed.",
+  "cmp.h": "Per call, not per month",
+  "cmp.lead": "Two ways to pay for AI apps. Only one of them charges you when you're not using it.",
+  "cmp.ak": "The usual way",
+  "cmp.ah": "A subscription per app",
+  "cmp.a1": "Monthly fee whether you use it or not",
+  "cmp.a2": "Hard to see what you actually used",
+  "cmp.a3": "Cancel flows, renewals, reminders",
+  "cmp.a4": "A new plan for every new tool you try",
+  "cmp.bk": "With Keyala",
+  "cmp.bh": "Your key, billed per call",
+  "cmp.b1": "Your provider bills only what ran, at their price",
+  "cmp.b2": "Every call has a receipt you can open",
+  "cmp.b3": "Set a budget, or stop any app with one tap",
+  "cmp.b4": "One key works across every Keyala-ready app",
+  "cmp.note": "Keyala is free during the beta and adds no markup. Provider prices are set by the provider.",
+  "dv.k": "For developers",
+  "dv.h": "Launch without a token bill",
+  "dv.lead": "Grow your audience without growing your costs. Each user brings their own key.",
+  "dv.1h": "Change the base URL",
+  "dv.1p": "Official OpenAI and Anthropic SDKs, as they are.",
+  "dv.2h": "Add the connect button",
+  "dv.2p": "One script tag. Users pair by QR, link or code.",
+  "dv.3h": "See how it's used",
+  "dv.3p": "Calls, cost and models in your dashboard. Never your users' prompts.",
+  "now.h": "Where Keyala is today",
+  "now.rh": "Ready to use",
+  "now.rp": "Approve calls on iPhone · OpenAI, Anthropic, OpenRouter · ask, count, budget or trust · full history and receipts · revoke anytime · web console · open source and self-hostable",
+  "now.nh": "Coming along",
+  "now.np": "How-to videos · open TestFlight · <em>exploring</em>: coupons so builders can cover your first try",
+  "end.h": "Fair for people who use it. Fair for people who build it.",
+  "end.p": "An experimental, open-source project. Honest about its limits.",
   'nav.dev': 'Developers', 'nav.users': 'Users', 'nav.news': 'News', 'nav.console': 'Console',
-  'hero.h1': 'Bring your own AI key. Keep it to yourself.',
-  'hero.lead': 'AI apps need a model API key, and nobody knows who should provide it. With Keyala the app asks, you approve on your iPhone, and the call runs on your key. The app never sees it.',
-  'hero.dev': 'I build AI apps', 'hero.usr': 'I use AI apps',
-  'hero.note': 'Free beta. iPhone app in invite-only TestFlight.',
-  'ph.ex': 'Example screen, not real data',
-  'ph.app': 'Paperplane', 'ph.sub': 'wants to use your OpenAI key',
-  'ph.cost': 'about $0.002', 'ph.est': 'estimated',
-  'ph.prompt': '"Help me write a thank-you note to my landlord."',
-  'ph.deny': 'Deny', 'ph.allow': 'Allow',
-  'how.h': 'How it works',
-  'how.1h': 'The app asks', 'how.1p': 'The app sends its request to Keyala instead of the provider.',
-  'how.2h': 'You approve', 'how.2p': 'You see the exact prompt and estimated cost on your iPhone, then allow or deny.',
-  'how.3h': 'It runs on your key', 'how.3p': 'Keyala forwards the call with your key and returns the answer to the app.',
-  'dev.h': 'For developers',
-  'dev.1': 'Change one line: the base URL. Official OpenAI and Anthropic SDKs work as they are.',
-  'dev.2': 'Pair users with one script tag: QR, link or code.',
-  'dev.3': 'Built-in dashboard: calls, cost, models, countries, busiest hours.',
-  'dev.4': 'No keys to store, no bill to carry. Free.',
   'dev.link': 'Read the developer docs',
   "dev.reg": "Register your app (step by step)",
   "reg.h": "Register your app",
@@ -58,7 +94,7 @@ en: {
   "faq.1q": "What happens if I do not register?",
   "faq.1a": "Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.",
   "faq.2q": "Why register in the console rather than with the API?",
-  "faq.2a": "Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.",
+  "faq.2a": "Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Already have an app?</b> and its secret.",
   "faq.3q": "How do I know it worked?",
   "faq.3a": "The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus \"from\" your site for a website. After the first approved call, the app's numbers in the console go up.",
   "faq.4q": "The page says \"this origin is not allowed for this app\".",
@@ -68,11 +104,6 @@ en: {
   "faq.7q": "Can I change or delete an app?", "faq.7a": "Yes, in My apps. <b>Edit</b> changes the name, homepage and allowed origins; people already connected keep working. <b>Delete</b> asks you to type the app name, then stops the secret, cuts off every connected user at once and refuses waiting calls. It cannot be undone; users keep their history.",
   "faq.6q": "Do I need the secret for a website?",
   "faq.6a": "Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.",
-  'usr.h': 'For users',
-  'usr.1': 'See the exact prompt and the response, every time.',
-  'usr.2': 'You set the limit: ask each time, a number of calls, a budget, or trust.',
-  'usr.3': 'Your key stays in Keyala. Apps never get it.',
-  'usr.4': 'Revoke any app at any time.',
   'usr.link': 'Read the user guide',
   'tr.h': 'Trust, in plain words',
   'tr.1h': 'Keys are never shared', 'tr.1p': 'Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.',
@@ -81,31 +112,64 @@ en: {
   'tr.3h': 'You stay in charge', 'tr.3p': 'First connections always ask each time. Before a call you see an estimate; afterwards, the cost from the usage the provider reported.',
   'tr.4h': 'Honest about the limits', 'tr.4p': 'Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.',
   'tr.link': 'Read the privacy details',
-  'end.h': 'Stop asking who pays. Let people bring their own key.',
-  'end.note': 'Want the iPhone app? Write to support@keyala.io to join the invite-only TestFlight.',
   'ft.priv': 'Privacy', 'ft.sup': 'Support', 'ft.by': 'Experimental personal project by Joseph Chen'
 },
-'zh-Hant': {
-  _title: 'Keyala：用自己的 AI 金鑰，不必交出去',
+"zh-Hant": {
+  "_title": "Keyala：用自己的金鑰使用 AI 應用，用多少付多少",
+  "hero.tag": "免費測試版 · 開放原始碼",
+  "hero.h1": "使用 AI 應用，用多少付多少。",
+  "hero.lead": "帶上你自己的 AI 金鑰。每次執行之前，手機上會先顯示提示詞和價格。你按下允許，就會拿到一張收據。應用程式完全看不到你的金鑰。",
+  "beta": "立即加入 TestFlight 測試",
+  "hero.dev": "我開發 AI 應用 →",
+  "rc.h": "收據",
+  "rc.ex": "範例",
+  "rc.app": "App",
+  "rc.by": "核准者",
+  "rc.byv": "你，12:38",
+  "rc.key": "金鑰交給 App",
+  "rc.keyv": "從不",
+  "rc.paid": "你支付",
+  "rc.fee": "Keyala 手續費",
+  "roles.h": "誰負責什麼",
+  "roles.lead": "三個角色，一個簡單的約定。沒有人替別人付錢，也沒有人拿得到你的金鑰。",
+  "roles.1h": "開發者做出 App",
+  "roles.1p": "只改一行程式碼就能連接。不用保管金鑰，也不用負擔 token 帳單。",
+  "roles.2h": "Keyala 先問你",
+  "roles.2p": "顯示請求內容和價格，等你同意，並保留收據。",
+  "roles.3h": "你決定，也由你付費",
+  "roles.3p": "在 iPhone 上核准。供應商只會收取你允許的呼叫費用。",
+  "cmp.h": "按次計費，不是按月",
+  "cmp.lead": "付費使用 AI 應用有兩種方式，只有一種會在你沒用的時候也收錢。",
+  "cmp.ak": "常見做法",
+  "cmp.ah": "每個 App 一份訂閱",
+  "cmp.a1": "不管有沒有用，每月照收",
+  "cmp.a2": "很難看出實際用了多少",
+  "cmp.a3": "取消流程、續約、提醒",
+  "cmp.a4": "每試一個新工具就多一份方案",
+  "cmp.bk": "使用 Keyala",
+  "cmp.bh": "你的金鑰，按次計費",
+  "cmp.b1": "供應商只收實際執行的部分，價格由供應商決定",
+  "cmp.b2": "每次呼叫都有收據可以查看",
+  "cmp.b3": "設定預算，或一鍵停用任何 App",
+  "cmp.b4": "一把金鑰，所有支援 Keyala 的 App 都能用",
+  "cmp.note": "測試期間 Keyala 免費，也不另外加價。模型價格由供應商決定。",
+  "dv.k": "給開發者",
+  "dv.h": "不用負擔 token 帳單就能上線",
+  "dv.lead": "使用者變多，成本也不會跟著變多：每位使用者都帶自己的金鑰。",
+  "dv.1h": "改掉 base URL",
+  "dv.1p": "官方 OpenAI 與 Anthropic SDK 照常使用。",
+  "dv.2h": "加上連線按鈕",
+  "dv.2p": "一個 script 標籤，使用者用 QR code、連結或代碼配對。",
+  "dv.3h": "查看使用情況",
+  "dv.3p": "儀表板顯示呼叫次數、費用和模型，但絕不包含使用者的提示詞。",
+  "now.h": "Keyala 目前的進度",
+  "now.rh": "已經可以使用",
+  "now.rp": "在 iPhone 上核准呼叫 · OpenAI、Anthropic、OpenRouter · 每次詢問、限定次數、預算或信任 · 完整紀錄與收據 · 隨時撤銷 · 網頁控制台 · 開放原始碼，可自行架設",
+  "now.nh": "正在進行",
+  "now.np": "教學影片 · 公開 TestFlight · <em>探索中</em>：讓開發者替你負擔第一次試用的 Coupon",
+  "end.h": "對使用的人公平，對開發的人也公平。",
+  "end.p": "實驗性的開源專案，也坦白說明它的限制。",
   'nav.dev': '開發者', 'nav.users': '使用者', 'nav.news': '消息', 'nav.console': '控制台',
-  'hero.h1': '用自己的 AI 金鑰，但不必交給別人。',
-  'hero.lead': 'AI 應用程式需要模型 API 金鑰，卻沒人說得清該由誰提供。用 Keyala，應用程式提出請求，你在 iPhone 上核准，呼叫就用你的金鑰執行，應用程式完全看不到金鑰。',
-  'hero.dev': '我開發 AI 應用', 'hero.usr': '我使用 AI 應用',
-  'hero.note': '免費測試版。iPhone App 目前為邀請制 TestFlight。',
-  'ph.ex': '範例畫面，非真實資料',
-  'ph.app': 'Paperplane', 'ph.sub': '想使用你的 OpenAI 金鑰',
-  'ph.cost': '約 $0.002', 'ph.est': '預估',
-  'ph.prompt': '「幫我寫一張給房東的感謝卡。」',
-  'ph.deny': '拒絕', 'ph.allow': '允許',
-  'how.h': '運作方式',
-  'how.1h': '應用程式提出請求', 'how.1p': '應用程式把請求送給 Keyala，而不是直接送給模型供應商。',
-  'how.2h': '你來核准', 'how.2p': '在 iPhone 上看到完整的提示詞與預估費用，再決定允許或拒絕。',
-  'how.3h': '用你的金鑰執行', 'how.3p': 'Keyala 用你的金鑰轉送呼叫，並把回答交還給應用程式。',
-  'dev.h': '給開發者',
-  'dev.1': '只改一行：base URL。官方 OpenAI 與 Anthropic SDK 照常使用。',
-  'dev.2': '一個 script 標籤就能配對使用者：QR code、連結或代碼。',
-  'dev.3': '內建儀表板：呼叫次數、費用、模型、國家、最忙時段。',
-  'dev.4': '不用保管金鑰，也不用負擔帳單。免費。',
   'dev.link': '閱讀開發者文件',
   "dev.reg": "登錄你的應用程式（逐步說明）",
   "reg.h": "登錄你的應用程式",
@@ -128,7 +192,7 @@ en: {
   "faq.1q": "不登錄會怎樣？",
   "faq.1a": "你的應用程式無法讓任何人連線。每一次連線都要指定一個已登錄的應用程式，使用者在核准前會在手機上看到它的名稱。",
   "faq.2q": "為什麼要在控制台登錄，而不是用 API？",
-  "faq.2a": "在控制台建立的應用程式屬於你的帳號。只要登入就能看到使用報表（呼叫次數、費用、模型、國家、最忙時段），secret 遺失或外流時，不需要舊的 secret 也能更換。之前用 <code>POST /v1/apps</code> 建立的應用程式，可以在 <b>My apps</b> 用 <b>Add an existing app</b> 加上它的 secret 加入。",
+  "faq.2a": "在控制台建立的應用程式屬於你的帳號。只要登入就能看到使用報表（呼叫次數、費用、模型、國家、最忙時段），secret 遺失或外流時，不需要舊的 secret 也能更換。之前用 <code>POST /v1/apps</code> 建立的應用程式，可以在 <b>My apps</b> 用 <b>Already have an app?</b> 加上它的 secret 加入。",
   "faq.3q": "怎麼知道登錄成功了？",
   "faq.3a": "應用程式會出現在 My apps，並顯示 App ID。接著打開你的網頁試著連線：Keyala 的對話框會顯示 QR code（而不是錯誤），手機上會顯示你的應用程式名稱；如果是網站，還會顯示「來自」你的網址。第一次核准的呼叫完成後，控制台裡的數字就會增加。",
   "faq.4q": "網頁顯示「this origin is not allowed for this app」。",
@@ -138,11 +202,6 @@ en: {
   "faq.7q": "可以修改或刪除應用程式嗎？", "faq.7a": "可以，在 My apps 裡。<b>Edit</b> 可修改名稱、首頁和 allowed origins，已經連線的使用者不受影響。<b>Delete</b> 會要求你輸入應用程式名稱確認，接著 secret 失效、所有已連線的使用者立刻失去權限、等待中的呼叫被拒絕。刪除無法復原；使用者的紀錄會保留。",
   "faq.6q": "網站需要 secret 嗎？",
   "faq.6a": "網頁裡不需要。網站只需要 App ID 和它的 allowed origin。secret 留著看使用報表和更換用。",
-  'usr.h': '給使用者',
-  'usr.1': '每次都能看到完整的提示詞與回應。',
-  'usr.2': '額度由你決定：每次詢問、限定次數、預算上限，或完全信任。',
-  'usr.3': '金鑰留在 Keyala，應用程式拿不到。',
-  'usr.4': '隨時可以撤銷任何應用程式的權限。',
   'usr.link': '閱讀使用指南',
   'tr.h': '用白話說明信任',
   'tr.1h': '金鑰不會外流', 'tr.1p': '金鑰以加密方式儲存，絕不會傳給開發者，畫面上只會顯示最後 4 碼。',
@@ -151,31 +210,64 @@ en: {
   'tr.3h': '決定權在你', 'tr.3p': '第一次連線一律每次詢問。核准前看到的是預估費用；完成後顯示的是依服務商回報用量計算的費用。',
   'tr.4h': '坦白說明限制', 'tr.4p': 'Keyala 是實驗性的個人專案。伺服器會解密你的金鑰來轉送你核准的呼叫，所以你需要信任營運者。',
   'tr.link': '閱讀隱私權說明',
-  'end.h': '別再爭論誰出錢，讓大家帶自己的金鑰。',
-  'end.note': '想用 iPhone App？寫信到 support@keyala.io 申請加入邀請制 TestFlight。',
   'ft.priv': '隱私權', 'ft.sup': '支援', 'ft.by': 'Joseph Chen 的實驗性個人專案'
 },
-ja: {
-  _title: 'Keyala：自分のAIキーを、渡さずに使う',
+"ja": {
+  "_title": "Keyala：自分のキーでAIアプリを、使った分だけ",
+  "hero.tag": "無料ベータ · オープンソース",
+  "hero.h1": "AIアプリを、使った分だけ。",
+  "hero.lead": "自分のAIキーを持ち込みましょう。実行の前に、プロンプトと料金がスマホに表示されます。許可すればレシートが残ります。アプリがあなたのキーを見ることはありません。",
+  "beta": "今すぐTestFlightベータに参加",
+  "hero.dev": "AIアプリを作る →",
+  "rc.h": "レシート",
+  "rc.ex": "例",
+  "rc.app": "アプリ",
+  "rc.by": "承認",
+  "rc.byv": "あなた、12:38",
+  "rc.key": "アプリへのキー共有",
+  "rc.keyv": "なし",
+  "rc.paid": "支払額",
+  "rc.fee": "Keyala手数料",
+  "roles.h": "それぞれの役割",
+  "roles.lead": "3つの立場、1つのシンプルな約束。誰かの分を誰かが払うことはなく、あなたのキーが誰かに渡ることもありません。",
+  "roles.1h": "開発者がアプリを作る",
+  "roles.1p": "コード1行で接続。キーの保管も、トークンの請求もありません。",
+  "roles.2h": "Keyalaがまずあなたに聞く",
+  "roles.2p": "リクエストと料金を見せ、あなたの許可を待ち、レシートを残します。",
+  "roles.3h": "あなたが決めて、支払う",
+  "roles.3p": "iPhoneで承認。プロバイダーが請求するのは、あなたが許可した呼び出しだけです。",
+  "cmp.h": "月額ではなく、1回ごと",
+  "cmp.lead": "AIアプリの支払い方は2通り。使っていないときにも請求されるのは、片方だけです。",
+  "cmp.ak": "よくある方法",
+  "cmp.ah": "アプリごとのサブスク",
+  "cmp.a1": "使っても使わなくても毎月請求",
+  "cmp.a2": "実際にどれだけ使ったか分かりにくい",
+  "cmp.a3": "解約手続き、更新、リマインダー",
+  "cmp.a4": "新しいツールを試すたびに新しいプラン",
+  "cmp.bk": "Keyalaなら",
+  "cmp.bh": "自分のキーで、1回ごとに",
+  "cmp.b1": "プロバイダーが請求するのは実行した分だけ。料金はプロバイダーの価格",
+  "cmp.b2": "すべての呼び出しにレシート",
+  "cmp.b3": "予算を決める、またはワンタップでアプリを停止",
+  "cmp.b4": "1つのキーで、Keyala対応アプリすべてに",
+  "cmp.note": "ベータ期間中、Keyalaは無料で、上乗せもありません。モデルの料金はプロバイダーが決めます。",
+  "dv.k": "開発者向け",
+  "dv.h": "トークンの請求なしでリリース",
+  "dv.lead": "ユーザーが増えても、コストは増えません。ユーザーがそれぞれ自分のキーを持ち込むからです。",
+  "dv.1h": "base URLを変える",
+  "dv.1p": "公式のOpenAI、Anthropic SDKがそのまま使えます。",
+  "dv.2h": "接続ボタンを置く",
+  "dv.2p": "scriptタグ1つ。ユーザーはQR、リンク、コードでペアリング。",
+  "dv.3h": "使われ方を見る",
+  "dv.3p": "ダッシュボードに呼び出し数、費用、モデル。ユーザーのプロンプトは含みません。",
+  "now.h": "Keyalaの現在地",
+  "now.rh": "すぐ使えるもの",
+  "now.rp": "iPhoneで呼び出しを承認 · OpenAI、Anthropic、OpenRouter · 毎回確認、回数、予算、信頼 · 履歴とレシート · いつでも取り消し · Webコンソール · オープンソース、セルフホスト可",
+  "now.nh": "準備中",
+  "now.np": "使い方動画 · 公開TestFlight · <em>検討中</em>：開発者が最初のお試し分を負担できるクーポン",
+  "end.h": "使う人にも、作る人にも、フェアに。",
+  "end.p": "実験的なオープンソースプロジェクトです。限界も正直にお伝えします。",
   'nav.dev': '開発者', 'nav.users': 'ユーザー', 'nav.news': 'ニュース', 'nav.console': 'コンソール',
-  'hero.h1': '自分のAIキーを、渡さずに使う。',
-  'hero.lead': 'AIアプリにはモデルのAPIキーが必要ですが、誰が用意するのかは決まっていません。Keyalaなら、アプリがリクエストし、あなたがiPhoneで承認すると、あなたのキーで呼び出しが実行されます。アプリがキーを目にすることはありません。',
-  'hero.dev': 'AIアプリを作る', 'hero.usr': 'AIアプリを使う',
-  'hero.note': '無料ベータ。iPhoneアプリは招待制TestFlightです。',
-  'ph.ex': 'イメージ画面です。実際のデータではありません',
-  'ph.app': 'Paperplane', 'ph.sub': 'があなたのOpenAIキーを使おうとしています',
-  'ph.cost': '約 $0.002', 'ph.est': '概算',
-  'ph.prompt': '「大家さんへのお礼の手紙を書いて。」',
-  'ph.deny': '拒否', 'ph.allow': '許可',
-  'how.h': 'しくみ',
-  'how.1h': 'アプリがリクエスト', 'how.1p': 'アプリはプロバイダではなく、Keyalaにリクエストを送ります。',
-  'how.2h': 'あなたが承認', 'how.2p': 'iPhoneでプロンプトそのものと概算費用を確認して、許可か拒否を選びます。',
-  'how.3h': 'あなたのキーで実行', 'how.3p': 'Keyalaがあなたのキーで呼び出しを転送し、答えをアプリに返します。',
-  'dev.h': '開発者向け',
-  'dev.1': '変えるのはbase URLの1行だけ。公式のOpenAI、Anthropic SDKがそのまま使えます。',
-  'dev.2': 'scriptタグ1つで、QR、リンク、コードによるペアリング。',
-  'dev.3': 'ダッシュボード標準搭載：呼び出し数、費用、モデル、国、混む時間帯。',
-  'dev.4': 'キーの保管も、請求の負担も不要。無料です。',
   'dev.link': '開発者ドキュメントを読む',
   "dev.reg": "アプリを登録する（手順）",
   "reg.h": "アプリを登録する",
@@ -198,7 +290,7 @@ ja: {
   "faq.1q": "登録しないとどうなりますか？",
   "faq.1a": "アプリは誰とも接続できません。接続には必ず登録済みのアプリが指定され、ユーザーは承認する前にその名前をスマホで確認します。",
   "faq.2q": "APIではなくコンソールで登録する理由は？",
-  "faq.2a": "コンソールで作ったアプリはあなたのアカウントに属します。サインインすればいつでも利用レポート（呼び出し数、費用、モデル、国、混む時間帯）を見られ、secret をなくしたり漏れたりしても古い secret なしで交換できます。以前 <code>POST /v1/apps</code> で作ったアプリは、<b>My apps</b> の <b>Add an existing app</b> に secret を入れて追加できます。",
+  "faq.2a": "コンソールで作ったアプリはあなたのアカウントに属します。サインインすればいつでも利用レポート（呼び出し数、費用、モデル、国、混む時間帯）を見られ、secret をなくしたり漏れたりしても古い secret なしで交換できます。以前 <code>POST /v1/apps</code> で作ったアプリは、<b>My apps</b> の <b>Already have an app?</b> に secret を入れて追加できます。",
   "faq.3q": "登録できたかどうかはどう確かめますか？",
   "faq.3a": "My apps にアプリが App ID 付きで表示されます。次に自分のページで接続してみてください。Keyalaのダイアログに（エラーではなく）QRコードが表示され、スマホにアプリ名が出ます。Webサイトなら、あなたのサイト「から」の接続であることも表示されます。最初の呼び出しが承認されると、コンソールの数字が増えます。",
   "faq.4q": "「this origin is not allowed for this app」と表示されます。",
@@ -208,11 +300,6 @@ ja: {
   "faq.7q": "アプリを変更・削除できますか？", "faq.7a": "はい、My apps でできます。<b>Edit</b> で名前、ホームページ、allowed origins を変更でき、接続済みのユーザーはそのまま使えます。<b>Delete</b> はアプリ名の入力で確認したうえで、secret を無効にし、接続中の全ユーザーのアクセスをすぐに止め、待機中の呼び出しを拒否します。元に戻せません。ユーザーの履歴は残ります。",
   "faq.6q": "Webサイトに secret は必要ですか？",
   "faq.6a": "ページの中には不要です。Webサイトに必要なのは App ID と allowed origin だけです。secret は利用レポートと交換のために保管しておきます。",
-  'usr.h': 'ユーザー向け',
-  'usr.1': '毎回、プロンプトとレスポンスをそのまま確認できます。',
-  'usr.2': '上限はあなたが決めます：毎回確認、回数、予算、または信頼。',
-  'usr.3': 'キーはKeyalaの中にあり、アプリには渡りません。',
-  'usr.4': 'どのアプリも、いつでも取り消せます。',
   'usr.link': 'ユーザーガイドを読む',
   'tr.h': '信頼について、率直に',
   'tr.1h': 'キーは共有されません', 'tr.1p': 'キーは暗号化して保存され、開発者には送られません。表示されるのは末尾4文字だけです。',
@@ -221,8 +308,6 @@ ja: {
   'tr.3h': '決めるのはあなた', 'tr.3p': '最初の接続は必ず毎回確認します。承認前に見えるのは見積もりで、完了後はプロバイダーが報告した使用量にもとづく費用が表示されます。',
   'tr.4h': '限界も正直に', 'tr.4p': 'Keyalaは実験的な個人プロジェクトです。承認された呼び出しを転送するため、サーバーはキーを復号します。運営者を信頼していただく前提です。',
   'tr.link': 'プライバシーの詳細を読む',
-  'end.h': '誰が払うかで悩むのは終わり。みんな自分のキーを持ち込めます。',
-  'end.note': 'iPhoneアプリをお試しですか？ support@keyala.io に連絡すると、招待制TestFlightに参加できます。',
   'ft.priv': 'プライバシー', 'ft.sup': 'サポート', 'ft.by': 'Joseph Chen による実験的な個人プロジェクト'
 }};
 </script>
@@ -230,33 +315,43 @@ ja: {
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="nav"><div class="wrap"><a class="brand" href="./"><img src="brand/koala.svg" alt=""> Keyala</a><a class="link" href="docs/" data-i18n="nav.dev">Developers</a><a class="link" href="guide/" data-i18n="nav.users">Users</a><a class="link" href="news/" data-i18n="nav.news">News</a><a class="link" href="https://app.keyala.io/console" data-i18n="nav.console">Console</a><select id="language" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select></div></header>
+<header class="nav"><div class="wrap"><a class="brand" href="./"><img src="brand/koala.svg" alt=""> Keyala</a><a class="link" href="guide/" data-i18n="nav.users">Users</a><a class="link" href="docs/" data-i18n="nav.dev">Developers</a><a class="link" href="news/" data-i18n="nav.news">News</a><a class="link" href="https://app.keyala.io/console" data-i18n="nav.console">Console</a><select id="language" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select></div></header>
 <main id="main">
+
 <section class="hero"><div class="wrap">
   <div>
-    <img class="mascot" src="brand/koala.svg" alt="">
-    <h1 data-i18n="hero.h1">Bring your own AI key. Keep it to yourself.</h1>
-    <p class="lead" data-i18n="hero.lead">AI apps need a model API key, and nobody knows who should provide it. With Keyala the app asks, you approve on your iPhone, and the call runs on your key. The app never sees it.</p>
-    <div class="cta"><a class="btn primary" href="docs/" data-i18n="hero.dev">I build AI apps</a><a class="btn" href="guide/" data-i18n="hero.usr">I use AI apps</a></div>
-    <p class="muted" style="font-size:14px" data-i18n="hero.note">Free beta. iPhone app in invite-only TestFlight.</p>
+    <span class="pill" data-i18n="hero.tag">Free beta · open source</span>
+    <h1 data-i18n="hero.h1">Use AI apps. Pay only for what you use.</h1>
+    <p class="lead" data-i18n="hero.lead">Bring your own AI key. Before anything runs, you see the prompt and the price on your phone. Say yes, and you get a receipt. The app never sees your key.</p>
+    <div class="cta">
+      <!-- Beta sign-up: replace the mailto with the form URL once the form exists. -->
+      <a class="beta" href="mailto:support@keyala.io?subject=Keyala%20TestFlight%20beta"><span class="plane"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M3 38 61 14 38 56 29 43Z" fill="#fff" stroke="#1B2620" stroke-width="2.5" stroke-linejoin="round"/><path d="M29 43 61 14 24 39Z" fill="#DCE8E0" stroke="#1B2620" stroke-width="2.5" stroke-linejoin="round"/><circle cx="21" cy="17" r="6" fill="#BBCDBD" stroke="#1B2620" stroke-width="2"/><circle cx="39" cy="17" r="6" fill="#BBCDBD" stroke="#1B2620" stroke-width="2"/><ellipse cx="30" cy="25" rx="10" ry="9" fill="#F4F1EA" stroke="#1B2620" stroke-width="2"/><circle cx="26" cy="23" r="1.6" fill="#1B2620"/><circle cx="34" cy="23" r="1.6" fill="#1B2620"/><ellipse cx="30" cy="27.5" rx="2.6" ry="3.2" fill="#1B2620"/><path d="M22 33c3 3 13 3 16 0" fill="none" stroke="#1B2620" stroke-width="2" stroke-linecap="round"/></svg></span><span data-i18n="beta">Join the beta TestFlight today</span></a>
+      <a class="text" href="docs/" data-i18n="hero.dev">I build AI apps →</a>
+    </div>
   </div>
-  <div class="phone" role="img" aria-label="Example approval screen">
-    <span class="ex" data-i18n="ph.ex">Example screen, not real data</span>
-    <p class="app"><span data-i18n="ph.app">Paperplane</span></p>
-    <p class="sub" data-i18n="ph.sub">wants to use your OpenAI key</p>
-    <p class="cost"><span data-i18n="ph.cost">about $0.002</span> <small data-i18n="ph.est">estimated</small></p>
-    <div class="prompt" data-i18n="ph.prompt">"Help me write a thank-you note to my landlord."</div>
-    <div class="row"><span data-i18n="ph.deny">Deny</span><span class="go" data-i18n="ph.allow">Allow</span></div>
+  <div class="receipt-wrap">
+    <svg class="peek" viewBox="0 140 1024 680" aria-hidden="true"><circle cx="265" cy="360" r="160" fill="#fff" stroke="#C9D8C5" stroke-width="10"/><circle cx="759" cy="360" r="160" fill="#fff" stroke="#C9D8C5" stroke-width="10"/><circle cx="265" cy="360" r="94" fill="#C9DBC7"/><circle cx="759" cy="360" r="94" fill="#C9DBC7"/><path d="M247 560C247 323 350 251 512 251s265 72 265 309v260H247Z" fill="#fff"/><circle cx="389" cy="492" r="23" fill="#1F3329"/><circle cx="635" cy="492" r="23" fill="#1F3329"/><circle cx="350" cy="590" r="30" fill="#F7C9B8"/><circle cx="674" cy="590" r="30" fill="#F7C9B8"/><path d="M455 505c0-43 24-71 57-71s57 28 57 71v84c0 34-25 57-57 57s-57-23-57-57Z" fill="#1F3329"/></svg>
+    <div class="receipt" role="img" aria-label="Example receipt: Interview Prepper, approved by you, key never shared, you paid $0.0169, Keyala fee $0.00">
+      <div class="top"><b data-i18n="rc.h">Receipt</b><span class="ex" data-i18n="rc.ex">example</span></div>
+      <hr>
+      <div class="row"><span data-i18n="rc.app">App</span><span>Interview Prepper</span></div>
+      <div class="row"><span data-i18n="rc.by">Approved by</span><span data-i18n="rc.byv">you, 12:38</span></div>
+      <div class="row"><span data-i18n="rc.key">Key shared with app</span><span data-i18n="rc.keyv">never</span></div>
+      <hr>
+      <div class="total"><span data-i18n="rc.paid">You paid</span><strong>$0.0169</strong></div>
+      <div class="fee"><span data-i18n="rc.fee">Keyala fee</span><span>$0.00</span></div>
+    </div>
   </div>
 </div></section>
 
-<section><div class="wrap">
-  <h2 data-i18n="how.h">How it works</h2>
-  <ol class="steps">
-    <li><h3 data-i18n="how.1h">The app asks</h3><p data-i18n="how.1p">The app sends its request to Keyala instead of the provider.</p></li>
-    <li><h3 data-i18n="how.2h">You approve</h3><p data-i18n="how.2p">You see the exact prompt and estimated cost on your iPhone, then allow or deny.</p></li>
-    <li><h3 data-i18n="how.3h">It runs on your key</h3><p data-i18n="how.3p">Keyala forwards the call with your key and returns the answer to the app.</p></li>
-  </ol>
+<section class="white rounded-top"><div class="wrap center">
+  <h2 data-i18n="roles.h">Who does what</h2>
+  <p class="lead" data-i18n="roles.lead">Three parts, one simple deal. Nobody pays for someone else, and nobody gets your key.</p>
+  <div class="roles-line"><ol class="roles">
+    <li><div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div><h3 data-i18n="roles.1h">The builder makes the app</h3><p data-i18n="roles.1p">One line of code to connect. No keys to guard, no token bill.</p></li>
+    <li><div class="dot"><svg viewBox="0 0 1024 1024" aria-hidden="true"><circle cx="265" cy="360" r="160" fill="#FAF7F2"/><circle cx="759" cy="360" r="160" fill="#FAF7F2"/><circle cx="265" cy="360" r="94" fill="#BBCDBD"/><circle cx="759" cy="360" r="94" fill="#BBCDBD"/><path d="M247 520C247 323 350 251 512 251s265 72 265 269c0 176-104 270-265 270S247 696 247 520Z" fill="#FAF7F2"/><circle cx="389" cy="492" r="23" fill="#1F3329"/><circle cx="635" cy="492" r="23" fill="#1F3329"/><path d="M455 505c0-43 24-71 57-71s57 28 57 71v84c0 34-25 57-57 57s-57-23-57-57Z" fill="#1F3329"/></svg></div><h3 data-i18n="roles.2h">Keyala asks you first</h3><p data-i18n="roles.2p">Shows the request and its price, waits for your yes, keeps the receipt.</p></li>
+    <li><div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></svg></div><h3 data-i18n="roles.3h">You decide and pay</h3><p data-i18n="roles.3p">Approve on your iPhone. Your provider bills only the calls you allowed.</p></li>
+  </ol></div>
 </div></section>
 
 <section class="see"><div class="wrap">
@@ -269,22 +364,28 @@ ja: {
   <p class="muted see-cap" data-i18n="see.cap">Native app demo with a local mock provider.</p>
 </div></section>
 
-<section class="band"><div class="wrap lanes">
-  <div class="card">
-    <h2 data-i18n="dev.h">For developers</h2>
-    <ul><li data-i18n="dev.1">Change one line: the base URL. Official OpenAI and Anthropic SDKs work as they are.</li><li data-i18n="dev.2">Pair users with one script tag: QR, link or code.</li><li data-i18n="dev.3">Built-in dashboard: calls, cost, models, countries, busiest hours.</li><li data-i18n="dev.4">No keys to store, no bill to carry. Free.</li></ul>
-    <pre><code>client = OpenAI(
-  base_url="https://app.keyala.io/v1/openai",
-  api_key=grant_token,
-  max_retries=0)</code></pre>
-    <p><a href="#register" data-i18n="dev.reg">Register your app (step by step)</a></p>
-    <a href="docs/" data-i18n="dev.link">Read the developer docs</a>
+<section class="white"><div class="wrap">
+  <div class="center">
+    <h2 data-i18n="cmp.h">Per call, not per month</h2>
+    <p class="lead" data-i18n="cmp.lead">Two ways to pay for AI apps. Only one of them charges you when you're not using it.</p>
   </div>
-  <div class="card">
-    <h2 data-i18n="usr.h">For users</h2>
-    <ul><li data-i18n="usr.1">See the exact prompt and the response, every time.</li><li data-i18n="usr.2">You set the limit: ask each time, a number of calls, a budget, or trust.</li><li data-i18n="usr.3">Your key stays in Keyala. Apps never get it.</li><li data-i18n="usr.4">Revoke any app at any time.</li></ul>
-    <a href="guide/" data-i18n="usr.link">Read the user guide</a>
+  <div class="cmp">
+    <div class="old"><div class="k" data-i18n="cmp.ak">The usual way</div><h3 data-i18n="cmp.ah">A subscription per app</h3><ul><li data-i18n="cmp.a1">Monthly fee whether you use it or not</li><li data-i18n="cmp.a2">Hard to see what you actually used</li><li data-i18n="cmp.a3">Cancel flows, renewals, reminders</li><li data-i18n="cmp.a4">A new plan for every new tool you try</li></ul></div>
+    <div class="new"><div class="k" data-i18n="cmp.bk">With Keyala</div><h3 data-i18n="cmp.bh">Your key, billed per call</h3><ul><li data-i18n="cmp.b1">Your provider bills only what ran, at their price</li><li data-i18n="cmp.b2">Every call has a receipt you can open</li><li data-i18n="cmp.b3">Set a budget, or stop any app with one tap</li><li data-i18n="cmp.b4">One key works across every Keyala-ready app</li></ul></div>
   </div>
+  <p class="cmp-note" data-i18n="cmp.note">Keyala is free during the beta and adds no markup. Provider prices are set by the provider.</p>
+</div></section>
+
+<section><div class="wrap">
+  <p class="kicker" data-i18n="dv.k">For developers</p>
+  <h2 data-i18n="dv.h">Launch without a token bill</h2>
+  <p class="lead" data-i18n="dv.lead">Grow your audience without growing your costs. Each user brings their own key.</p>
+  <ol class="dsteps">
+    <li><h3 data-i18n="dv.1h">Change the base URL</h3><p data-i18n="dv.1p">Official OpenAI and Anthropic SDKs, as they are.</p><code>base_url="https://app.keyala.io/v1/openai"</code></li>
+    <li><h3 data-i18n="dv.2h">Add the connect button</h3><p data-i18n="dv.2p">One script tag. Users pair by QR, link or code.</p><code>&lt;keyala-connect app="app_…"&gt;</code></li>
+    <li><h3 data-i18n="dv.3h">See how it's used</h3><p data-i18n="dv.3p">Calls, cost and models in your dashboard. Never your users' prompts.</p></li>
+  </ol>
+  <p class="links"><a href="#register" data-i18n="dev.reg">Register your app (step by step)</a><a href="docs/" data-i18n="dev.link">Read the developer docs</a></p>
 </div></section>
 
 <section id="register"><div class="wrap">
@@ -296,10 +397,10 @@ ja: {
     <div class="card"><h3><span data-i18n="sec.h">App secret</span> <span class="tag priv" data-i18n="sec.tag">private</span></h3><p data-i18n-html="sec.p">Starts with <code>keyala_app_</code>. It proves you own the app: a server uses it to start connections, and it opens your usage report. Never put it in a web page, an iPhone app or Git. It never gives access to anyone's API key.</p></div>
   </div>
   <h3 class="faq-h" data-i18n="faq.h">Questions</h3>
-  <div class="faq"><details><summary data-i18n="faq.1q">What happens if I do not register?</summary><p data-i18n-html="faq.1a">Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.</p></details><details><summary data-i18n="faq.2q">Why register in the console rather than with the API?</summary><p data-i18n-html="faq.2a">Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.</p></details><details><summary data-i18n="faq.3q">How do I know it worked?</summary><p data-i18n-html="faq.3a">The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus "from" your site for a website. After the first approved call, the app's numbers in the console go up.</p></details><details><summary data-i18n="faq.4q">The page says "this origin is not allowed for this app".</summary><p data-i18n-html="faq.4a">The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Fix it in My apps with <b>Edit</b>; the change applies to new connections at once and the App ID stays the same.</p></details><details><summary data-i18n="faq.5q">I lost the secret, or it leaked.</summary><p data-i18n-html="faq.5a">In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.</p></details><details><summary data-i18n="faq.6q">Do I need the secret for a website?</summary><p data-i18n-html="faq.6a">Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.</p></details><details><summary data-i18n="faq.7q">Can I change or delete an app?</summary><p data-i18n-html="faq.7a">Yes, in My apps. <b>Edit</b> changes the name, homepage and allowed origins; people already connected keep working. <b>Delete</b> asks you to type the app name, then stops the secret, cuts off every connected user at once and refuses waiting calls. It cannot be undone; users keep their history.</p></details></div>
+  <div class="faq"><details><summary data-i18n="faq.1q">What happens if I do not register?</summary><p data-i18n-html="faq.1a">Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.</p></details><details><summary data-i18n="faq.2q">Why register in the console rather than with the API?</summary><p data-i18n-html="faq.2a">Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Already have an app?</b> and its secret.</p></details><details><summary data-i18n="faq.3q">How do I know it worked?</summary><p data-i18n-html="faq.3a">The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus "from" your site for a website. After the first approved call, the app's numbers in the console go up.</p></details><details><summary data-i18n="faq.4q">The page says "this origin is not allowed for this app".</summary><p data-i18n-html="faq.4a">The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Fix it in My apps with <b>Edit</b>; the change applies to new connections at once and the App ID stays the same.</p></details><details><summary data-i18n="faq.5q">I lost the secret, or it leaked.</summary><p data-i18n-html="faq.5a">In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.</p></details><details><summary data-i18n="faq.6q">Do I need the secret for a website?</summary><p data-i18n-html="faq.6a">Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.</p></details><details><summary data-i18n="faq.7q">Can I change or delete an app?</summary><p data-i18n-html="faq.7a">Yes, in My apps. <b>Edit</b> changes the name, homepage and allowed origins; people already connected keep working. <b>Delete</b> asks you to type the app name, then stops the secret, cuts off every connected user at once and refuses waiting calls. It cannot be undone; users keep their history.</p></details></div>
 </div></section>
 
-<section><div class="wrap">
+<section class="white"><div class="wrap">
   <h2 data-i18n="tr.h">Trust, in plain words</h2>
   <div class="trust">
     <p><strong data-i18n="tr.1h">Keys are never shared</strong><span class="muted" data-i18n="tr.1p">Keys are encrypted at rest and never sent to developers. Only the last 4 characters are ever shown.</span></p>
@@ -308,13 +409,22 @@ ja: {
     <p><strong data-i18n="tr.4h">Honest about the limits</strong><span class="muted" data-i18n="tr.4p">Keyala is an experimental personal project. Its server decrypts your key to forward the calls you approve, so you are trusting its operator.</span></p>
   </div>
   <a href="privacy/" data-i18n="tr.link">Read the privacy details</a>
+
 </div></section>
 
-<section class="closing"><div class="wrap">
-  <h2 data-i18n="end.h">Stop asking who pays. Let people bring their own key.</h2>
-  <div class="cta"><a class="btn primary" href="docs/" data-i18n="hero.dev">I build AI apps</a><a class="btn" href="guide/" data-i18n="hero.usr">I use AI apps</a></div>
-  <p class="muted" data-i18n="end.note">Want the iPhone app? Write to support@keyala.io to join the invite-only TestFlight.</p>
+<section><div class="wrap">
+  <h2 data-i18n="now.h">Where Keyala is today</h2>
+  <div class="now">
+    <div><h3 data-i18n="now.rh">Ready to use</h3><p data-i18n="now.rp">Approve calls on iPhone · OpenAI, Anthropic, OpenRouter · ask, count, budget or trust · full history and receipts · revoke anytime · web console · open source and self-hostable</p></div>
+    <div><h3 data-i18n="now.nh">Coming along</h3><p data-i18n-html="now.np">How-to videos · open TestFlight · <em>exploring</em>: coupons so builders can cover your first try</p></div>
+  </div>
+  <p style="margin-top:20px"><a href="guide/" data-i18n="usr.link">Read the user guide</a></p>
 </div></section>
+
+<section class="closing"><div class="wrap"><div class="box">
+  <div><h2 data-i18n="end.h">Fair for people who use it. Fair for people who build it.</h2><p data-i18n="end.p">An experimental, open-source project. Honest about its limits.</p></div>
+  <a class="beta amber" href="mailto:support@keyala.io?subject=Keyala%20TestFlight%20beta"><span class="plane"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M3 38 61 14 38 56 29 43Z" fill="#fff" stroke="#1B2620" stroke-width="2.5" stroke-linejoin="round"/><path d="M29 43 61 14 24 39Z" fill="#DCE8E0" stroke="#1B2620" stroke-width="2.5" stroke-linejoin="round"/><circle cx="21" cy="17" r="6" fill="#BBCDBD" stroke="#1B2620" stroke-width="2"/><circle cx="39" cy="17" r="6" fill="#BBCDBD" stroke="#1B2620" stroke-width="2"/><ellipse cx="30" cy="25" rx="10" ry="9" fill="#F4F1EA" stroke="#1B2620" stroke-width="2"/><circle cx="26" cy="23" r="1.6" fill="#1B2620"/><circle cx="34" cy="23" r="1.6" fill="#1B2620"/><ellipse cx="30" cy="27.5" rx="2.6" ry="3.2" fill="#1B2620"/><path d="M22 33c3 3 13 3 16 0" fill="none" stroke="#1B2620" stroke-width="2" stroke-linecap="round"/></svg></span><span data-i18n="beta">Join the beta TestFlight today</span></a>
+</div></div></section>
 </main>
 <footer class="footer"><div class="wrap"><a href="privacy/" data-i18n="ft.priv">Privacy</a><a href="support/" data-i18n="ft.sup">Support</a><a href="https://github.com/iamjoseph331/Keyala">GitHub</a><a href="mailto:support@keyala.io">support@keyala.io</a><span data-i18n="ft.by">Experimental personal project by Joseph Chen</span></div></footer>
 </body>

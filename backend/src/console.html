@@ -3,55 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>Keyala console</title>
 <style>
-:root{--paper:#FAF7F2;--card:#fff;--ink:#1F1B16;--muted:#6F675D;--line:#ECE6DC;--green:#3D7A57;--green-ink:#fff;--bad:#B3402F;--heat:61,122,87}
-@media (prefers-color-scheme:dark){:root{--paper:#17140F;--card:#211D17;--ink:#F3EEE6;--muted:#A39A8D;--line:#332D25;--green:#6FB58A;--green-ink:#10200F;--bad:#E57A68;--heat:111,181,138}}
+/* D3 "warm receipt" look, matching keyala.io. Light only. System fonts: the CSP keeps everything on this origin. */
+:root{--paper:#F1F5EE;--card:#fff;--soft:#F4F7F2;--ink:#1D2B22;--muted:#4F5F54;--line:#E2E9DF;--green:#245E3E;--green-ink:#fff;--green-soft:#E4EFE0;--sun:#FBEFD5;--sun-ink:#5C4A26;--bad:#A0412A;--heat:36,94,62;color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:920px;margin:0 auto;padding:16px}
-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-header h1{font-size:1.2rem;margin:0;flex:1}
-h2{font-size:1.1rem;margin:24px 0 8px}h3{font-size:1rem;margin:16px 0 6px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:8px 0}
-.muted{color:var(--muted);font-size:.9rem}.bad{color:var(--bad)}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","PingFang TC",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:32px 20px 64px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+header h1,h2.big{font-family:ui-serif,"New York",Georgia,"Hiragino Mincho ProN",serif;font-weight:700;letter-spacing:-.02em;margin:0}
+header h1{font-size:clamp(1.8rem,4vw,2.6rem);flex:1;min-width:12em}
+h2{font-size:1.15rem;margin:28px 0 10px}h3{font-size:1.05rem;margin:16px 0 8px}
+.card{background:var(--card);border:0;border-radius:22px;padding:22px 24px;margin:10px 0}
+.muted{color:var(--muted);font-size:.92rem}.bad{color:var(--bad)}
 button,input{font:inherit;color:inherit}
-button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 14px;cursor:pointer;min-height:40px}
-button.primary{background:var(--green);color:var(--green-ink);border-color:var(--green)}
-button.danger{color:var(--bad)}
+button{border:1.5px solid #D3DDD0;background:var(--card);border-radius:999px;padding:8px 18px;cursor:pointer;min-height:44px;font-weight:600}
+button:hover{border-color:var(--green)}
+button.primary{background:var(--green);color:var(--green-ink);border-color:var(--green);font-weight:700;padding:10px 24px}
+button.danger{color:var(--bad);border-color:#E7C3B6}
 button:disabled{opacity:.5;cursor:default}
-input{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 12px;min-height:40px}
-label{display:block;margin:10px 0 4px;font-size:.9rem;color:var(--muted)}
-.reqhead{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);border-radius:0;min-height:0;padding:8px 0;font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+input{width:100%;border:1.5px solid #D3DDD0;background:#fff;border-radius:14px;padding:12px 14px;min-height:46px}
+input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 4px rgba(36,94,62,.15)}
+input::placeholder{color:#7A887E}
+label{display:block;margin:16px 0 6px;font-weight:600}
+label input{margin-top:6px;font-size:1rem;font-weight:400;color:var(--ink)}
+.hint{display:block;margin-top:6px;font-weight:400;font-size:.88rem;color:var(--muted)}
+.note{display:flex;gap:12px;align-items:center;padding:14px 18px;border-radius:18px;background:var(--sun);color:var(--sun-ink);margin:0 0 8px}
+.note svg{flex-shrink:0}
+.empty{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.empty svg{flex-shrink:0}
+.empty b{display:block;font-family:ui-serif,"New York",Georgia,serif;font-size:1.3rem;margin-bottom:2px}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:.82rem;font-weight:700;margin-left:6px}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:20px;align-items:start}
+.cols .card{margin:0}
+.stack{display:grid;gap:20px}
+.tip{background:var(--sun);color:var(--sun-ink)}
+.tip ul{margin:0;padding-left:18px}
+@media(max-width:820px){.cols{grid-template-columns:minmax(0,1fr)}}
+.reqhead{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);border-radius:0;min-height:0;padding:12px 0;font:inherit;font-weight:400;color:inherit;cursor:pointer}
 .reqhead>span{min-width:0;overflow-wrap:anywhere}
-label input{margin-top:4px;font-size:1rem;color:var(--ink)}
-.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row>div{min-width:0;overflow-wrap:anywhere}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
-.stat{padding:8px 12px;border:1px solid var(--line);border-radius:10px}.stat b{display:block;font-size:1.3rem}
-.qr{display:block;margin:12px auto;width:220px;height:220px;background:#fff;border-radius:8px;padding:6px}
-.secret{font-family:ui-monospace,monospace;font-size:.8rem;word-break:break-all;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto;font-size:.8rem}
-.bars{display:flex;align-items:flex-end;gap:2px;height:80px;margin-top:8px}
-.bars i{flex:1;background:var(--green);min-height:1px;border-radius:2px 2px 0 0}
-.heat{display:grid;grid-template-columns:2.2em repeat(24,1fr);gap:1px;font-size:.65rem}
-.heat span{aspect-ratio:1;border-radius:2px;background:rgba(var(--heat),var(--a,0));min-width:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{padding:16px 18px;background:var(--card);border-radius:18px}.stat b{display:block;font-family:ui-serif,"New York",Georgia,serif;font-size:1.6rem;color:var(--green)}
+.qr{display:block;margin:12px auto;width:220px;height:220px;background:#fff;border-radius:14px;padding:8px;border:1.5px solid var(--line)}
+.secret{font-family:ui-monospace,monospace;font-size:.85rem;word-break:break-all;background:var(--soft);border-radius:12px;padding:12px;margin:10px 0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-radius:12px;padding:12px;max-height:260px;overflow:auto;font-size:.82rem}
+.bars{display:flex;align-items:flex-end;gap:3px;height:90px;margin-top:8px;background:var(--card);border-radius:18px;padding:14px}
+.bars i{flex:1;background:var(--green);min-height:1px;border-radius:3px 3px 0 0}
+.heat{display:grid;grid-template-columns:2.4em repeat(24,1fr);gap:2px;font-size:.68rem;background:var(--card);border-radius:18px;padding:14px}
+.heat span{aspect-ratio:1;border-radius:3px;background:rgba(var(--heat),var(--a,0));min-width:0;outline:1px solid var(--line)}
 .heat em{font-style:normal;color:var(--muted);align-self:center}
 .err{color:var(--bad);margin:8px 0}
 .top{border-bottom:1px solid var(--line);background:var(--card)}
-.top div{max-width:920px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.top a{color:var(--ink);text-decoration:none;font-size:.95rem}
-.top .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.05rem;margin-right:auto}
-.top .brand svg{border-radius:7px}
-.tabs{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;margin-bottom:12px;flex-wrap:wrap}
-.tabs button{border:0;border-radius:999px;background:none;min-height:36px}
-.tabs button[aria-selected=true]{background:var(--green);color:var(--green-ink);font-weight:600}
+.top div{max-width:1100px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.top a{color:var(--ink);text-decoration:none;font-weight:500}
+.top .brand{display:flex;align-items:center;gap:10px;font-family:ui-serif,"New York",Georgia,serif;font-weight:700;font-size:1.25rem;margin-right:auto}
+.top .brand small{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:500;font-size:.95rem;color:var(--muted)}
+.tabs{display:inline-flex;gap:4px;padding:5px;background:var(--card);border-radius:999px;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{border:0;border-radius:999px;background:none;min-height:40px}
+.tabs button[aria-selected=true]{background:var(--green);color:var(--green-ink);font-weight:700}
 </style>
 </head>
 <body>
-<nav class="top"><div><a class="brand" href="https://keyala.io/"><svg width="30" height="30" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="224" fill="#3D7A57"/><circle cx="250" cy="370" r="170" fill="#D8D2C6"/><circle cx="774" cy="370" r="170" fill="#D8D2C6"/><circle cx="262" cy="382" r="100" fill="#FAF7F2"/><circle cx="762" cy="382" r="100" fill="#FAF7F2"/><ellipse cx="512" cy="560" rx="300" ry="270" fill="#D8D2C6"/><circle cx="392" cy="500" r="26" fill="#1F1B16"/><circle cx="632" cy="500" r="26" fill="#1F1B16"/><circle cx="400" cy="491" r="8" fill="#FAF7F2"/><circle cx="640" cy="491" r="8" fill="#FAF7F2"/><circle cx="340" cy="610" r="34" fill="#E9B8A6" opacity=".7"/><circle cx="684" cy="610" r="34" fill="#E9B8A6" opacity=".7"/><path d="M512 470a72 72 0 0 1 40 132l22 118h-124l22-118a72 72 0 0 1 40-132Z" fill="#1F1B16"/></svg> Keyala</a><a href="https://keyala.io/docs/">Docs</a><a href="https://keyala.io/guide/">Guide</a></div></nav>
+<nav class="top"><div><a class="brand" href="https://keyala.io/"><svg width="34" height="34" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="300" fill="#3D7A57"/><circle cx="265" cy="360" r="160" fill="#FAF7F2"/><circle cx="759" cy="360" r="160" fill="#FAF7F2"/><circle cx="265" cy="360" r="94" fill="#BBCDBD"/><circle cx="759" cy="360" r="94" fill="#BBCDBD"/><path d="M247 520C247 323 350 251 512 251s265 72 265 269c0 176-104 270-265 270S247 696 247 520Z" fill="#FAF7F2"/><circle cx="389" cy="492" r="23" fill="#1F3329"/><circle cx="635" cy="492" r="23" fill="#1F3329"/><path d="M455 505c0-43 24-71 57-71s57 28 57 71v84c0 34-25 57-57 57s-57-23-57-57Z" fill="#1F3329"/></svg> Keyala <small>console</small></a><a href="https://keyala.io/guide/">Users</a><a href="https://keyala.io/docs/">Developers</a><a href="https://keyala.io/news/">News</a></div></nav>
 <main id="app"><p class="muted">Loading…</p></main>
 <script src="/console.js"></script>
 </body>

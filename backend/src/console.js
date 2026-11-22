@@ -6,14 +6,18 @@ const T = { en: {
   scanExpired: 'That code expired. Getting a new one…', scanDenied: 'Sign-in was denied on the phone.',
   email: 'Email', password: 'Password', signIn: 'Sign in', pwHelp: 'Set a web password in the Keyala app (Settings) first.',
   signOut: 'Sign out', tabAccount: 'My account', tabApps: 'My apps',
-  phoneNote: 'Approving calls and adding or changing keys happen in the Keyala app on your phone, not here.',
+  phoneNote: 'Approving calls and adding or changing keys happen in the Keyala app on your iPhone. Here you can look and revoke.',
+  accountTitle: 'Your keys and receipts', appsTitle: 'Apps you build', keysNote: 'Only the last four characters are ever shown. Keys are encrypted at rest.',
+  historyNote: 'Prompts and responses are deleted after 30 days. Costs stay.',
+  modes: { ask: 'Ask each time', count: 'Next N calls', budget: 'Up to a budget', trust: 'Trust' },
   keys: 'Keys', noKeys: 'No keys yet.', added: 'added', apps: 'Connected apps', noGrants: 'No apps connected.',
   lastUsed: 'last used', never: 'never', revoke: 'Revoke', revokeAsk: 'Revoke this app? It will stop working immediately.',
-  history: 'Recent history', noHistory: 'No requests yet.', loadOlder: 'Load older', purged: 'Content deleted after 30 days',
+  history: 'Receipts', noHistory: 'No requests yet.', loadOlder: 'Load older', purged: 'Content deleted after 30 days',
   payload: 'Request', response: 'Response', cost: 'cost', unmetered: 'completed, no usage reported', estimate: 'estimate',
-  myApps: 'Your apps', noApps: 'No apps yet.', calls7: 'calls (7 d)', create: 'Create app', name: 'Name',
-  homepage: 'Homepage (optional)', origins: 'Allowed origins, comma separated (optional, for browser apps)',
-  addExisting: 'Add an existing app', secret: 'App secret', add: 'Add',
+  myApps: 'Your apps', noApps: 'No apps yet. Let\u2019s make your first one.', noAppsHelp: 'Create an app to get an App ID and an App secret. Then add the connect button and change your base URL.', steps: 'See the steps', calls7: 'calls (7 d)', create: 'Create app', createTitle: 'Create an app', name: 'App name', nameHint: 'Users see this on their phone when you ask for a call.',
+  homepage: 'Homepage (optional)', origins: 'Allowed origins (for apps that run in a browser)', originsHint: 'Scheme and host only, no path. Comma separated, up to 10; http:// only for localhost. Leave empty if you call Keyala from a server.',
+  addExisting: 'Already have an app?', claimHint: 'Made one earlier with POST /v1/apps? Paste its app secret to add it to your account.', secret: 'App secret', add: 'Add app',
+  tipsTitle: 'Good to know', tips: ['The secret is shown once. Store it like a password.', 'You can rotate it any time; the old one stops at once.', 'Your report never includes users\u2019 prompts or emails.'],
   secretOnce: 'Copy this secret now. It is shown only once.', copy: 'Copy', copied: 'Copied',
   report: 'Report', days: 'days', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved.', del: 'Delete',
   editTitle: 'Edit app', originsNote: 'New connections use the new values. People already connected keep working.',
@@ -132,7 +136,7 @@ async function account() {
   try { who = await api('GET', '/v1/me'); } catch (e) { return; }
   if (g !== gen || !token) return;
   const body = h('div');
-  show(h('header', {}, h('h1', {}, L.title), h('span', { class: 'muted' }, who.email),
+  show(h('header', {}, h('h1', {}, view === 'account' ? L.accountTitle : L.appsTitle), h('span', { class: 'muted' }, who.email),
     h('button', { onclick: async () => { try { await api('POST', '/v1/me/logout'); } catch (e) {} setToken(null); start(); } }, L.signOut)),
     tabs([['account', L.tabAccount], ['apps', L.tabApps]], view, k => { view = k; account(); }), body);
   view === 'account' ? accountView(body) : appsView(body);
@@ -140,9 +144,9 @@ async function account() {
 
 async function accountView(body) {
   const err = h('div', { class: 'err' });
-  body.append(h('p', { class: 'muted' }, L.phoneNote), err);
+  body.append(h('p', { class: 'note' }, L.phoneNote), err);
   const keysBox = h('div', { class: 'card' }), grantsBox = h('div', { class: 'card' }), histBox = h('div', { class: 'card' });
-  body.append(h('h2', {}, L.keys), keysBox, h('h2', {}, L.apps), grantsBox, h('h2', {}, L.history), histBox);
+  body.append(h('h2', {}, L.keys), keysBox, h('p', { class: 'muted' }, L.keysNote), h('h2', {}, L.apps), grantsBox, h('h2', {}, L.history), h('p', { class: 'muted' }, L.historyNote), histBox);
   try {
     const keys = await api('GET', '/v1/me/keys');
     keysBox.replaceChildren(...(keys.length ? keys.map(k => h('div', { class: 'row' },
@@ -150,7 +154,7 @@ async function accountView(body) {
     const loadGrants = async () => {
       const gs = await api('GET', '/v1/me/grants');
       grantsBox.replaceChildren(...(gs.length ? gs.map(g => h('div', { class: 'row' },
-        h('div', {}, h('b', {}, g.app.name), ' ', h('span', { class: 'muted' }, g.vendor + ', ' + g.policy.mode),
+        h('div', {}, h('b', {}, g.app.name), h('span', { class: 'chip' }, L.modes[g.policy.mode] || g.policy.mode), ' ', h('span', { class: 'muted' }, g.vendor),
           h('div', { class: 'muted' }, (g.app.homepage || '') + ' ' + L.lastUsed + ' ' + when(g.last_used_at))),
         h('button', { class: 'danger', onclick: async () => {
           if (!confirm(L.revokeAsk)) return;
@@ -194,12 +198,12 @@ function requestRow(r, err) {
 
 async function appsView(body) {
   const err = h('div', { class: 'err' }), list = h('div', { class: 'card' }), notice = h('div'), rep = h('div');
-  const name = h('input', { maxlength: 100 }), home = h('input', { type: 'url' }), orig = h('input', { placeholder: 'https://example.com' });
-  const sec = h('input', { type: 'password', autocomplete: 'off' });
+  const name = h('input', { maxlength: 100, placeholder: 'Interview Prepper' }), home = h('input', { type: 'url', placeholder: 'https://your-app.example' }), orig = h('input', { placeholder: 'https://you.github.io, http://localhost:5173' });
+  const sec = h('input', { type: 'password', autocomplete: 'off', placeholder: 'keyala_app_\u2026' });
   const secretBox = (s, text) => h('div', { class: 'card' }, h('b', {}, text), h('div', { class: 'secret' }, s),
     h('button', { onclick: ev => { navigator.clipboard.writeText(s).then(() => { ev.target.textContent = L.copied; }); } }, L.copy));
-  const create = h('form', { class: 'card' }, h('h3', {}, L.create), h('label', {}, L.name, name), h('label', {}, L.homepage, home),
-    h('label', {}, L.origins, orig), h('p', {}, h('button', { class: 'primary', type: 'submit' }, L.create)));
+  const create = h('form', { class: 'card' }, h('h2', {}, L.createTitle), h('label', {}, L.name, name, h('span', { class: 'hint' }, L.nameHint)), h('label', {}, L.homepage, home),
+    h('label', {}, L.origins, orig, h('span', { class: 'hint' }, L.originsHint)), h('p', {}, h('button', { class: 'primary', type: 'submit' }, L.create)));
   create.addEventListener('submit', async ev => {
     ev.preventDefault(); err.textContent = '';
     const o = orig.value.split(',').map(x => x.trim()).filter(Boolean);
@@ -208,13 +212,14 @@ async function appsView(body) {
       notice.replaceChildren(secretBox(r.app_secret, L.secretOnce + ' (' + r.app_id + ')')); name.value = ''; home.value = ''; orig.value = ''; load();
     } catch (e) { fail(err)(e); }
   });
-  const claim = h('form', { class: 'card' }, h('h3', {}, L.addExisting), h('label', {}, L.secret, sec),
+  const claim = h('form', { class: 'card' }, h('h3', {}, L.addExisting), h('p', { class: 'muted' }, L.claimHint), h('label', {}, L.secret, sec),
     h('p', {}, h('button', { type: 'submit' }, L.add)));
   claim.addEventListener('submit', async ev => {
     ev.preventDefault(); err.textContent = '';
     try { await api('POST', '/v1/me/apps/claim', { app_secret: sec.value }); sec.value = ''; load(); } catch (e) { fail(err)(e); }
   });
-  body.append(err, notice, h('h2', {}, L.myApps), list, create, claim, rep);
+  const tips = h('div', { class: 'card tip' }, h('h3', {}, L.tipsTitle), h('ul', {}, L.tips.map(t => h('li', {}, t))));
+  body.append(err, notice, h('h2', {}, L.myApps), list, h('div', { class: 'cols' }, create, h('div', { class: 'stack' }, claim, tips)), rep);
   async function load() {
     try {
       const apps = await api('GET', '/v1/me/apps');
@@ -222,7 +227,7 @@ async function appsView(body) {
         h('div', {}, h('b', {}, a.name), h('div', { class: 'muted' }, a.id + ', ' + a.requests_7d + ' ' + L.calls7 + ', ' + money(a.cost_usd_7d)),
           h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly)),
         h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
-          h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('span', { class: 'muted' }, L.noApps)]));
+          h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('div', { class: 'empty' }, h('div', {}, h('b', {}, L.noApps), h('span', { class: 'muted' }, L.noAppsHelp, ' '), h('a', { href: 'https://keyala.io/docs/' }, L.steps)))]));
     } catch (e) { fail(err)(e); }
   }
   function edit(a) {
