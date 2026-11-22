@@ -148,8 +148,8 @@ Production and staging remain isolated, including manually pasted pairing URLs. 
 
 The temporary koala app icon and in-app mark use Claude's existing artwork. Getting started fits
 one page per step at standard text size on iPhone 17 Pro; accessibility sizes can scroll.
-Validation, recording locations and remaining device/account gates are in
-[Phase 2 QA](../docs/qa/domain-phase2-20261120/README.md).
+Internal validation records and recording locations are kept locally. Public
+walkthroughs and demo footage are in the [user guide](https://keyala.io/guide/).
 
 ## Web console sign-in
 

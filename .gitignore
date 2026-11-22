@@ -21,3 +21,11 @@ xcuserdata/
 node_modules/
 __pycache__/
 .venv/
+
+# Local owner notes and QA artifacts; public API contract and ops scripts stay tracked.
+/docs/VALIDATION.md
+/docs/launch/
+/docs/ops/*.md
+/docs/qa/
+/docs/security/
+/docs/ux/
