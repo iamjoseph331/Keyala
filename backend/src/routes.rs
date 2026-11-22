@@ -74,8 +74,8 @@ pub async fn create_app(
     register_app(&s, b, None).await
 }
 
-/// Creates an app (optionally owned by an account) and returns its id and one-time secret.
-pub async fn register_app(s: &AppState, b: NewApp, owner: Option<&str>) -> R<Json<Value>> {
+/// Name, homepage and origins rules shared by create and edit.
+pub fn check_app(b: &NewApp) -> R<()> {
     let name = b.name.trim();
     if name.is_empty() || name.len() > 100 {
         return Err(bad("name is required (max 100 chars)"));
@@ -89,6 +89,13 @@ pub async fn register_app(s: &AppState, b: NewApp, owner: Option<&str>) -> R<Jso
     {
         return Err(bad("homepage and icon_url: max 300 chars"));
     }
+    Ok(())
+}
+
+/// Creates an app (optionally owned by an account) and returns its id and one-time secret.
+pub async fn register_app(s: &AppState, b: NewApp, owner: Option<&str>) -> R<Json<Value>> {
+    check_app(&b)?;
+    let name = b.name.trim();
     let origins = b
         .allowed_origins
         .as_ref()
@@ -140,12 +147,13 @@ pub async fn create_connect(
             .get("origin")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
-        let allowed: Option<String> =
-            sqlx::query_scalar("SELECT allowed_origins FROM apps WHERE id=?")
-                .bind(app_id)
-                .fetch_optional(&s.db)
-                .await?
-                .flatten();
+        let allowed: Option<String> = sqlx::query_scalar(
+            "SELECT allowed_origins FROM apps WHERE id=? AND deleted_at IS NULL",
+        )
+        .bind(app_id)
+        .fetch_optional(&s.db)
+        .await?
+        .flatten();
         let allowed: Vec<String> = allowed
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();

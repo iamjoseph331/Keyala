@@ -385,6 +385,10 @@ pub fn router(state: AppState) -> Router {
             get(console::apps_list).post(console::apps_create),
         )
         .route("/v1/me/apps/claim", post(console::apps_claim))
+        .route(
+            "/v1/me/apps/{id}",
+            put(console::apps_update).delete(console::apps_delete),
+        )
         .route("/v1/me/apps/{id}/report", get(console::apps_report))
         .route("/v1/me/apps/{id}/secret", post(console::apps_rotate))
         .route("/v1/me/preferences", get(get_prefs).patch(patch_prefs))
@@ -702,10 +706,11 @@ pub async fn auth_app(s: &AppState, h: &HeaderMap) -> R<String> {
     auth_app_token(s, bearer(h, "keyala_app_").ok_or_else(unauthorized)?).await
 }
 pub async fn auth_app_token(s: &AppState, t: &str) -> R<String> {
-    if let Some(id) = sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=?")
-        .bind(hash_token(t))
-        .fetch_optional(&s.db)
-        .await?
+    if let Some(id) =
+        sqlx::query_scalar("SELECT id FROM apps WHERE secret_hash=? AND deleted_at IS NULL")
+            .bind(hash_token(t))
+            .fetch_optional(&s.db)
+            .await?
     {
         return Ok(id);
     }
@@ -715,7 +720,7 @@ pub async fn auth_app_token(s: &AppState, t: &str) -> R<String> {
         .as_ref()
         .map(|o| serde_json::to_string(o).unwrap_or_default());
     let r = sqlx::query("INSERT INTO apps (id,name,homepage,icon_url,secret_hash,allowed_origins,secret_gen,created_at) VALUES (?,?,?,?,?,?,?,?) \
-                         ON CONFLICT(id) DO UPDATE SET secret_hash=excluded.secret_hash, secret_gen=excluded.secret_gen WHERE excluded.secret_gen > apps.secret_gen")
+                         ON CONFLICT(id) DO UPDATE SET secret_hash=excluded.secret_hash, secret_gen=excluded.secret_gen WHERE excluded.secret_gen > apps.secret_gen AND apps.deleted_at IS NULL")
         .bind(&a.id).bind(&a.name).bind(&a.homepage).bind(&a.icon_url).bind(hash_token(t)).bind(&origins).bind(a.gen).bind(now())
         .execute(&s.db).await?;
     if r.rows_affected() == 1 {
