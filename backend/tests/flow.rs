@@ -5180,3 +5180,218 @@ async fn console_page_is_served_with_strict_csp() {
     assert_eq!(r.status(), 200);
     assert!(r.text().await.unwrap().contains("textContent"));
 }
+
+#[tokio::test]
+async fn console_apps_edit_and_delete() {
+    let t = T::new().await;
+    let web = web_via_phone(&t).await;
+    let other = dev_session(&t.c, &t.base, "other@b.co").await;
+    let a = json_of(
+        call(
+            &t,
+            M::POST,
+            "/v1/me/apps",
+            Some(&web),
+            Some(json!({"name": "Old", "allowed_origins": ["https://old.dev"]})),
+        )
+        .await,
+    )
+    .await;
+    let (id, secret) = (
+        a["app_id"].as_str().unwrap().to_string(),
+        a["app_secret"].as_str().unwrap().to_string(),
+    );
+    let public = |o: &'static str| {
+        t.c.post(format!("{}/v1/connect", t.base))
+            .header("origin", o)
+            .json(&json!({"vendor": "openai", "app_id": id}))
+            .send()
+    };
+    assert_eq!(public("https://old.dev").await.unwrap().status(), 200);
+
+    // edit: new name + origin; old origin refused, new accepted, secret unchanged
+    let path = format!("/v1/me/apps/{id}");
+    let e = call(&t, M::PUT, &path, Some(&web), Some(json!({"name": "New", "homepage": "https://new.dev/", "allowed_origins": ["https://new.dev"]}))).await;
+    assert_eq!(e.status(), 200);
+    let e = json_of(e).await;
+    assert_eq!(
+        (e["name"].as_str(), e["allowed_origins"][0].as_str()),
+        (Some("New"), Some("https://new.dev"))
+    );
+    assert_eq!(public("https://old.dev").await.unwrap().status(), 403);
+    assert_eq!(public("https://new.dev").await.unwrap().status(), 200);
+    assert_eq!(
+        json_of(call(&t, M::GET, "/v1/app", Some(&secret), None).await).await["name"],
+        "New"
+    );
+    for bad in [
+        json!({"name": ""}),
+        json!({"name": "X", "allowed_origins": ["https://new.dev/path"]}),
+    ] {
+        assert_eq!(
+            call(&t, M::PUT, &path, Some(&web), Some(bad))
+                .await
+                .status(),
+            400
+        );
+    }
+    assert_eq!(
+        call(
+            &t,
+            M::PUT,
+            &path,
+            Some(&other),
+            Some(json!({"name": "Mine now"}))
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        call(&t, M::DELETE, &path, Some(&other), None)
+            .await
+            .status(),
+        404
+    );
+
+    // traffic: an approved grant with one waiting call, plus a second pending connect code
+    let code = json_of(
+        call(
+            &t,
+            M::POST,
+            "/v1/connect",
+            Some(&secret),
+            Some(json!({"vendor": "openai"})),
+        )
+        .await,
+    )
+    .await["connect_code"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    call(
+        &t,
+        M::POST,
+        &format!("/v1/me/connect/{code}/approve"),
+        Some(&t.sess),
+        Some(json!({"policy": {"mode": "ask"}})),
+    )
+    .await;
+    let gt = json_of(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/connect/{code}"),
+            Some(&secret),
+            None,
+        )
+        .await,
+    )
+    .await["grant_token"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    t.chat(&gt, 0, msg()).await;
+    let rid = t.pending().await;
+    let code2 = json_of(
+        call(
+            &t,
+            M::POST,
+            "/v1/connect",
+            Some(&secret),
+            Some(json!({"vendor": "openai"})),
+        )
+        .await,
+    )
+    .await["connect_code"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // delete
+    let d = call(&t, M::DELETE, &path, Some(&web), None).await;
+    assert_eq!(d.status(), 200);
+    let d = json_of(d).await;
+    assert_eq!(
+        (d["grants_revoked"].as_i64(), d["requests_denied"].as_i64()),
+        (Some(1), Some(1))
+    );
+    assert_eq!(
+        t.user_get(&format!("/v1/me/requests/{rid}")).await["status"],
+        "denied"
+    );
+    assert_eq!(t.chat(&gt, 0, msg()).await.status(), 401);
+    assert_eq!(
+        call(&t, M::GET, "/v1/app", Some(&secret), None)
+            .await
+            .status(),
+        401
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            "/v1/connect",
+            Some(&secret),
+            Some(json!({"vendor": "openai"}))
+        )
+        .await
+        .status(),
+        401
+    );
+    assert_eq!(public("https://new.dev").await.unwrap().status(), 403);
+    assert_eq!(
+        call(
+            &t,
+            M::POST,
+            &format!("/v1/me/connect/{code2}/approve"),
+            Some(&t.sess),
+            Some(json!({"policy": {"mode": "ask"}}))
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        json_of(call(&t, M::GET, "/v1/me/apps", Some(&web), None).await)
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::GET,
+            &format!("/v1/me/apps/{id}/report"),
+            Some(&web),
+            None
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        call(&t, M::PUT, &path, Some(&web), Some(json!({"name": "Back"})))
+            .await
+            .status(),
+        404
+    );
+    assert_eq!(
+        call(&t, M::DELETE, &path, Some(&web), None).await.status(),
+        404
+    );
+    let c = call(
+        &t,
+        M::POST,
+        "/v1/me/apps/claim",
+        Some(&web),
+        Some(json!({"app_secret": secret})),
+    )
+    .await;
+    assert_eq!(c.status(), 401);
+    // the user's history keeps the call and the app name
+    let h = t.user_get(&format!("/v1/me/requests/{rid}")).await;
+    assert_eq!(h["status"], "denied");
+}

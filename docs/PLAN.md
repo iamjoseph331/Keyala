@@ -258,6 +258,13 @@ user; -> `{has_password:true}`), `DELETE /v1/me/password` (-> `{has_password:fal
   invalid_app_secret`; `409 already_owned` if another account owns it; idempotent for the owner). 10 per 10 min per address.
 - `GET /v1/me/apps/{id}/report?days=` -> exactly the `/v1/app/report` shape. `POST /v1/me/apps/{id}/secret` -> `{app_secret}`
   (rotation; the old secret dies at once).
+- `PUT /v1/me/apps/{id} {name, homepage?, allowed_origins?}` -> the app summary. Replaces name, homepage and allowed origins (null or
+  empty = server app only; same validation as create). New connections use the new values; existing grants keep working; the
+  secret is unchanged.
+- `DELETE /v1/me/apps/{id}` -> `{deleted: true, grants_revoked, requests_denied}`. Soft delete (`apps.deleted_at`, migration 0015)
+  in one transaction: every grant for the app is revoked, pending and approved-but-unsent calls are denied and refunded, pending
+  connect codes become `denied`. Afterwards the secret is `401` everywhere (also for claim and sealed re-creation), browser connects
+  are `403 origin_not_allowed`, and `/v1/me/apps*` answers `404`. Users keep their history. Calls already `sending` finish.
 - Deleting the account detaches its apps (owner set to null); they keep working with their secret.
 
 ### Account controls and operations (launch readiness)

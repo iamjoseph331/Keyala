@@ -305,13 +305,15 @@ pub async fn janitor(s: AppState) {
 // ---------- developer apps owned by accounts ----------
 
 async fn owned_app(s: &AppState, user: &str, id: &str) -> R<()> {
-    sqlx::query_scalar::<_, i64>("SELECT 1 FROM apps WHERE id=? AND owner_user_id=?")
-        .bind(id)
-        .bind(user)
-        .fetch_optional(&s.db)
-        .await?
-        .map(|_| ())
-        .ok_or_else(|| not_found("app"))
+    sqlx::query_scalar::<_, i64>(
+        "SELECT 1 FROM apps WHERE id=? AND owner_user_id=? AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .bind(user)
+    .fetch_optional(&s.db)
+    .await?
+    .map(|_| ())
+    .ok_or_else(|| not_found("app"))
 }
 
 type AppRowT = (
@@ -330,7 +332,7 @@ fn app_summary(r: AppRowT) -> Value {
 const APP_SUMMARY: &str = "SELECT a.id, a.name, a.homepage, a.allowed_origins, a.created_at, \
     (SELECT COUNT(*) FROM requests r WHERE r.app_id=a.id AND r.created_at>=?1), \
     (SELECT COALESCE(SUM(r.actual_micro),0) FROM requests r WHERE r.app_id=a.id AND r.created_at>=?1 AND r.status='completed') \
-    FROM apps a WHERE a.owner_user_id=?2";
+    FROM apps a WHERE a.owner_user_id=?2 AND a.deleted_at IS NULL";
 fn since_7d() -> String {
     format!(
         "{}T00:00:00",
@@ -383,7 +385,7 @@ pub async fn apps_claim(
             }
         })?;
     let won = sqlx::query(
-        "UPDATE apps SET owner_user_id=? WHERE id=? AND (owner_user_id IS NULL OR owner_user_id=?)",
+        "UPDATE apps SET owner_user_id=? WHERE id=? AND deleted_at IS NULL AND (owner_user_id IS NULL OR owner_user_id=?)",
     )
     .bind(&u)
     .bind(&id)
@@ -417,6 +419,93 @@ pub async fn apps_report(
     let u = auth_level(&s, &h, READ).await?;
     owned_app(&s, &u, &id).await?;
     crate::routes::report_json(&s, &id, &q).await
+}
+
+/// Edit name, homepage and allowed origins (null origins = server app only). New connections use the
+/// new values; existing grants keep working.
+// ponytail: the sealed secret still carries the old record, which only matters if the row vanishes
+// (database reset); re-creation would bring back the old values. Re-seal on edit if that ever matters.
+pub async fn apps_update(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<String>,
+    J(b): J<NewApp>,
+) -> R<Json<Value>> {
+    let u = auth_level(&s, &h, READ).await?;
+    owned_app(&s, &u, &id).await?;
+    crate::routes::check_app(&b)?;
+    let origins = b
+        .allowed_origins
+        .as_ref()
+        .map(|o| serde_json::to_string(o).unwrap_or_default());
+    sqlx::query("UPDATE apps SET name=?, homepage=?, allowed_origins=? WHERE id=? AND owner_user_id=? AND deleted_at IS NULL")
+        .bind(b.name.trim())
+        .bind(&b.homepage)
+        .bind(&origins)
+        .bind(&id)
+        .bind(&u)
+        .execute(&s.db)
+        .await?;
+    let r: AppRowT = sqlx::query_as(&format!("{APP_SUMMARY} AND a.id=?3"))
+        .bind(since_7d())
+        .bind(&u)
+        .bind(&id)
+        .fetch_one(&s.db)
+        .await?;
+    Ok(Json(app_summary(r)))
+}
+
+/// Delete an app: its secret stops working, every user's grant for it is revoked, waiting calls are
+/// denied (never sent, reservations refunded) and pending connect codes are refused. Users keep
+/// their history. Calls already being sent finish.
+pub async fn apps_delete(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let u = auth_level(&s, &h, READ).await?;
+    let mut tx = s.db.begin().await?;
+    // write first: takes the write lock, so nothing is claimed for sending while we deny
+    let n = sqlx::query(
+        "UPDATE apps SET deleted_at=? WHERE id=? AND owner_user_id=? AND deleted_at IS NULL",
+    )
+    .bind(now())
+    .bind(&id)
+    .bind(&u)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if n != 1 {
+        return Err(not_found("app"));
+    }
+    let gids: Vec<String> = sqlx::query_scalar(
+        "UPDATE grants SET revoked_at=? WHERE app_id=? AND revoked_at IS NULL RETURNING id",
+    )
+    .bind(now())
+    .bind(&id)
+    .fetch_all(&mut *tx)
+    .await?;
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM requests WHERE app_id=? AND status IN ('pending','approved')",
+    )
+    .bind(&id)
+    .fetch_all(&mut *tx)
+    .await?;
+    let denied = crate::ops::deny_unsent(&mut tx, ids).await?;
+    sqlx::query("UPDATE connect_codes SET status='denied' WHERE app_id=? AND status='pending'")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    for r in &denied {
+        emit_request(&s, "request.updated", r).await;
+    }
+    for g in &gids {
+        emit_grant(&s, g).await;
+    }
+    Ok(Json(
+        json!({"deleted": true, "grants_revoked": gids.len(), "requests_denied": denied.len()}),
+    ))
 }
 
 pub async fn apps_rotate(

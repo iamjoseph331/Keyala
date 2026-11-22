@@ -78,6 +78,27 @@ pub async fn logout(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     Ok(Json(json!({"signed_out": true})))
 }
 
+/// Denies pending or approved-but-unsent requests and refunds their reservations. Run inside a
+/// transaction that already holds the write lock (so nothing is claimed for sending meanwhile).
+pub(crate) async fn deny_unsent(
+    tx: &mut sqlx::SqliteConnection,
+    ids: Vec<String>,
+) -> Result<Vec<String>, sqlx::Error> {
+    let mut denied = vec![];
+    for id in ids {
+        let won = sqlx::query("UPDATE requests SET status='denied', decided_at=? WHERE id=? AND status IN ('pending','approved')").bind(now()).bind(&id).execute(&mut *tx).await?.rows_affected() == 1;
+        if won {
+            let r: RequestRow = sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?"))
+                .bind(&id)
+                .fetch_one(&mut *tx)
+                .await?;
+            refund(tx, &r).await?; // only requests that were never sent get here: no double refund
+            denied.push(id);
+        }
+    }
+    Ok(denied)
+}
+
 pub async fn stop_all(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
     let mut tx = s.db.begin().await?;
@@ -95,18 +116,7 @@ pub async fn stop_all(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>>
     .bind(&u)
     .fetch_all(&mut *tx)
     .await?;
-    let mut denied = vec![];
-    for id in ids {
-        let won = sqlx::query("UPDATE requests SET status='denied', decided_at=? WHERE id=? AND status IN ('pending','approved')").bind(now()).bind(&id).execute(&mut *tx).await?.rows_affected() == 1;
-        if won {
-            let r: RequestRow = sqlx::query_as(&format!("{REQUEST_SELECT} WHERE r.id=?"))
-                .bind(&id)
-                .fetch_one(&mut *tx)
-                .await?;
-            refund(&mut tx, &r).await?; // only requests that were never sent get here: no double refund
-            denied.push(id);
-        }
-    }
+    let denied = deny_unsent(&mut tx, ids).await?;
     let in_flight: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM requests WHERE user_id=? AND status='sending'")
             .bind(&u)

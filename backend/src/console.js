@@ -15,7 +15,10 @@ const T = { en: {
   homepage: 'Homepage (optional)', origins: 'Allowed origins, comma separated (optional, for browser apps)',
   addExisting: 'Add an existing app', secret: 'App secret', add: 'Add',
   secretOnce: 'Copy this secret now. It is shown only once.', copy: 'Copy', copied: 'Copied',
-  report: 'Report', days: 'days', rotate: 'Rotate secret', rotateAsk: 'Rotate the secret? The old one stops working at once.',
+  report: 'Report', days: 'days', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved.', del: 'Delete',
+  editTitle: 'Edit app', originsNote: 'New connections use the new values. People already connected keep working.',
+  delAsk: 'Delete this app? Its secret stops working, every connected user loses access at once, and waiting calls are refused. This cannot be undone. Type the app name to confirm:',
+  delMismatch: 'The name did not match, nothing was deleted.', deleted: 'App deleted.', origins_: 'origins', serverOnly: 'server app (no browser origins)', rotate: 'Rotate secret', rotateAsk: 'Rotate the secret? The old one stops working at once.',
   requests: 'Requests', completed: 'Completed', denied: 'Denied', failed: 'Failed', users: 'Users', newUsers: 'new users',
   daily: 'Daily requests', models: 'Models', countries: 'Countries', unknown: 'Unknown', when: 'When people use it',
   whenNote: 'Shown in your time zone', busiest: 'Busiest hour', weekend: 'Weekend share',
@@ -216,8 +219,38 @@ async function appsView(body) {
     try {
       const apps = await api('GET', '/v1/me/apps');
       list.replaceChildren(...(apps.length ? apps.map(a => h('div', { class: 'row' },
-        h('div', {}, h('b', {}, a.name), h('div', { class: 'muted' }, a.id + ', ' + a.requests_7d + ' ' + L.calls7 + ', ' + money(a.cost_usd_7d))),
-        h('button', { onclick: () => report(a, 30) }, L.report))) : [h('span', { class: 'muted' }, L.noApps)]));
+        h('div', {}, h('b', {}, a.name), h('div', { class: 'muted' }, a.id + ', ' + a.requests_7d + ' ' + L.calls7 + ', ' + money(a.cost_usd_7d)),
+          h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly)),
+        h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
+          h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('span', { class: 'muted' }, L.noApps)]));
+    } catch (e) { fail(err)(e); }
+  }
+  function edit(a) {
+    err.textContent = '';
+    const n = h('input', { maxlength: 100, value: a.name }), hp = h('input', { type: 'url', value: a.homepage || '' });
+    const og = h('input', { placeholder: 'https://example.com', value: (a.allowed_origins || []).join(', ') });
+    const f = h('form', { class: 'card' }, h('h3', {}, L.editTitle + ': ' + a.id), h('label', {}, L.name, n), h('label', {}, L.homepage, hp),
+      h('label', {}, L.origins, og), h('p', { class: 'muted' }, L.originsNote),
+      h('p', {}, h('button', { class: 'primary', type: 'submit' }, L.save), ' ', h('button', { type: 'button', onclick: () => rep.replaceChildren() }, L.cancel)));
+    f.addEventListener('submit', async ev => {
+      ev.preventDefault(); err.textContent = '';
+      const o = og.value.split(',').map(x => x.trim()).filter(Boolean);
+      try {
+        await api('PUT', '/v1/me/apps/' + encodeURIComponent(a.id), { name: n.value, homepage: hp.value || null, allowed_origins: o.length ? o : null });
+        if (!f.isConnected) return;
+        rep.replaceChildren(h('p', { class: 'muted' }, L.saved)); load();
+      } catch (e) { fail(err)(e); }
+    });
+    rep.replaceChildren(f); f.scrollIntoView({ behavior: 'smooth' }); n.focus();
+  }
+  async function del(a) {
+    err.textContent = '';
+    const typed = prompt(L.delAsk + '\n\n' + a.name);
+    if (typed === null) return;
+    if (typed.trim() !== a.name) { err.textContent = L.delMismatch; return; }
+    try {
+      await api('DELETE', '/v1/me/apps/' + encodeURIComponent(a.id));
+      rep.replaceChildren(); notice.replaceChildren(h('p', { class: 'muted' }, L.deleted)); load();
     } catch (e) { fail(err)(e); }
   }
   async function report(a, days) {
