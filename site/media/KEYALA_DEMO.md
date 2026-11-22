@@ -16,5 +16,5 @@ Caption: **Native app demo with a local mock provider. Fictional data; no real
 provider charge.**
 
 The short clip is raw interface footage, without narration or tutorial captions.
-The guided tutorial videos remain future work. Original recording context:
-`docs/qa/domain-phase2-20261120/README.md`.
+The guided tutorial videos remain future work. Original recording and internal
+QA notes are kept locally.
