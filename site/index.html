@@ -37,6 +37,36 @@ en: {
   'dev.3': 'Built-in dashboard: calls, cost, models, countries, busiest hours.',
   'dev.4': 'No keys to store, no bill to carry. Free.',
   'dev.link': 'Read the developer docs',
+  "dev.reg": "Register your app (step by step)",
+  "reg.h": "Register your app",
+  "reg.lead": "Every app registers once before it can connect users. It is free and takes about a minute in the console.",
+  "reg.1h": "Sign in to the console",
+  "reg.1p": "Open <a href=\"https://app.keyala.io/console\">app.keyala.io/console</a> and scan the code with the Keyala app, or use the web password you set in the app.",
+  "reg.2h": "Create the app",
+  "reg.2p": "Open <b>My apps</b> and fill in <b>Create app</b>. The name is what users see on their phone. A website also needs its <b>allowed origin</b>: the scheme and host only, like <code>https://you.github.io</code>, not <code>https://you.github.io/project/</code>.",
+  "reg.3h": "Copy the two values",
+  "reg.3p": "You get an <b>App ID</b> and an <b>App secret</b>. The secret is shown only once, so save it in a password manager right away.",
+  "reg.4h": "Put the App ID in your code",
+  "reg.4p": "A website passes it to <code>Keyala.connect({ app: \"app_...\" })</code>. A server keeps the secret and uses it to start connections.",
+  "id.h": "App ID",
+  "id.tag": "public",
+  "id.p": "Starts with <code>app_</code>. It names your app. Safe to put in web page code and in Git.",
+  "sec.h": "App secret",
+  "sec.tag": "private",
+  "sec.p": "Starts with <code>keyala_app_</code>. It proves you own the app: a server uses it to start connections, and it opens your usage report. Never put it in a web page, an iPhone app or Git. It never gives access to anyone's API key.",
+  "faq.h": "Questions",
+  "faq.1q": "What happens if I do not register?",
+  "faq.1a": "Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.",
+  "faq.2q": "Why register in the console rather than with the API?",
+  "faq.2a": "Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.",
+  "faq.3q": "How do I know it worked?",
+  "faq.3a": "The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus \"from\" your site for a website. After the first approved call, the app's numbers in the console go up.",
+  "faq.4q": "The page says \"this origin is not allowed for this app\".",
+  "faq.4a": "The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Origins cannot be edited yet, so create a new app with the right one and use its App ID.",
+  "faq.5q": "I lost the secret, or it leaked.",
+  "faq.5a": "In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.",
+  "faq.6q": "Do I need the secret for a website?",
+  "faq.6a": "Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.",
   'usr.h': 'For users',
   'usr.1': 'See the exact prompt and the response, every time.',
   'usr.2': 'You set the limit: ask each time, a number of calls, a budget, or trust.',
@@ -76,6 +106,36 @@ en: {
   'dev.3': '內建儀表板：呼叫次數、費用、模型、國家、最忙時段。',
   'dev.4': '不用保管金鑰，也不用負擔帳單。免費。',
   'dev.link': '閱讀開發者文件',
+  "dev.reg": "登錄你的應用程式（逐步說明）",
+  "reg.h": "登錄你的應用程式",
+  "reg.lead": "每個應用程式都要先登錄一次，才能讓使用者連線。免費，在控制台大約一分鐘就能完成。",
+  "reg.1h": "登入控制台",
+  "reg.1p": "打開 <a href=\"https://app.keyala.io/console\">app.keyala.io/console</a>，用 Keyala App 掃描畫面上的 QR code，或使用你在 App 裡設定的網頁密碼。",
+  "reg.2h": "建立應用程式",
+  "reg.2p": "到 <b>My apps</b>，填寫 <b>Create app</b>。名稱就是使用者在手機上看到的名字。網站還要填 <b>allowed origin</b>：只寫通訊協定加主機，例如 <code>https://you.github.io</code>，不是 <code>https://you.github.io/project/</code>。",
+  "reg.3h": "複製兩個值",
+  "reg.3p": "你會拿到 <b>App ID</b> 和 <b>App secret</b>。secret 只會顯示這一次，請立刻存進密碼管理器。",
+  "reg.4h": "把 App ID 放進程式碼",
+  "reg.4p": "網站把它傳給 <code>Keyala.connect({ app: \"app_...\" })</code>。伺服器端則保管 secret，用它來發起連線。",
+  "id.h": "App ID",
+  "id.tag": "公開",
+  "id.p": "以 <code>app_</code> 開頭，是你的應用程式的名字。可以放進網頁程式碼和 Git。",
+  "sec.h": "App secret",
+  "sec.tag": "保密",
+  "sec.p": "以 <code>keyala_app_</code> 開頭，用來證明這個應用程式是你的：伺服器用它發起連線，也用它打開你的使用報表。絕對不要放進網頁、iPhone App 或 Git。它不會讓任何人拿到別人的 API 金鑰。",
+  "faq.h": "常見問題",
+  "faq.1q": "不登錄會怎樣？",
+  "faq.1a": "你的應用程式無法讓任何人連線。每一次連線都要指定一個已登錄的應用程式，使用者在核准前會在手機上看到它的名稱。",
+  "faq.2q": "為什麼要在控制台登錄，而不是用 API？",
+  "faq.2a": "在控制台建立的應用程式屬於你的帳號。只要登入就能看到使用報表（呼叫次數、費用、模型、國家、最忙時段），secret 遺失或外流時，不需要舊的 secret 也能更換。之前用 <code>POST /v1/apps</code> 建立的應用程式，可以在 <b>My apps</b> 用 <b>Add an existing app</b> 加上它的 secret 加入。",
+  "faq.3q": "怎麼知道登錄成功了？",
+  "faq.3a": "應用程式會出現在 My apps，並顯示 App ID。接著打開你的網頁試著連線：Keyala 的對話框會顯示 QR code（而不是錯誤），手機上會顯示你的應用程式名稱；如果是網站，還會顯示「來自」你的網址。第一次核准的呼叫完成後，控制台裡的數字就會增加。",
+  "faq.4q": "網頁顯示「this origin is not allowed for this app」。",
+  "faq.4a": "網頁的 origin 不在你登錄的清單裡。請比對網址列的通訊協定與主機，和應用程式的 allowed origins 是否一致。目前 origin 還不能修改，請用正確的 origin 建立一個新的應用程式，改用它的 App ID。",
+  "faq.5q": "secret 遺失或外流了。",
+  "faq.5a": "在 My apps 打開該應用程式，選 <b>Rotate secret</b>。舊的 secret 會立刻失效。使用者的連線不受影響，因為它們從來不依賴 secret。",
+  "faq.6q": "網站需要 secret 嗎？",
+  "faq.6a": "網頁裡不需要。網站只需要 App ID 和它的 allowed origin。secret 留著看使用報表和更換用。",
   'usr.h': '給使用者',
   'usr.1': '每次都能看到完整的提示詞與回應。',
   'usr.2': '額度由你決定：每次詢問、限定次數、預算上限，或完全信任。',
@@ -115,6 +175,36 @@ ja: {
   'dev.3': 'ダッシュボード標準搭載：呼び出し数、費用、モデル、国、混む時間帯。',
   'dev.4': 'キーの保管も、請求の負担も不要。無料です。',
   'dev.link': '開発者ドキュメントを読む',
+  "dev.reg": "アプリを登録する（手順）",
+  "reg.h": "アプリを登録する",
+  "reg.lead": "ユーザーと接続する前に、アプリを一度だけ登録します。無料で、コンソールから1分ほどで終わります。",
+  "reg.1h": "コンソールにサインイン",
+  "reg.1p": "<a href=\"https://app.keyala.io/console\">app.keyala.io/console</a> を開き、Keyalaアプリでコードを読み取るか、アプリで設定したWebパスワードを使います。",
+  "reg.2h": "アプリを作成",
+  "reg.2p": "<b>My apps</b> を開いて <b>Create app</b> に入力します。名前はユーザーのスマホに表示されます。Webサイトの場合は <b>allowed origin</b> も必要です。スキームとホストだけを書きます（例：<code>https://you.github.io</code>。<code>https://you.github.io/project/</code> ではありません）。",
+  "reg.3h": "2つの値をコピー",
+  "reg.3p": "<b>App ID</b> と <b>App secret</b> が表示されます。secret は一度しか表示されないので、すぐにパスワードマネージャーに保存してください。",
+  "reg.4h": "App ID をコードに入れる",
+  "reg.4p": "Webサイトは <code>Keyala.connect({ app: \"app_...\" })</code> に渡します。サーバーは secret を保管し、接続を始めるときに使います。",
+  "id.h": "App ID",
+  "id.tag": "公開",
+  "id.p": "<code>app_</code> で始まり、アプリを識別します。Webページのコードや Git に入れても問題ありません。",
+  "sec.h": "App secret",
+  "sec.tag": "秘密",
+  "sec.p": "<code>keyala_app_</code> で始まり、アプリの持ち主であることを証明します。サーバーが接続を始めるときや、利用レポートを開くときに使います。Webページ、iPhoneアプリ、Git には絶対に入れないでください。これで誰かのAPIキーが手に入ることはありません。",
+  "faq.h": "よくある質問",
+  "faq.1q": "登録しないとどうなりますか？",
+  "faq.1a": "アプリは誰とも接続できません。接続には必ず登録済みのアプリが指定され、ユーザーは承認する前にその名前をスマホで確認します。",
+  "faq.2q": "APIではなくコンソールで登録する理由は？",
+  "faq.2a": "コンソールで作ったアプリはあなたのアカウントに属します。サインインすればいつでも利用レポート（呼び出し数、費用、モデル、国、混む時間帯）を見られ、secret をなくしたり漏れたりしても古い secret なしで交換できます。以前 <code>POST /v1/apps</code> で作ったアプリは、<b>My apps</b> の <b>Add an existing app</b> に secret を入れて追加できます。",
+  "faq.3q": "登録できたかどうかはどう確かめますか？",
+  "faq.3a": "My apps にアプリが App ID 付きで表示されます。次に自分のページで接続してみてください。Keyalaのダイアログに（エラーではなく）QRコードが表示され、スマホにアプリ名が出ます。Webサイトなら、あなたのサイト「から」の接続であることも表示されます。最初の呼び出しが承認されると、コンソールの数字が増えます。",
+  "faq.4q": "「this origin is not allowed for this app」と表示されます。",
+  "faq.4a": "ページの origin が登録したものと一致していません。アドレスバーのスキームとホストを、アプリの allowed origins と見比べてください。origin はまだ編集できないので、正しい origin で新しいアプリを作り、その App ID を使ってください。",
+  "faq.5q": "secret をなくした、または漏れてしまいました。",
+  "faq.5a": "My apps でアプリを開き、<b>Rotate secret</b> を選びます。古い secret はすぐに使えなくなります。ユーザーの接続は secret に依存していないので、そのまま使えます。",
+  "faq.6q": "Webサイトに secret は必要ですか？",
+  "faq.6a": "ページの中には不要です。Webサイトに必要なのは App ID と allowed origin だけです。secret は利用レポートと交換のために保管しておきます。",
   'usr.h': 'ユーザー向け',
   'usr.1': '毎回、プロンプトとレスポンスをそのまま確認できます。',
   'usr.2': '上限はあなたが決めます：毎回確認、回数、予算、または信頼。',
@@ -184,6 +274,7 @@ ja: {
   base_url="https://app.keyala.io/v1/openai",
   api_key=grant_token,
   max_retries=0)</code></pre>
+    <p><a href="#register" data-i18n="dev.reg">Register your app (step by step)</a></p>
     <a href="docs/" data-i18n="dev.link">Read the developer docs</a>
   </div>
   <div class="card">
@@ -191,6 +282,18 @@ ja: {
     <ul><li data-i18n="usr.1">See the exact prompt and the response, every time.</li><li data-i18n="usr.2">You set the limit: ask each time, a number of calls, a budget, or trust.</li><li data-i18n="usr.3">Your key stays in Keyala. Apps never get it.</li><li data-i18n="usr.4">Revoke any app at any time.</li></ul>
     <a href="guide/" data-i18n="usr.link">Read the user guide</a>
   </div>
+</div></section>
+
+<section id="register"><div class="wrap">
+  <h2 data-i18n="reg.h">Register your app</h2>
+  <p class="lead" data-i18n="reg.lead">Every app registers once before it can connect users. It is free and takes about a minute in the console.</p>
+  <ol class="steps reg"><li><h3 data-i18n="reg.1h">Sign in to the console</h3><p data-i18n-html="reg.1p">Open <a href="https://app.keyala.io/console">app.keyala.io/console</a> and scan the code with the Keyala app, or use the web password you set in the app.</p></li><li><h3 data-i18n="reg.2h">Create the app</h3><p data-i18n-html="reg.2p">Open <b>My apps</b> and fill in <b>Create app</b>. The name is what users see on their phone. A website also needs its <b>allowed origin</b>: the scheme and host only, like <code>https://you.github.io</code>, not <code>https://you.github.io/project/</code>.</p></li><li><h3 data-i18n="reg.3h">Copy the two values</h3><p data-i18n-html="reg.3p">You get an <b>App ID</b> and an <b>App secret</b>. The secret is shown only once, so save it in a password manager right away.</p></li><li><h3 data-i18n="reg.4h">Put the App ID in your code</h3><p data-i18n-html="reg.4p">A website passes it to <code>Keyala.connect({ app: "app_..." })</code>. A server keeps the secret and uses it to start connections.</p></li></ol>
+  <div class="ids">
+    <div class="card"><h3><span data-i18n="id.h">App ID</span> <span class="tag pub" data-i18n="id.tag">public</span></h3><p data-i18n-html="id.p">Starts with <code>app_</code>. It names your app. Safe to put in web page code and in Git.</p></div>
+    <div class="card"><h3><span data-i18n="sec.h">App secret</span> <span class="tag priv" data-i18n="sec.tag">private</span></h3><p data-i18n-html="sec.p">Starts with <code>keyala_app_</code>. It proves you own the app: a server uses it to start connections, and it opens your usage report. Never put it in a web page, an iPhone app or Git. It never gives access to anyone's API key.</p></div>
+  </div>
+  <h3 class="faq-h" data-i18n="faq.h">Questions</h3>
+  <div class="faq"><details><summary data-i18n="faq.1q">What happens if I do not register?</summary><p data-i18n-html="faq.1a">Your app cannot connect anyone. Every connection names a registered app, and the user's phone shows that name before they approve.</p></details><details><summary data-i18n="faq.2q">Why register in the console rather than with the API?</summary><p data-i18n-html="faq.2a">Apps created in the console belong to your account. You see their usage report (calls, cost, models, countries, busiest hours) whenever you sign in, and you can rotate a lost or leaked secret without the old one. An app made earlier with <code>POST /v1/apps</code> can be added under <b>My apps</b> with <b>Add an existing app</b> and its secret.</p></details><details><summary data-i18n="faq.3q">How do I know it worked?</summary><p data-i18n-html="faq.3a">The app is listed under My apps with its App ID. Then open your page and connect: Keyala's dialog shows a QR code (not an error), and the phone shows your app name, plus "from" your site for a website. After the first approved call, the app's numbers in the console go up.</p></details><details><summary data-i18n="faq.4q">The page says "this origin is not allowed for this app".</summary><p data-i18n-html="faq.4a">The page's origin is not one you registered. Compare the address bar's scheme and host with the app's allowed origins. Origins cannot be edited yet, so create a new app with the right one and use its App ID.</p></details><details><summary data-i18n="faq.5q">I lost the secret, or it leaked.</summary><p data-i18n-html="faq.5a">In My apps, open the app and choose <b>Rotate secret</b>. The old secret stops working at once. Users' connections keep working, since they never depended on the secret.</p></details><details><summary data-i18n="faq.6q">Do I need the secret for a website?</summary><p data-i18n-html="faq.6a">Not in the page. A website only needs the App ID and its allowed origin. Keep the secret for the usage report and for rotating it.</p></details></div>
 </div></section>
 
 <section><div class="wrap">
