@@ -1,5 +1,7 @@
 # Keyala iOS
 
+External testers: see the [TestFlight tester guide](TestFlight/TESTER_GUIDE.md) in English, Traditional Chinese and Japanese. It accompanies an invitation; it does not establish that a build is available in TestFlight.
+
 Native SwiftUI client, iOS 17 or newer. Fresh installs connect to the built-in production service and start with Sign in with Apple. Existing explicit staging/custom server choices are preserved. No server URL entry is needed for normal use. HTTPS is required; HTTP is accepted only for loopback hosts when the development option is enabled.
 
 The four tabs are **Inbox**, **Apps**, **Keys**, and **Settings**. Inbox has Waiting and Activity lists and a primary scanner action. Scan the app website’s connection QR or tap its link on this phone, review the source, then approve. The KY- code remains a fallback. Camera denial and unsupported devices retain code entry. Settings contains account, appearance, notifications and Developer options. In **Inbox → Activity**, tap a past request to inspect its full payload and any recorded provider response.
