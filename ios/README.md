@@ -66,6 +66,14 @@ Personal Team provisioning expires after seven days. Rebuild and reinstall when 
 
 ## Build
 
+Release uploads use Xcode 27.2 or later with the iOS 27.2 SDK or later. The app's
+minimum supported iOS version remains 17. Set `DEVELOPER_DIR` when multiple Xcode
+versions are installed, then confirm `xcodebuild -version` and
+`xcrun --sdk iphoneos --show-sdk-version` before archiving. `CURRENT_PROJECT_VERSION`
+in the target build settings supplies `CFBundleVersion`; increase it for each
+App Store Connect delivery. Validate the full archive, including its assets and
+localizations, before uploading.
+
 ```sh
 xcodebuild -project ios/Keyala/Keyala.xcodeproj \
   -target Keyala -configuration Debug -sdk iphonesimulator \
