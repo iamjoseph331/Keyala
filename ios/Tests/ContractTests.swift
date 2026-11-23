@@ -55,6 +55,11 @@ enum ContractTests {
         preferences.set(AppPreferences.legacyProductionURL, forKey: "serverURL")
         precondition(!AppPreferences.load(preferences).developerOptions, "Migrated production stays normal production")
         precondition(AppPreferences.builtInURL(for: AppPreferences.productionURL) != AppPreferences.builtInURL(for: AppPreferences.stagingURL))
+        precondition(AppPreferences.builtInURL(for: AppPreferences.reviewURL) == AppPreferences.reviewURL)
+        precondition(PairingLink.code(from: AppPreferences.reviewURL + "/connect/KY-4F7Q") == "KY-4F7Q")
+        precondition(PairingLink.matchesServer(AppPreferences.reviewURL + "/connect/KY-4F7Q", activeServer: AppPreferences.reviewURL))
+        precondition(!PairingLink.matchesServer(AppPreferences.reviewURL + "/connect/KY-4F7Q", activeServer: AppPreferences.productionURL))
+        precondition(AppPreferences.builtInURL(for: AppPreferences.reviewURL + ".evil") == nil)
         for invalid in ["https://staging.keyala.io.evil", "http://staging.keyala.io", "https://user@staging.keyala.io", "https://staging.keyala.io:443", "https://staging.keyala.io/custom", "https://staging.keyala.io?x=1"] {
             precondition(AppPreferences.builtInURL(for: invalid) == nil)
         }
