@@ -262,6 +262,7 @@ struct AppPreferences {
     static let legacyProductionURL = "https://masterkey-prod-vkgm.onrender.com"
     static let stagingURL = "https://staging.keyala.io"
     static let legacyStagingURL = "https://masterkey-staging-vkgm.onrender.com"
+    static let reviewURL = "https://keyala-review.onrender.com"
 
     // Keep exact same-service aliases for the first custom-domain release only.
     static func builtInURL(for value: String) -> String? {
@@ -272,6 +273,7 @@ struct AppPreferences {
         switch "https://" + host {
         case productionURL, legacyProductionURL: return productionURL
         case stagingURL, legacyStagingURL: return stagingURL
+        case reviewURL: return reviewURL
         default: return nil
         }
     }
