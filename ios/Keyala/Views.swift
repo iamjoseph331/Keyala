@@ -600,8 +600,8 @@ struct AccountView: View {
                     Text("Permanently remove your Keyala account, keys, permissions and history. Your provider accounts and subscriptions are separate.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
                 }
             }
-            if !store.demoMode, store.account == nil, store.supportsStagingPassword {
-                Section("Staging sign-in") {
+            if !store.demoMode, store.account == nil, store.supportsPasswordSignIn {
+                Section("Password sign-in") {
                     TextField("Username", text: $stagingUsername)
                         .textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled()
                     SecureField("Password", text: $stagingPassword)
@@ -614,7 +614,7 @@ struct AccountView: View {
                     }.disabled(store.busy || stagingUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stagingPassword.isEmpty)
                 }
             }
-            if store.developerOptions, !store.demoMode, store.account == nil, !store.supportsStagingPassword, store.serverURL != AppPreferences.productionURL {
+            if store.developerOptions, !store.demoMode, store.account == nil, !store.supportsPasswordSignIn, store.serverURL != AppPreferences.productionURL {
                 Section("Development sign-in") {
                     TextField("Developer email", text: $store.email)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -768,6 +768,7 @@ struct DeveloperOptionsView: View {
                 Section("Server") {
                     Button("Use production") { store.useServer(AppPreferences.productionURL); serverDraft = store.serverURL }
                     Button("Use staging") { store.useServer(AppPreferences.stagingURL); serverDraft = store.serverURL }
+                    Button("Use review server") { store.useServer(AppPreferences.reviewURL); serverDraft = store.serverURL }
                     TextField("Custom HTTPS URL", text: $serverDraft).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Button("Use custom server") { store.useServer(serverDraft) }.disabled(serverDraft == store.serverURL || store.demoMode)
                     Toggle("Allow HTTP for localhost", isOn: $store.allowLocalHTTP).onChange(of: store.allowLocalHTTP) { _, _ in store.saveSettings() }

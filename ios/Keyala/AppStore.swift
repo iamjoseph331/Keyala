@@ -39,8 +39,9 @@ import LocalAuthentication
     private let providerBrowser = ProviderAuthenticationBrowser()
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
-    var supportsStagingPassword: Bool {
-        AppPreferences.builtInURL(for: serverURL) == AppPreferences.stagingURL
+    var supportsPasswordSignIn: Bool {
+        let server = AppPreferences.builtInURL(for: serverURL)
+        return server == AppPreferences.stagingURL || server == AppPreferences.reviewURL
     }
     private var demoLoaded = false
     @Published private(set) var contextGeneration = 0
@@ -85,7 +86,7 @@ import LocalAuthentication
         await signIn { try await $0.appleLogin(idToken: idToken) }
     }
     func signInPassword(username: String, password: String) async {
-        guard supportsStagingPassword else { return }
+        guard supportsPasswordSignIn else { return }
         await signIn { try await $0.passwordLogin(username: username, password: password) }
     }
     private func signIn(using authenticate: (APIClient) async throws -> AuthenticatedSession) async {

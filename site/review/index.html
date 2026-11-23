@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Keyala review tool</title>
+<link rel="stylesheet" href="../base.css">
+<style>main{max-width:720px;margin:40px auto;padding:24px}section{background:white;border:1px solid #dce5da;border-radius:20px;padding:24px;margin:20px 0}button{font:inherit;padding:12px 20px;cursor:pointer}button:disabled{opacity:.5;cursor:default}code,pre{overflow-wrap:anywhere;white-space:pre-wrap}#code{font-size:2rem;font-weight:bold}img{max-width:220px;width:100%}a{color:inherit}</style>
+<main>
+<a href="../">Keyala</a>
+<h1>Review a request, without provider charges</h1>
+<p>This tool connects only to Keyala's separate review server. Its responses and costs are simulated. Never enter a real provider key or private text here. The free server may take a minute to wake up; its test data can reset.</p>
+<section>
+<h2>1. Prepare the iPhone app</h2>
+<ol>
+<li>Open Settings → Developer options. Enable developer options, keep Use sample data off, then select <strong>Use review server</strong>.</li>
+<li>Open Settings → Account and sign in with the review username and password supplied privately in App Store Connect.</li>
+<li>In Keys, add an OpenAI key using this fictional value: <code>sk-proj-REVIEWFAKE0000</code>.</li>
+</ol>
+<p>Server: <code>https://keyala-review.onrender.com</code>. Production accounts and keys are separate.</p>
+</section>
+<section>
+<h2>2. Connect this tool</h2>
+<button id="connect">Create connection code</button>
+<div id="pair" hidden><p>Scan this QR using the scanner inside Keyala, or enter the code in the app. Select <strong>Ask every time</strong> when connecting.</p><img id="qr" alt="Connection QR"><p id="code"></p><a id="open">Open code in Keyala on this phone</a></div>
+</section>
+<section>
+<h2>3. Allow, deny, then revoke</h2>
+<p>Send the fictional prompt “Say hello to the Keyala reviewer.” Open Inbox on the iPhone and choose This call only. Check the response and Activity history. Send another request and choose Deny. Finally, revoke this tool in Apps, then send again to verify access has stopped.</p>
+<button id="send" disabled>Send one mock request</button>
+<pre id="status" role="status" aria-live="polite">Ready to connect.</pre>
+<p>Each press sends once. A network failure is never automatically retried. Reloading this page forgets its connection token; revoke the old grant in the app if you no longer need it.</p>
+</section>
+<p>Account deletion can be tested using the disposable review account in Settings → Account. Sign in again with the same supplied password to recreate it. Push notifications and real Apple sign-in require separate production verification.</p>
+<a href="../privacy/">Privacy</a> / <a href="../support/">Support</a>
+</main>
+<script src="review.js"></script>
+</html>
