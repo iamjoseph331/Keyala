@@ -139,18 +139,28 @@ pub async fn stop_all(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>>
 
 // ---------- account deletion ----------
 
+/// Proof that the caller is the account owner right now (one of the four).
 #[derive(Deserialize)]
-pub struct DeleteReq {
-    confirm: String,
+pub struct FreshIdentity {
     id_token: Option<String>,
-    authorization_code: Option<String>,
     password: Option<String>,
     email: Option<String>,
     /// any account with a passkey: an assertion for a `/v1/auth/passkey/options` challenge
     passkey: Option<crate::passkey::Assertion>,
 }
 
-fn reauth_failed() -> ApiError {
+/// Field names of [`FreshIdentity`], for endpoints that reject anything else.
+pub const FRESH_FIELDS: [&str; 4] = ["id_token", "password", "email", "passkey"];
+
+#[derive(Deserialize)]
+pub struct DeleteReq {
+    confirm: String,
+    authorization_code: Option<String>,
+    #[serde(flatten)]
+    proof: FreshIdentity,
+}
+
+pub(crate) fn reauth_failed() -> ApiError {
     api(
         401,
         "reauth_failed",
@@ -246,31 +256,18 @@ async fn sending_count(
         .await
 }
 
-pub async fn delete_account(
-    State(s): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    h: HeaderMap,
-    J(b): J<DeleteReq>,
-) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
-    if b.confirm != "DELETE" {
-        return Err(api(
-            400,
-            "confirmation_required",
-            "send {\"confirm\": \"DELETE\"} to delete the account",
-        ));
-    }
-    rate_limit(&s, peer, &h, "delete", 5, 600, "account deletion attempts")?;
+/// Fresh identity for user `u`, same generic 401 for every failure. Returns whether the account is an
+/// Apple one (deletion then revokes the Apple tokens).
+pub(crate) async fn verify_fresh_identity(s: &AppState, u: &str, b: &FreshIdentity) -> R<bool> {
     let (email, apple_sub, google_sub): (String, Option<String>, Option<String>) =
         sqlx::query_as("SELECT email, apple_sub, google_sub FROM users WHERE id=?")
-            .bind(&u)
+            .bind(u)
             .fetch_one(&s.db)
             .await?;
-    // fresh identity, same generic 401 for every failure
     let is_apple = apple_sub.is_some();
     if let Some(a) = &b.passkey {
         // the challenge is at most 5 minutes old and single use, so this is fresh too
-        let who = crate::passkey::verify_assertion(&s, a)
+        let who = crate::passkey::verify_assertion(s, a)
             .await
             .map_err(|_| reauth_failed())?;
         if who != u {
@@ -279,9 +276,9 @@ pub async fn delete_account(
     } else if let Some(sub) = apple_sub.as_ref().or(google_sub.as_ref()) {
         let tok = b.id_token.as_deref().ok_or_else(reauth_failed)?;
         let c = if is_apple {
-            apple::verify(&s, tok).await
+            apple::verify(s, tok).await
         } else {
-            apple::verify_google(&s, tok).await
+            apple::verify_google(s, tok).await
         }
         .map_err(|_| reauth_failed())?;
         let iat = c.iat.ok_or_else(reauth_failed)?;
@@ -308,6 +305,25 @@ pub async fn delete_account(
     {
         return Err(reauth_failed());
     }
+    Ok(is_apple)
+}
+
+pub async fn delete_account(
+    State(s): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    h: HeaderMap,
+    J(b): J<DeleteReq>,
+) -> R<Json<Value>> {
+    let u = auth_session(&s, &h).await?;
+    if b.confirm != "DELETE" {
+        return Err(api(
+            400,
+            "confirmation_required",
+            "send {\"confirm\": \"DELETE\"} to delete the account",
+        ));
+    }
+    rate_limit(&s, peer, &h, "delete", 5, 600, "account deletion attempts")?;
+    let is_apple = verify_fresh_identity(&s, &u, &b.proof).await?;
     let in_flight = || {
         api(
             409,

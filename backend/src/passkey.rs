@@ -12,6 +12,8 @@ use std::net::SocketAddr;
 const TTL_SECS: i64 = 300;
 const MAX_PER_USER: i64 = 10;
 const UP_UV: u8 = 0x01 | 0x04; // user present + user verified (Face ID / PIN)
+const BE: u8 = 0x08; // backup eligible
+const BS: u8 = 0x10; // backed up (only valid if BE)
 const AT: u8 = 0x40; // attested credential data included
 
 fn b64(b: &[u8]) -> String {
@@ -77,7 +79,7 @@ fn client_data_ok(s: &AppState, raw: &[u8], ty: &str, challenge: &str) -> bool {
         && c["origin"]
             .as_str()
             .is_some_and(|o| s.cfg.passkey_origins.iter().any(|a| a == o))
-        && c["crossOrigin"] != true
+        && matches!(c.get("crossOrigin"), None | Some(Value::Bool(false)))
 }
 
 /// rpIdHash and UP+UV flags checked; returns (flags, signCount, rest).
@@ -86,7 +88,7 @@ fn auth_data<'a>(s: &AppState, d: &'a [u8]) -> Option<(u8, u32, &'a [u8])> {
         return None;
     }
     let flags = d[32];
-    (flags & UP_UV == UP_UV).then(|| {
+    (flags & UP_UV == UP_UV && (flags & BS == 0 || flags & BE != 0)).then(|| {
         (
             flags,
             u32::from_be_bytes([d[33], d[34], d[35], d[36]]),
@@ -112,8 +114,37 @@ fn es256_point(k: &ciborium::Value) -> Option<Vec<u8>> {
 
 // ---------- registration (signed in) ----------
 
-pub async fn register_options(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
+pub async fn register_options(
+    State(s): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    h: HeaderMap,
+    body: axum::body::Bytes,
+) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
+    rate_limit(
+        &s,
+        peer,
+        &h,
+        "passkey_register",
+        20,
+        600,
+        "passkey registrations",
+    )?;
+    // a session alone is not enough: bad JSON, unknown fields or no proof are all the same 401
+    let v: Value = if body.is_empty() {
+        json!({})
+    } else {
+        serde_json::from_slice(&body).map_err(|_| crate::ops::reauth_failed())?
+    };
+    let known = v.as_object().is_some_and(|m| {
+        m.keys()
+            .all(|k| crate::ops::FRESH_FIELDS.contains(&k.as_str()))
+    });
+    let proof: crate::ops::FreshIdentity = known
+        .then(|| serde_json::from_value(v).ok())
+        .flatten()
+        .ok_or_else(crate::ops::reauth_failed)?;
+    crate::ops::verify_fresh_identity(&s, &u, &proof).await?;
     let (email, _) = crate::console::account(&s, &u).await?;
     let exclude: Vec<String> =
         sqlx::query_scalar("SELECT credential_id FROM passkeys WHERE user_id=?")

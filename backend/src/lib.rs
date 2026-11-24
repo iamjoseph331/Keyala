@@ -423,6 +423,7 @@ pub fn router(state: AppState) -> Router {
         .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
+        .route("/v1/auth/methods", get(auth_methods))
         .route("/v1/auth/google", post(google_login))
         .route("/v1/auth/passkey/options", post(passkey::login_options))
         .route("/v1/auth/passkey", post(passkey::login))

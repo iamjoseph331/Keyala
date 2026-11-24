@@ -5559,6 +5559,9 @@ impl Authn {
             .into_bytes()
     }
     fn registration(&self, opts: &Value) -> Value {
+        self.registration_with(opts, 0x45, None)
+    }
+    fn registration_with(&self, opts: &Value, flags: u8, cross: Option<Value>) -> Value {
         use ciborium::Value as C;
         use ring::signature::KeyPair;
         let pk = self.kp.public_key().as_ref();
@@ -5573,7 +5576,7 @@ impl Authn {
         let mut key = vec![];
         ciborium::into_writer(&cose, &mut key).unwrap();
         let ad = [
-            Self::auth_data(0x45, 0),
+            Self::auth_data(flags, 0),
             vec![0; 16],
             (self.id.len() as u16).to_be_bytes().to_vec(),
             self.id.clone(),
@@ -5587,8 +5590,17 @@ impl Authn {
         ]);
         let mut ao = vec![];
         ciborium::into_writer(&att, &mut ao).unwrap();
+        let mut cd: Value = serde_json::from_slice(&Self::client_data(
+            "webauthn.create",
+            &opts["challenge"],
+            "https://localhost",
+        ))
+        .unwrap();
+        if let Some(c) = cross {
+            cd["crossOrigin"] = c;
+        }
         json!({"challenge_id": opts["challenge_id"], "credential_id": b64u(&self.id), "attestation_object": b64u(&ao),
-            "client_data_json": b64u(&Self::client_data("webauthn.create", &opts["challenge"], "https://localhost")), "name": "iPhone"})
+            "client_data_json": b64u(cd.to_string().as_bytes()), "name": "iPhone"})
     }
     fn assertion(&self, opts: &Value, origin: &str, count: u32) -> Value {
         use sha2::Digest;
@@ -5623,7 +5635,7 @@ async fn passkey_register_sign_in_and_delete() {
         post(
             "/v1/me/passkeys/register/options".into(),
             me.clone(),
-            json!({}),
+            json!({"email": "a@b.co"}),
         )
         .await,
     )
@@ -5642,7 +5654,7 @@ async fn passkey_register_sign_in_and_delete() {
         post(
             "/v1/me/passkeys/register/options".into(),
             me.clone(),
-            json!({}),
+            json!({"email": "a@b.co"}),
         )
         .await,
     )
@@ -5746,12 +5758,107 @@ async fn passkey_register_sign_in_and_delete() {
 }
 
 #[tokio::test]
+async fn passkey_registration_needs_fresh_identity() {
+    let t = T::new().await;
+    let opts_req = |tok: String, body: Option<Value>| {
+        let r =
+            t.c.post(format!("{}/v1/me/passkeys/register/options", t.base))
+                .bearer_auth(tok);
+        match body {
+            Some(b) => r.json(&b).send(),
+            None => r.send(),
+        }
+    };
+    let fresh = |tok: String, email: &'static str| {
+        let response = opts_req(tok, Some(json!({ "email": email })));
+        async move { json_of(response.await.unwrap()).await }
+    };
+    // a session alone, wrong email, unknown field, extra field next to a valid proof, non-object: all 401 reauth_failed
+    for body in [
+        None,
+        Some(json!({})),
+        Some(json!({"email": "someone@else.co"})),
+        Some(json!({"nope": 1})),
+        Some(json!({"email": "a@b.co", "confirm": "DELETE"})),
+        Some(json!([])),
+    ] {
+        let r = opts_req(t.sess.clone(), body.clone()).await.unwrap();
+        assert_eq!(r.status(), 401, "{body:?}");
+        assert_eq!(json_of(r).await["error"]["type"], "reauth_failed");
+    }
+    // a valid proof works, and the challenge is bound to this account
+    let a = Authn::new();
+    let opts = fresh(t.sess.clone(), " A@B.co ").await;
+    let reg = |tok: &str, body: Value| {
+        t.c.post(format!("{}/v1/me/passkeys/register", t.base))
+            .bearer_auth(tok.to_string())
+            .json(&body)
+            .send()
+    };
+    let o = dev_session(&t.c, &t.base, "other@b.co").await;
+    assert_eq!(
+        json_of(reg(&o, a.registration(&opts)).await.unwrap()).await["error"]["type"],
+        "challenge_expired"
+    );
+    // crossOrigin true (or not a boolean) and BS without BE are rejected
+    for (flags, cross) in [
+        (0x45, Some(json!(true))),
+        (0x45, Some(json!("true"))),
+        (0x55, None),
+    ] {
+        let opts = fresh(t.sess.clone(), "a@b.co").await;
+        let r = reg(&t.sess, a.registration_with(&opts, flags, cross))
+            .await
+            .unwrap();
+        assert_eq!(json_of(r).await["error"]["type"], "passkey_rejected");
+    }
+    // crossOrigin false with BE+BS is fine
+    let opts = fresh(t.sess.clone(), "a@b.co").await;
+    let r = reg(
+        &t.sess,
+        a.registration_with(&opts, 0x5d, Some(json!(false))),
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.status(), 200);
+    // an existing passkey of this user is a valid proof; another user's passkey is not
+    let lo = || async {
+        json_of(
+            t.c.post(format!("{}/v1/auth/passkey/options", t.base))
+                .send()
+                .await
+                .unwrap(),
+        )
+        .await
+    };
+    let r = opts_req(
+        t.sess.clone(),
+        Some(json!({"passkey": a.assertion(&lo().await, "https://localhost", 0)})),
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.status(), 200);
+    let b = Authn::new();
+    let ob = fresh(o.clone(), "other@b.co").await;
+    assert_eq!(reg(&o, b.registration(&ob)).await.unwrap().status(), 200);
+    let r = opts_req(
+        t.sess.clone(),
+        Some(json!({"passkey": b.assertion(&lo().await, "https://localhost", 0)})),
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.status(), 401);
+    assert_eq!(json_of(r).await["error"]["type"], "reauth_failed");
+}
+
+#[tokio::test]
 async fn passkey_remove_is_owner_only() {
     let t = T::new().await;
     let a = Authn::new();
     let opts = json_of(
         t.c.post(format!("{}/v1/me/passkeys/register/options", t.base))
             .bearer_auth(&t.sess)
+            .json(&json!({"email": "a@b.co"}))
             .send()
             .await
             .unwrap(),
@@ -5776,4 +5883,54 @@ async fn passkey_remove_is_owner_only() {
     assert_eq!(del(o).await.unwrap().status(), 404);
     assert_eq!(del(t.sess.clone()).await.unwrap().status(), 204);
     assert_eq!(del(t.sess.clone()).await.unwrap().status(), 404);
+}
+
+#[tokio::test]
+async fn auth_methods_reports_what_is_configured() {
+    let methods = |cfg: Config| async move {
+        let (base, c, _) = serve(cfg).await;
+        let r = c
+            .get(format!("{base}/v1/auth/methods"))
+            .send()
+            .await
+            .unwrap(); // no auth header
+        assert_eq!(r.status(), 200);
+        r.json::<Value>().await.unwrap()
+    };
+    // test default: http public_url, no Google client IDs
+    let v = methods(test_cfg()).await;
+    assert_eq!(
+        v,
+        json!({"google": false, "passkeys": false, "passkey_rp_id": null})
+    );
+    // Google configured; an http public URL still means no passkeys
+    let v = methods(Config {
+        google_client_ids: vec!["g.apps.googleusercontent.com".into()],
+        passkey_rp_id: "mk.test".into(),
+        ..test_cfg()
+    })
+    .await;
+    assert_eq!(
+        v,
+        json!({"google": true, "passkeys": false, "passkey_rp_id": null})
+    );
+    // https public URL whose host is the RP ID
+    let v = methods(Config {
+        public_url: "https://app.keyala.io".into(),
+        passkey_rp_id: "app.keyala.io".into(),
+        ..test_cfg()
+    })
+    .await;
+    assert_eq!(
+        v,
+        json!({"google": false, "passkeys": true, "passkey_rp_id": "app.keyala.io"})
+    );
+    // https but the RP ID is another host (KEYALA_PASSKEY_RP_ID override): off
+    let v = methods(Config {
+        public_url: "https://staging.keyala.io".into(),
+        passkey_rp_id: "keyala.io".into(),
+        ..test_cfg()
+    })
+    .await;
+    assert_eq!(v["passkeys"], false);
 }
