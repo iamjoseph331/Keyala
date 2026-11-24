@@ -369,9 +369,14 @@ pub async fn password_login(
     ))
 }
 
-/// `auth_provider` (apple | password | dev) is set by the login route that verified the identity, so
+/// `auth_provider` (apple | google | password | dev) is set by the login route that verified the identity, so
 /// clients need not guess from the email. Authorization never reads it.
-async fn new_session(s: &AppState, uid: &str, email: &str, provider: &str) -> R<Json<Value>> {
+pub(crate) async fn new_session(
+    s: &AppState,
+    uid: &str,
+    email: &str,
+    provider: &str,
+) -> R<Json<Value>> {
     session_for(s, uid, email, provider, false).await
 }
 
@@ -415,17 +420,57 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
         .await
         .inspect_err(|e| tracing::warn!("apple sign-in rejected: {} ({})", e.1, e.2))?;
     tracing::info!("apple sign-in verified");
-    let existing: Option<(String, String)> =
-        sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?")
-            .bind(&c.sub)
-            .fetch_optional(&s.db)
-            .await?;
+    idp_login(&s, "apple", &c.sub, c.email).await
+}
+
+/// Which sign-in methods this server offers, so clients can hide buttons that would 404/fail.
+/// Passkeys need an https public URL on the RP ID's own host (a browser/OS refuses anything else).
+pub async fn auth_methods(State(s): State<AppState>) -> Json<Value> {
+    let host = s
+        .cfg
+        .public_url
+        .strip_prefix("https://")
+        .and_then(|r| r.split(['/', ':']).next());
+    let passkeys = host == Some(s.cfg.passkey_rp_id.as_str());
+    Json(json!({
+        "google": !s.cfg.google_client_ids.is_empty(),
+        "passkeys": passkeys,
+        "passkey_rp_id": passkeys.then(|| s.cfg.passkey_rp_id.clone()),
+    }))
+}
+
+/// Google is its own identity (`google_sub`): a Google sign-in creates a new account and is never
+/// linked to an Apple or other account, not even when the email matches.
+pub async fn google_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Json<Value>> {
+    if s.cfg.google_client_ids.is_empty() {
+        return Err(not_found("Google sign-in"));
+    }
+    let c = crate::apple::verify_google(&s, &b.id_token)
+        .await
+        .inspect_err(|e| tracing::warn!("google sign-in rejected: {} ({})", e.1, e.2))?;
+    tracing::info!("google sign-in verified");
+    let email = c.email.clone().filter(|_| c.email_verified());
+    idp_login(&s, "google", &c.sub, email).await
+}
+
+/// Find or create the account for a verified provider subject. `provider` is "apple" | "google"
+/// (column `{provider}_sub`, placeholder `{sub}@{provider}.invalid`).
+async fn idp_login(
+    s: &AppState,
+    provider: &'static str,
+    sub: &str,
+    email: Option<String>,
+) -> R<Json<Value>> {
+    let by_sub = format!("SELECT id, email FROM users WHERE {provider}_sub=?");
+    let existing: Option<(String, String)> = sqlx::query_as(&by_sub)
+        .bind(sub)
+        .fetch_optional(&s.db)
+        .await?;
     if let Some((uid, email)) = existing {
-        return new_session(&s, &uid, &email, "apple").await;
+        return new_session(s, &uid, &email, provider).await;
     }
     // never attach to an existing account by email: if it is taken, use a placeholder.
-    let mut email = c
-        .email
+    let mut email = email
         .map(|e| e.trim().to_lowercase())
         .filter(|e| e.contains('@') && e.len() <= 200);
     if let Some(e) = &email {
@@ -438,22 +483,20 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
             email = None;
         }
     }
-    let email = email.unwrap_or_else(|| format!("{}@apple.invalid", c.sub));
+    let email = email.unwrap_or_else(|| format!("{sub}@{provider}.invalid"));
     let uid = new_id("usr");
-    sqlx::query("INSERT OR IGNORE INTO users (id,email,created_at,apple_sub) VALUES (?,?,?,?)")
-        .bind(&uid)
-        .bind(&email)
-        .bind(now())
-        .bind(&c.sub)
-        .execute(&s.db)
-        .await?;
+    sqlx::query(&format!(
+        "INSERT OR IGNORE INTO users (id,email,created_at,{provider}_sub) VALUES (?,?,?,?)"
+    ))
+    .bind(&uid)
+    .bind(&email)
+    .bind(now())
+    .bind(sub)
+    .execute(&s.db)
+    .await?;
     // a concurrent first login may have won the insert: always read back by sub
-    let (uid, email): (String, String) =
-        sqlx::query_as("SELECT id, email FROM users WHERE apple_sub=?")
-            .bind(&c.sub)
-            .fetch_one(&s.db)
-            .await?;
-    new_session(&s, &uid, &email, "apple").await
+    let (uid, email): (String, String) = sqlx::query_as(&by_sub).bind(sub).fetch_one(&s.db).await?;
+    new_session(s, &uid, &email, provider).await
 }
 
 pub async fn list_keys(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
