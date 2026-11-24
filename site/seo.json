@@ -1,0 +1,161 @@
+{
+  "en": {
+    "home": [
+      "Keyala — Use AI Apps Without Sharing Your API Key",
+      "Use AI apps without giving them your API key. Keyala handles approved requests through its server, with iPhone approvals, spending limits, and usage receipts."
+    ],
+    "guide": [
+      "Keyala User Guide — Connect Apps and Control API Access",
+      "Learn to add your API key, connect AI apps, review prompts and estimated costs on iPhone, set limits, and revoke access with Keyala."
+    ],
+    "docs": [
+      "Keyala Developer Docs — Add BYOK to Your AI App",
+      "Integrate Keyala with OpenAI, Anthropic or OpenRouter SDKs. Let users bring their own API keys, approve requests on iPhone, and control spending."
+    ],
+    "privacy": [
+      "Keyala Privacy — Data, API Keys and Your Controls",
+      "How Keyala handles API keys, prompts, responses and account data, including encryption, retention, server trust and account deletion."
+    ],
+    "support": [
+      "Keyala Support — Beta Help and Contact",
+      "Get help with Keyala setup, app connections and the iPhone beta. Find troubleshooting information and contact the project maintainer."
+    ],
+    "news": [
+      "Keyala News — Product Updates and Development Notes",
+      "Product updates and technical notes from Keyala, the open-source way to use AI apps without giving them your API key."
+    ],
+    "nav": [
+      "Developers",
+      "Users",
+      "News",
+      "Console",
+      "Privacy",
+      "Support"
+    ],
+    "docsUI": [
+      "On this page",
+      "Download keyala.md",
+      "Copy as Markdown",
+      "This is the complete developer guide in one Markdown file. Share it with your AI coding assistant to integrate Keyala.",
+      "Copy",
+      "Copied",
+      "Copy failed. Select the text and copy it.",
+      "Link to this section"
+    ],
+    "newsUI": {
+      "title": "News",
+      "lead": "Updates from Keyala and notes on how it is built.",
+      "all": "All",
+      "news": "News",
+      "tech": "Tech blog",
+      "none": "No posts here yet.",
+      "feed": "RSS feed"
+    }
+  },
+  "zh-Hant": {
+    "home": [
+      "Keyala — 使用 AI 應用，不必交出 API 金鑰",
+      "使用 AI 應用，不必把 API 金鑰交給第三方應用。Keyala 伺服器依照你的授權轉送請求，讓你在 iPhone 預覽提示詞與預估費用、設定用量上限，並查看使用收據。"
+    ],
+    "guide": [
+      "Keyala 使用指南 — 連結 AI 應用，掌握 API 授權",
+      "了解如何新增 API 金鑰、連結 AI 應用、在 iPhone 預覽提示詞與預估費用、設定用量上限，以及撤銷 Keyala 授權。"
+    ],
+    "docs": [
+      "Keyala 開發者文件 — 為 AI 應用加入 BYOK 自帶金鑰",
+      "透過 OpenAI、Anthropic 或 OpenRouter SDK 整合 Keyala，讓使用者自帶 API 金鑰、在 iPhone 批准請求並掌握用量，應用不必接收使用者的金鑰。"
+    ],
+    "privacy": [
+      "Keyala 隱私 — 資料、API 金鑰與你的控制權",
+      "了解 Keyala 如何處理 API 金鑰、提示詞、回應與帳號資料，以及加密、保存期限、伺服器信任邊界與帳號刪除方式。"
+    ],
+    "support": [
+      "Keyala 支援 — Beta 使用協助與聯絡方式",
+      "查詢 Keyala 設定、應用連結與 iPhone beta 的使用協助、疑難排解及專案維護者聯絡方式。"
+    ],
+    "news": [
+      "Keyala 最新消息 — 產品更新與開發筆記",
+      "Keyala 的產品更新與技術筆記。以開放原始碼打造不必把 API 金鑰交給第三方應用的 AI 使用方式。"
+    ],
+    "nav": [
+      "開發者",
+      "使用者",
+      "消息",
+      "控制台",
+      "隱私",
+      "支援"
+    ],
+    "docsUI": [
+      "本頁內容",
+      "下載 keyala.md",
+      "複製 Markdown",
+      "這份 Markdown 包含完整開發指南，可直接提供給 AI 程式助理作為 Keyala 整合參考。",
+      "複製",
+      "已複製",
+      "複製失敗，請選取文字後複製。",
+      "連結至此章節"
+    ],
+    "newsUI": {
+      "title": "最新消息",
+      "lead": "Keyala 的更新，以及我們如何打造它的筆記。",
+      "all": "全部",
+      "news": "最新消息",
+      "tech": "技術部落格",
+      "none": "尚無文章。",
+      "feed": "RSS 訂閱"
+    }
+  },
+  "ja": {
+    "home": [
+      "Keyala — API キーをアプリに渡さず AI を使う",
+      "API キーを接続先のアプリに渡さずに AI を利用。Keyala サーバーが許可されたリクエストを転送し、iPhone でプロンプトと概算費用の確認、利用上限の設定、利用履歴の確認ができます。"
+    ],
+    "guide": [
+      "Keyala ユーザーガイド — AI アプリの接続と API 利用の管理",
+      "API キーの追加、AI アプリの接続、iPhone でのプロンプトと概算費用の確認、利用上限の設定、許可の取り消しを説明します。"
+    ],
+    "docs": [
+      "Keyala 開発者ドキュメント — AI アプリに BYOK を導入",
+      "OpenAI、Anthropic、OpenRouter SDK で Keyala を導入。利用者自身の API キーで、iPhone の承認と利用額の管理に対応できます。アプリはキーを受け取りません。"
+    ],
+    "privacy": [
+      "Keyala プライバシー — データ、API キー、利用者の操作",
+      "Keyala の API キー、プロンプト、応答、アカウント情報の扱いと、暗号化、保存期間、サーバーへの信頼、アカウント削除について説明します。"
+    ],
+    "support": [
+      "Keyala サポート — ベータ版のヘルプとお問い合わせ",
+      "Keyala の設定、アプリの接続、iPhone ベータ版の使い方、トラブルへの対処、開発者への連絡方法を確認できます。"
+    ],
+    "news": [
+      "Keyala ニュース — 製品の更新と開発ノート",
+      "API キーを接続先のアプリに渡さず AI を使うための、オープンソースの Keyala。製品の更新と開発の記録をお届けします。"
+    ],
+    "nav": [
+      "開発者",
+      "ユーザー",
+      "ニュース",
+      "コンソール",
+      "プライバシー",
+      "サポート"
+    ],
+    "docsUI": [
+      "このページの内容",
+      "keyala.md をダウンロード",
+      "Markdown をコピー",
+      "この Markdown が開発者ガイドの全文です。AI コーディング支援に渡して Keyala の導入に使えます。",
+      "コピー",
+      "コピーしました",
+      "コピーできませんでした。テキストを選択してコピーしてください。",
+      "この節へのリンク"
+    ],
+    "newsUI": {
+      "title": "ニュース",
+      "lead": "Keyala のお知らせと、つくり方についてのメモ。",
+      "all": "すべて",
+      "news": "ニュース",
+      "tech": "技術ブログ",
+      "none": "記事はまだありません。",
+      "feed": "RSS フィード"
+    }
+  }
+}
