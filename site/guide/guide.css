@@ -16,3 +16,4 @@
 .video-in{display:grid;justify-items:center;gap:6px;font-weight:600;color:var(--green)}.video-in span{color:var(--muted)}
 details{border-top:1px solid var(--line);padding:10px 0}summary{cursor:pointer;font-weight:600;min-height:32px}details p{margin:.5em 0 0}
 @media(max-width:820px){.layout{grid-template-columns:minmax(0,1fr)}.toc{position:static}.split{grid-template-columns:minmax(0,1fr)}.phone{max-width:280px}}
+.demo.tut{margin-top:18px}.demo.tut video{max-width:520px;border-radius:14px}

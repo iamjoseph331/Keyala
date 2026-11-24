@@ -8,7 +8,7 @@
 	<key>CFBundleName</key><string>Keyala</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>
-	<key>CFBundleVersion</key><string>1</string>
+	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSCameraUsageDescription</key><string>Scan an app’s Keyala QR code to review and approve its connection.</string>
 	<key>NSFaceIDUsageDescription</key><string>Confirm request approvals with Face ID before an app can use your provider account.</string>
 	<key>LSRequiresIPhoneOS</key><true/>
