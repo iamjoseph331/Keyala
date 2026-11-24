@@ -85,24 +85,36 @@ pub async fn delete_password(State(s): State<AppState>, h: HeaderMap) -> R<Json<
 
 pub async fn me(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     let u = auth_level(&s, &h, READ).await?;
-    let (email, apple, pw): (String, Option<String>, Option<String>) =
-        sqlx::query_as("SELECT email, apple_sub, password_hash FROM users WHERE id=?")
-            .bind(&u)
-            .fetch_one(&s.db)
-            .await?;
+    let (email, provider) = account(&s, &u).await?;
+    let (pw, pk): (bool, bool) = sqlx::query_as(
+        "SELECT password_hash IS NOT NULL, EXISTS(SELECT 1 FROM passkeys WHERE user_id=?1) FROM users WHERE id=?1",
+    )
+    .bind(&u)
+    .fetch_one(&s.db)
+    .await?;
     Ok(Json(
-        json!({"id": u, "auth_provider": provider_of(&email, apple.is_some()), "email": email, "has_password": pw.is_some()}),
+        json!({"id": u, "auth_provider": provider, "email": email, "has_password": pw, "has_passkey": pk}),
     ))
 }
 
-fn provider_of(email: &str, apple: bool) -> &'static str {
-    if apple {
+/// (email, auth_provider) of an account: how it was created, for picking the reauth UI.
+pub(crate) async fn account(s: &AppState, uid: &str) -> R<(String, &'static str)> {
+    let (email, apple, google): (String, bool, bool) = sqlx::query_as(
+        "SELECT email, apple_sub IS NOT NULL, google_sub IS NOT NULL FROM users WHERE id=?",
+    )
+    .bind(uid)
+    .fetch_one(&s.db)
+    .await?;
+    let p = if apple {
         "apple"
+    } else if google {
+        "google"
     } else if email.ends_with("@password.invalid") {
         "password"
     } else {
         "dev"
-    }
+    };
+    Ok((email, p))
 }
 
 // ---------- phone sign-in for the web ----------
@@ -199,19 +211,8 @@ pub async fn web_login_poll(
             let uid = r
                 .user_id
                 .ok_or_else(|| api(500, "internal", "internal error"))?;
-            let (email, apple): (String, Option<String>) =
-                sqlx::query_as("SELECT email, apple_sub FROM users WHERE id=?")
-                    .bind(&uid)
-                    .fetch_one(&s.db)
-                    .await?;
-            let Json(mut v) = crate::routes::session_for(
-                &s,
-                &uid,
-                &email,
-                provider_of(&email, apple.is_some()),
-                true,
-            )
-            .await?;
+            let (email, provider) = account(&s, &uid).await?;
+            let Json(mut v) = crate::routes::session_for(&s, &uid, &email, provider, true).await?;
             v["status"] = "approved".into();
             return Ok(Json(v));
         }

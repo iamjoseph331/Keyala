@@ -146,6 +146,8 @@ pub struct DeleteReq {
     authorization_code: Option<String>,
     password: Option<String>,
     email: Option<String>,
+    /// any account with a passkey: an assertion for a `/v1/auth/passkey/options` challenge
+    passkey: Option<crate::passkey::Assertion>,
 }
 
 fn reauth_failed() -> ApiError {
@@ -259,17 +261,29 @@ pub async fn delete_account(
         ));
     }
     rate_limit(&s, peer, &h, "delete", 5, 600, "account deletion attempts")?;
-    let (email, apple_sub): (String, Option<String>) =
-        sqlx::query_as("SELECT email, apple_sub FROM users WHERE id=?")
+    let (email, apple_sub, google_sub): (String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT email, apple_sub, google_sub FROM users WHERE id=?")
             .bind(&u)
             .fetch_one(&s.db)
             .await?;
     // fresh identity, same generic 401 for every failure
     let is_apple = apple_sub.is_some();
-    if let Some(sub) = &apple_sub {
-        let c = apple::verify(&s, b.id_token.as_deref().ok_or_else(reauth_failed)?)
+    if let Some(a) = &b.passkey {
+        // the challenge is at most 5 minutes old and single use, so this is fresh too
+        let who = crate::passkey::verify_assertion(&s, a)
             .await
             .map_err(|_| reauth_failed())?;
+        if who != u {
+            return Err(reauth_failed());
+        }
+    } else if let Some(sub) = apple_sub.as_ref().or(google_sub.as_ref()) {
+        let tok = b.id_token.as_deref().ok_or_else(reauth_failed)?;
+        let c = if is_apple {
+            apple::verify(&s, tok).await
+        } else {
+            apple::verify_google(&s, tok).await
+        }
+        .map_err(|_| reauth_failed())?;
         let iat = c.iat.ok_or_else(reauth_failed)?;
         if !ct_eq(c.sub.as_bytes(), sub.as_bytes())
             || iat < unix_now() - 300
@@ -322,6 +336,8 @@ pub async fn delete_account(
         "DELETE FROM enrollments WHERE user_id=?1",
         "DELETE FROM oauth_flows WHERE user_id=?1",
         "DELETE FROM web_logins WHERE user_id=?1",
+        "DELETE FROM passkeys WHERE user_id=?1",
+        "DELETE FROM passkey_challenges WHERE user_id=?1",
         // apps outlive their owner: they keep working with their secret
         "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id=?1",
         "DELETE FROM users WHERE id=?1",

@@ -15,6 +15,11 @@ fn extra() -> Config {
         apple_bundle_id: "app.keyala.ios".into(),
         apple_team_id: "TEAMID".into(),
         apple_jwks_url: "http://127.0.0.1:1/none".into(),
+        google_client_ids: vec![],
+        google_jwks_url: "http://127.0.0.1:1/none".into(),
+        passkey_rp_id: "localhost".into(),
+        passkey_origins: vec!["https://localhost".into()],
+        android_app: None,
         apns: None,
         public_apps: vec![],
         country_header: None,
@@ -1393,6 +1398,8 @@ async fn apple_server(
         database_url: format!("sqlite://{}?mode=rwc", db.display()),
         master_key: [7u8; 32],
         vendor_mock: true,
+        google_jwks_url: jurl.clone(),
+        google_client_ids: vec!["gid.apps.googleusercontent.com".into()],
         apple_jwks_url: jurl,
         ..extra()
     };
@@ -5394,4 +5401,379 @@ async fn console_apps_edit_and_delete() {
     // the user's history keeps the call and the app name
     let h = t.user_get(&format!("/v1/me/requests/{rid}")).await;
     assert_eq!(h["status"], "denied");
+}
+
+fn idp_token(kid: &str, claims: Value) -> String {
+    let mut h = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+    h.kid = Some(kid.into());
+    let mut c = claims;
+    c["exp"] = (chrono_now() + 600).into();
+    c["iat"] = chrono_now().into();
+    jsonwebtoken::encode(
+        &h,
+        &c,
+        &jsonwebtoken::EncodingKey::from_rsa_pem(RSA_PEM.as_bytes()).unwrap(),
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn google_login_is_its_own_account() {
+    let (base, c, _) = apple_server("k1").await;
+    let post = |path: &'static str, tok: String| {
+        let (c, base) = (c.clone(), base.clone());
+        async move {
+            c.post(format!("{base}{path}"))
+                .json(&json!({"id_token": tok}))
+                .send()
+                .await
+                .unwrap()
+        }
+    };
+    let g = |sub: &str, aud: &str, iss: &str, verified: bool| {
+        idp_token(
+            "k1",
+            json!({"iss": iss, "aud": aud, "sub": sub, "email": "same@b.co", "email_verified": verified}),
+        )
+    };
+    let gi = "https://accounts.google.com";
+    let aud = "gid.apps.googleusercontent.com";
+    let r = json_of(post("/v1/auth/google", g("s1", aud, gi, true)).await).await;
+    assert_eq!(r["user"]["auth_provider"], "google");
+    assert_eq!(r["user"]["email"], "same@b.co");
+    let gid = r["user"]["id"].as_str().unwrap().to_string();
+    // same Google sub -> same account; the bare issuer form is accepted too
+    let r = json_of(post("/v1/auth/google", g("s1", aud, "accounts.google.com", true)).await).await;
+    assert_eq!(r["user"]["id"], gid.as_str());
+    // Apple with the same sub string and email: a different account, never linked by email
+    let a = idp_token(
+        "k1",
+        json!({"iss": "https://appleid.apple.com", "aud": "app.keyala.ios", "sub": "s1", "email": "same@b.co"}),
+    );
+    let r = json_of(post("/v1/auth/apple", a).await).await;
+    assert_ne!(r["user"]["id"], gid.as_str());
+    assert_eq!(r["user"]["email"], "s1@apple.invalid");
+    // unverified Google email is not used
+    let r = json_of(post("/v1/auth/google", g("s2", aud, gi, false)).await).await;
+    assert_eq!(r["user"]["email"], "s2@google.invalid");
+    let sess = r["session_token"].as_str().unwrap().to_string();
+    let me = json_of(
+        c.get(format!("{base}/v1/me"))
+            .bearer_auth(&sess)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(me["auth_provider"], "google");
+    assert_eq!(me["has_passkey"], false);
+    for bad in [
+        g("s1", "app.keyala.ios", gi, true),
+        g("s1", aud, "https://appleid.apple.com", true),
+    ] {
+        let r = post("/v1/auth/google", bad).await;
+        assert_eq!(r.status(), 401);
+        assert_eq!(json_of(r).await["error"]["type"], "invalid_token");
+    }
+    // a Google token is not an Apple token
+    assert_eq!(
+        post("/v1/auth/apple", g("s1", aud, gi, true))
+            .await
+            .status(),
+        401
+    );
+    // deletion needs a fresh Google token for the same sub
+    let del = |body: Value| {
+        let (c, base, sess) = (c.clone(), base.clone(), sess.clone());
+        async move {
+            c.post(format!("{base}/v1/me/delete"))
+                .bearer_auth(&sess)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+        }
+    };
+    assert_eq!(
+        del(json!({"confirm": "DELETE", "id_token": g("s1", aud, gi, true)}))
+            .await
+            .status(),
+        401
+    );
+    let r = del(json!({"confirm": "DELETE", "id_token": g("s2", aud, gi, true)})).await;
+    assert_eq!(r.status(), 200);
+}
+
+#[tokio::test]
+async fn google_login_off_without_client_ids() {
+    let t = T::new().await;
+    let r =
+        t.c.post(format!("{}/v1/auth/google", t.base))
+            .json(&json!({"id_token": "x"}))
+            .send()
+            .await
+            .unwrap();
+    assert_eq!(r.status(), 404);
+    assert_eq!(
+        t.c.get(format!("{}/.well-known/assetlinks.json", t.base))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+}
+
+/// a software authenticator: one P-256 passkey for rp "localhost"
+struct Authn {
+    kp: ring::signature::EcdsaKeyPair,
+    id: Vec<u8>,
+}
+fn b64u(b: &[u8]) -> String {
+    base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, b)
+}
+impl Authn {
+    fn new() -> Authn {
+        use ring::signature::{EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
+        let rng = ring::rand::SystemRandom::new();
+        let p8 = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap();
+        let kp =
+            EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, p8.as_ref(), &rng).unwrap();
+        Authn {
+            kp,
+            id: keyala_server::rand_b64(16).into_bytes(),
+        }
+    }
+    fn auth_data(flags: u8, count: u32) -> Vec<u8> {
+        use sha2::Digest;
+        [
+            &sha2::Sha256::digest(b"localhost")[..],
+            &[flags],
+            &count.to_be_bytes(),
+        ]
+        .concat()
+    }
+    fn client_data(ty: &str, ch: &Value, origin: &str) -> Vec<u8> {
+        json!({"type": ty, "challenge": ch, "origin": origin})
+            .to_string()
+            .into_bytes()
+    }
+    fn registration(&self, opts: &Value) -> Value {
+        use ciborium::Value as C;
+        use ring::signature::KeyPair;
+        let pk = self.kp.public_key().as_ref();
+        let i = |n: i64| C::Integer(n.into());
+        let cose = C::Map(vec![
+            (i(1), i(2)),
+            (i(3), i(-7)),
+            (i(-1), i(1)),
+            (i(-2), C::Bytes(pk[1..33].to_vec())),
+            (i(-3), C::Bytes(pk[33..].to_vec())),
+        ]);
+        let mut key = vec![];
+        ciborium::into_writer(&cose, &mut key).unwrap();
+        let ad = [
+            Self::auth_data(0x45, 0),
+            vec![0; 16],
+            (self.id.len() as u16).to_be_bytes().to_vec(),
+            self.id.clone(),
+            key,
+        ]
+        .concat();
+        let att = C::Map(vec![
+            (C::Text("fmt".into()), C::Text("none".into())),
+            (C::Text("attStmt".into()), C::Map(vec![])),
+            (C::Text("authData".into()), C::Bytes(ad)),
+        ]);
+        let mut ao = vec![];
+        ciborium::into_writer(&att, &mut ao).unwrap();
+        json!({"challenge_id": opts["challenge_id"], "credential_id": b64u(&self.id), "attestation_object": b64u(&ao),
+            "client_data_json": b64u(&Self::client_data("webauthn.create", &opts["challenge"], "https://localhost")), "name": "iPhone"})
+    }
+    fn assertion(&self, opts: &Value, origin: &str, count: u32) -> Value {
+        use sha2::Digest;
+        let ad = Self::auth_data(0x05, count);
+        let cd = Self::client_data("webauthn.get", &opts["challenge"], origin);
+        let msg = [&ad[..], &sha2::Sha256::digest(&cd)[..]].concat();
+        let sig = self
+            .kp
+            .sign(&ring::rand::SystemRandom::new(), &msg)
+            .unwrap();
+        json!({"challenge_id": opts["challenge_id"], "credential_id": b64u(&self.id), "authenticator_data": b64u(&ad),
+            "client_data_json": b64u(&cd), "signature": b64u(sig.as_ref())})
+    }
+}
+
+#[tokio::test]
+async fn passkey_register_sign_in_and_delete() {
+    let t = T::new().await;
+    let post = |path: String, tok: Option<String>, body: Value| {
+        let (c, base) = (t.c.clone(), t.base.clone());
+        async move {
+            let mut r = c.post(format!("{base}{path}")).json(&body);
+            if let Some(tok) = tok {
+                r = r.bearer_auth(tok);
+            }
+            r.send().await.unwrap()
+        }
+    };
+    let me = Some(t.sess.clone());
+    let a = Authn::new();
+    let opts = json_of(
+        post(
+            "/v1/me/passkeys/register/options".into(),
+            me.clone(),
+            json!({}),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(opts["rp_id"], "localhost");
+    assert_eq!(opts["user_name"], "a@b.co");
+    let reg = a.registration(&opts);
+    let r = post("/v1/me/passkeys/register".into(), me.clone(), reg.clone()).await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(json_of(r).await["name"], "iPhone");
+    // challenges are single use
+    let r = post("/v1/me/passkeys/register".into(), me.clone(), reg).await;
+    assert_eq!(json_of(r).await["error"]["type"], "challenge_expired");
+    // wrong origin at registration
+    let opts = json_of(
+        post(
+            "/v1/me/passkeys/register/options".into(),
+            me.clone(),
+            json!({}),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(opts["exclude_credentials"][0], b64u(&a.id));
+    let mut bad = Authn::new().registration(&opts);
+    bad["client_data_json"] = b64u(&Authn::client_data(
+        "webauthn.create",
+        &opts["challenge"],
+        "https://evil.example",
+    ))
+    .into();
+    assert_eq!(
+        json_of(post("/v1/me/passkeys/register".into(), me.clone(), bad).await).await["error"]
+            ["type"],
+        "passkey_rejected"
+    );
+    let info = json_of(
+        t.c.get(format!("{}/v1/me", t.base))
+            .bearer_auth(&t.sess)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(info["has_passkey"], true);
+    let uid = info["id"].as_str().unwrap().to_string();
+
+    // sign in with no session at all
+    let lo =
+        || async { json_of(post("/v1/auth/passkey/options".into(), None, json!({})).await).await };
+    let o = lo().await;
+    let r = json_of(
+        post(
+            "/v1/auth/passkey".into(),
+            None,
+            a.assertion(&o, "https://localhost", 0),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(r["user"]["id"], uid.as_str());
+    assert_eq!(r["user"]["auth_provider"], "dev");
+    // bad origin, someone else's key, tampered signature: all the same 401
+    let other = Authn {
+        kp: Authn::new().kp,
+        id: a.id.clone(),
+    };
+    let mut tampered = a.assertion(&lo().await, "https://localhost", 0);
+    tampered["signature"] = a.assertion(&lo().await, "https://localhost", 0)["signature"].clone();
+    for body in [
+        a.assertion(&lo().await, "https://evil.example", 0),
+        other.assertion(&lo().await, "https://localhost", 0),
+        tampered,
+    ] {
+        let r = post("/v1/auth/passkey".into(), None, body).await;
+        assert_eq!(r.status(), 401);
+        assert_eq!(json_of(r).await["error"]["type"], "passkey_failed");
+    }
+    // a counter, once used, must go up
+    assert_eq!(
+        post(
+            "/v1/auth/passkey".into(),
+            None,
+            a.assertion(&lo().await, "https://localhost", 5)
+        )
+        .await
+        .status(),
+        200
+    );
+    assert_eq!(
+        post(
+            "/v1/auth/passkey".into(),
+            None,
+            a.assertion(&lo().await, "https://localhost", 5)
+        )
+        .await
+        .status(),
+        401
+    );
+    let list = json_of(
+        t.c.get(format!("{}/v1/me/passkeys", t.base))
+            .bearer_auth(&t.sess)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(list.as_array().unwrap().len(), 1);
+    assert!(list[0]["last_used_at"].is_string());
+
+    // a passkey is a fresh identity for deletion
+    let r = post(
+        "/v1/me/delete".into(),
+        me.clone(),
+        json!({"confirm": "DELETE", "passkey": a.assertion(&lo().await, "https://localhost", 6)}),
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(rows_for(&t, &uid).await, 0);
+}
+
+#[tokio::test]
+async fn passkey_remove_is_owner_only() {
+    let t = T::new().await;
+    let a = Authn::new();
+    let opts = json_of(
+        t.c.post(format!("{}/v1/me/passkeys/register/options", t.base))
+            .bearer_auth(&t.sess)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    let pk = json_of(
+        t.c.post(format!("{}/v1/me/passkeys/register", t.base))
+            .bearer_auth(&t.sess)
+            .json(&a.registration(&opts))
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    let id = pk["id"].as_str().unwrap();
+    let o = dev_session(&t.c, &t.base, "other@b.co").await;
+    let del = |tok: String| {
+        t.c.delete(format!("{}/v1/me/passkeys/{id}", t.base))
+            .bearer_auth(tok)
+            .send()
+    };
+    assert_eq!(del(o).await.unwrap().status(), 404);
+    assert_eq!(del(t.sess.clone()).await.unwrap().status(), 204);
+    assert_eq!(del(t.sess.clone()).await.unwrap().status(), 404);
 }

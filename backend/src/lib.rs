@@ -5,6 +5,7 @@ mod console;
 mod enroll;
 mod oauth;
 mod ops;
+mod passkey;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -54,6 +55,20 @@ pub struct Config {
     /// Apple signing keys; overridable (KEYALA_APPLE_JWKS_URL) so tests can serve their own
     pub apple_jwks_url: String,
     pub apns: Option<apns::ApnsCfg>,
+    /// Google OAuth client IDs accepted as ID-token audience (KEYALA_GOOGLE_CLIENT_IDS, comma
+    /// separated: iOS, Android, web). Empty = Google sign-in off (404).
+    pub google_client_ids: Vec<String>,
+    /// overridable (KEYALA_GOOGLE_JWKS_URL) so tests can serve their own
+    pub google_jwks_url: String,
+    /// WebAuthn relying party = the host passkeys are bound to (KEYALA_PASSKEY_RP_ID, default the
+    /// host of KEYALA_PUBLIC_URL). Changing it orphans every stored passkey.
+    pub passkey_rp_id: String,
+    /// accepted clientDataJSON origins: `https://{rp_id}`, KEYALA_PASSKEY_ORIGINS (comma separated),
+    /// and `android:apk-key-hash:…` for each KEYALA_ANDROID_CERT_SHA256
+    pub passkey_origins: Vec<String>,
+    /// (package, SHA-256 cert fingerprints) for /.well-known/assetlinks.json (KEYALA_ANDROID_PACKAGE
+    /// + KEYALA_ANDROID_CERT_SHA256 as `AB:CD:…`, comma separated). None = 404.
+    pub android_app: Option<(String, Vec<String>)>,
     /// Browser apps declared by the operator (KEYALA_PUBLIC_APPS), upserted on every start so they
     /// survive a database reset (Render free plan). Lets a static page ship a fixed app id.
     pub public_apps: Vec<PublicApp>,
@@ -119,7 +134,54 @@ impl Config {
             .ok_or(
                 "KEYALA_MASTER_KEY must be base64 of exactly 32 bytes (`openssl rand -base64 32`)",
             )?;
+        let public_url = env("KEYALA_PUBLIC_URL")
+            .or_else(|| env("RENDER_EXTERNAL_URL"))
+            .unwrap_or_else(|| "http://localhost:8080".into())
+            .trim_end_matches('/')
+            .to_string();
+        let list = |k: &str| -> Vec<String> {
+            env(k)
+                .map(|v| {
+                    v.split(',')
+                        .map(|x| x.trim().to_string())
+                        .filter(|x| !x.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let rp_id = env("KEYALA_PASSKEY_RP_ID").unwrap_or_else(|| {
+            let host = public_url.split("://").nth(1).unwrap_or(&public_url);
+            host.split(['/', ':'])
+                .next()
+                .unwrap_or("localhost")
+                .to_string()
+        });
+        let certs = list("KEYALA_ANDROID_CERT_SHA256");
+        let mut origins = vec![format!("https://{rp_id}")];
+        origins.extend(list("KEYALA_PASSKEY_ORIGINS"));
+        for c in &certs {
+            let raw: Option<Vec<u8>> = c
+                .split(':')
+                .map(|b| u8::from_str_radix(b, 16).ok())
+                .collect();
+            match raw.filter(|r| r.len() == 32) {
+                Some(r) => origins.push(format!("android:apk-key-hash:{}", URL_SAFE_NO_PAD.encode(r))),
+                None => return Err("KEYALA_ANDROID_CERT_SHA256 must be SHA-256 fingerprints like AB:CD:… (32 bytes), comma separated".into()),
+            }
+        }
         Ok(Config {
+            google_client_ids: list("KEYALA_GOOGLE_CLIENT_IDS"),
+            google_jwks_url: env("KEYALA_GOOGLE_JWKS_URL")
+                .unwrap_or_else(|| "https://www.googleapis.com/oauth2/v3/certs".into()),
+            passkey_rp_id: rp_id,
+            passkey_origins: origins,
+            android_app: match env("KEYALA_ANDROID_PACKAGE") {
+                Some(p) if !certs.is_empty() => Some((p, certs)),
+                Some(_) => {
+                    return Err("KEYALA_ANDROID_PACKAGE needs KEYALA_ANDROID_CERT_SHA256".into())
+                }
+                None => None,
+            },
             database_url: env("KEYALA_DATABASE_URL")
                 .unwrap_or_else(|| "sqlite://keyala.db?mode=rwc".into()),
             master_key,
@@ -194,11 +256,7 @@ impl Config {
                     apps
                 }
             },
-            public_url: env("KEYALA_PUBLIC_URL")
-                .or_else(|| env("RENDER_EXTERNAL_URL"))
-                .unwrap_or_else(|| "http://localhost:8080".into())
-                .trim_end_matches('/')
-                .to_string(),
+            public_url,
         })
     }
 }
@@ -211,6 +269,7 @@ pub struct Inner {
     pub http: reqwest::Client,
     pub app_limits: Mutex<HashMap<String, Vec<std::time::Instant>>>,
     pub jwks: apple::JwksCache,
+    pub google_jwks: apple::JwksCache,
     pub apns_jwt: apns::JwtCache,
 }
 pub type AppState = Arc<Inner>;
@@ -249,6 +308,7 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
             .build()?,
         app_limits: Mutex::new(HashMap::new()),
         jwks: Default::default(),
+        google_jwks: Default::default(),
         apns_jwt: Default::default(),
     });
     // retention first (nothing to encrypt that is due anyway), then encrypt rows written before 0013
@@ -338,6 +398,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/me/delete", post(ops::delete_account))
         .route("/connect/{code}", get(connect_page))
         .route("/.well-known/apple-app-site-association", get(enroll::aasa))
+        .route("/.well-known/assetlinks.json", get(passkey::assetlinks))
         .route("/add-key", get(enroll::add_key_page))
         .route("/sdk/keyala.js", get(enroll::sdk_js))
         .route("/about", get(enroll::trust_page))
@@ -362,6 +423,19 @@ pub fn router(state: AppState) -> Router {
         .route("/oauth/openrouter/mock", get(oauth::mock_consent))
         .route("/v1/auth/dev", post(dev_login))
         .route("/v1/auth/apple", post(apple_login))
+        .route("/v1/auth/google", post(google_login))
+        .route("/v1/auth/passkey/options", post(passkey::login_options))
+        .route("/v1/auth/passkey", post(passkey::login))
+        .route("/v1/me/passkeys", get(passkey::list))
+        .route(
+            "/v1/me/passkeys/register/options",
+            post(passkey::register_options),
+        )
+        .route("/v1/me/passkeys/register", post(passkey::register))
+        .route(
+            "/v1/me/passkeys/{id}",
+            axum::routing::delete(passkey::remove),
+        )
         .route("/v1/auth/password", post(password_login))
         .route("/v1/me", get(console::me))
         .route(
