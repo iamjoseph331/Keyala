@@ -423,8 +423,6 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
     idp_login(&s, "apple", &c.sub, c.email).await
 }
 
-/// Google is its own identity (`google_sub`): a Google sign-in creates a new account and is never
-/// linked to an Apple or other account, not even when the email matches.
 /// Which sign-in methods this server offers, so clients can hide buttons that would 404/fail.
 /// Passkeys need an https public URL on the RP ID's own host (a browser/OS refuses anything else).
 pub async fn auth_methods(State(s): State<AppState>) -> Json<Value> {
@@ -441,6 +439,8 @@ pub async fn auth_methods(State(s): State<AppState>) -> Json<Value> {
     }))
 }
 
+/// Google is its own identity (`google_sub`): a Google sign-in creates a new account and is never
+/// linked to an Apple or other account, not even when the email matches.
 pub async fn google_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Json<Value>> {
     if s.cfg.google_client_ids.is_empty() {
         return Err(not_found("Google sign-in"));
