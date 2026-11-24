@@ -198,6 +198,12 @@ def build(out):
     (news / "feed.xml").write_text(
         f'<?xml version="1.0" encoding="utf-8"?><rss version="2.0"><channel><title>Keyala news</title>'
         f"<link>{SITE}/news/</link><description>{UI['en']['lead']}</description>{items}</channel></rss>", encoding="utf-8")
+    # sitemap: indexable static pages (privacy/support/review/tutorials are noindex) + every post translation
+    locs = [f"{SITE}/{x}" for x in ("", "guide/", "docs/", "developers/", "news/")]
+    locs += [f"{SITE}/news/{p['stem']}/{p['lang']}/" for p in posts]
+    (out / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + "".join(f"<url><loc>{u}</loc></url>" for u in locs) + "</urlset>", encoding="utf-8")
     print(f"news: {len(groups)} posts, {len(posts)} pages -> {news}")
 
 def selftest():
