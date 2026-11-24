@@ -644,6 +644,30 @@ struct AccountView: View {
     }
 }
 
+struct GoogleAuthenticationButton: View {
+    @Environment(\.isEnabled) private var isEnabled
+    var title: LocalizedStringKey = "Continue with Google"
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image("GoogleMark").renderingMode(.original).resizable().scaledToFit()
+                    .frame(width: 22, height: 22)
+                    .frame(width: 42, height: 42)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 3))
+                    .accessibilityHidden(true)
+                Text(title).font(.system(.body, design: .default, weight: .medium))
+                    .foregroundStyle(.white).frame(maxWidth: .infinity)
+                    .padding(.trailing, 42)
+            }
+            .padding(2).frame(maxWidth: .infinity, minHeight: 46)
+            .background(Color(red: 66 / 255, green: 133 / 255, blue: 244 / 255), in: RoundedRectangle(cornerRadius: 5))
+            .contentShape(RoundedRectangle(cornerRadius: 5))
+        }.buttonStyle(.plain).opacity(isEnabled ? 1 : 0.55)
+    }
+}
+
 struct AccountAuthenticationButtons: View {
     @EnvironmentObject private var store: AppStore
     let mode: SignInWithAppleButton.Label
@@ -651,8 +675,7 @@ struct AccountAuthenticationButtons: View {
         VStack(spacing: 12) {
             AppleAuthenticationButton(mode: mode)
             if store.authenticationMethods?.google == true {
-                Button("Continue with Google") { Task { await store.signInGoogle() } }
-                    .frame(maxWidth: .infinity, minHeight: 46).buttonStyle(.bordered).disabled(store.busy)
+                GoogleAuthenticationButton { Task { await store.signInGoogle() } }.disabled(store.busy)
                 Text("Google creates a separate Keyala account. No Apple account is required.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
             }
             if store.authenticationMethods?.passkeys == true {
@@ -715,7 +738,7 @@ struct PasskeyEnrollmentVerificationView: View {
                     }, onCompletion: verifyApple)
                         .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black).frame(height: 46).disabled(store.busy)
                 } else if store.account?.authProvider == "google", store.authenticationMethods?.google == true {
-                    Button("Continue with Google") { Task { if await store.addPasskeyWithGoogle() { dismiss() } } }.disabled(store.busy)
+                    GoogleAuthenticationButton { Task { if await store.addPasskeyWithGoogle() { dismiss() } } }.disabled(store.busy)
                 } else if store.account?.authProvider == "password" {
                     SecureField("Account password", text: $password).textContentType(.password)
                     Button("Verify and add passkey") {
@@ -1394,7 +1417,7 @@ struct DeleteAccountView: View {
                         .disabled(confirmation != "DELETE" || store.busy)
                 } else if store.account?.authProvider == "google" {
                     Text("Verify the same Google account again to permanently delete this Keyala account.").font(.footnote)
-                    Button("Verify with Google and delete", role: .destructive) { Task { await store.deleteWithGoogle() } }
+                    GoogleAuthenticationButton(title: "Verify with Google and delete") { Task { await store.deleteWithGoogle() } }
                         .disabled(confirmation != "DELETE" || store.busy || store.authenticationMethods?.google != true)
                 } else if store.account?.authProvider == "password" {
                     SecureField("Account password", text: $password).textContentType(.password)

@@ -236,3 +236,8 @@ swiftc -module-cache-path /private/tmp/keyala-swift-modules \
   ios/Tests/PasskeyIntegrationChecks.swift -o /private/tmp/keyala-passkey-checks
 /private/tmp/keyala-passkey-checks http://127.0.0.1:8099
 ```
+
+The blue Google authentication button uses the original full-color G artwork from
+[Google's branding assets](https://developers.google.com/identity/branding-guidelines),
+kept in `GoogleMark.imageset`. Its text remains localized and the authentication
+flow is shared with the existing Google sign-in implementation.
