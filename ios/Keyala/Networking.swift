@@ -113,6 +113,45 @@ final class APIClient {
         struct LoginBody: Encodable { let idToken: String; enum CodingKeys: String, CodingKey { case idToken = "id_token" } }
         return try await send("/v1/auth/apple", method: "POST", body: LoginBody(idToken: idToken), authenticated: false)
     }
+    func authenticationMethods() async throws -> AuthenticationMethods {
+        try await send("/v1/auth/methods", authenticated: false)
+    }
+    static func exchangeGoogleCode(_ code: String, attempt: GoogleSignInAttempt) async throws -> String {
+        var form = URLComponents()
+        form.queryItems = [URLQueryItem(name: "client_id", value: GoogleSignInAttempt.clientID), URLQueryItem(name: "redirect_uri", value: GoogleSignInAttempt.redirectURI), URLQueryItem(name: "grant_type", value: "authorization_code"), URLQueryItem(name: "code", value: code), URLQueryItem(name: "code_verifier", value: attempt.verifier)]
+        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = object["id_token"] as? String, !token.isEmpty else {
+            throw APIError.http(0, localized("Google sign-in could not finish. Please try again."))
+        }
+        return token
+    }
+    func googleLogin(idToken: String) async throws -> AuthenticatedSession {
+        struct Body: Encodable { let idToken: String; enum CodingKeys: String, CodingKey { case idToken = "id_token" } }
+        return try await send("/v1/auth/google", method: "POST", body: Body(idToken: idToken), authenticated: false)
+    }
+    func passkeyRegistrationOptions(proof: FreshIdentity) async throws -> PasskeyCreationOptions {
+        try await send("/v1/me/passkeys/register/options", method: "POST", body: proof)
+    }
+    func registerPasskey(_ proof: PasskeyProof) async throws -> PasskeyRecord {
+        try await send("/v1/me/passkeys/register", method: "POST", body: proof)
+    }
+    func passkeyOptions() async throws -> PasskeyRequestOptions {
+        try await send("/v1/auth/passkey/options", method: "POST", authenticated: false)
+    }
+    func passkeyLogin(_ proof: PasskeyProof) async throws -> AuthenticatedSession {
+        try await send("/v1/auth/passkey", method: "POST", body: proof, authenticated: false)
+    }
+    func passkeys() async throws -> [PasskeyRecord] { try await send("/v1/me/passkeys") }
+    func removePasskey(id: String) async throws {
+        guard !id.isEmpty, id.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { throw APIError.invalidResponse }
+        let _: EmptyResponse = try await send("/v1/me/passkeys/\(id)", method: "DELETE")
+    }
     func passwordLogin(username: String, password: String) async throws -> AuthenticatedSession {
         struct LoginBody: Encodable {
             let username: String

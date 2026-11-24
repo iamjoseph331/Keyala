@@ -189,3 +189,50 @@ KEYALA_TEST_URL=http://127.0.0.1:8097 /private/tmp/keyala-web-checks
 It exercises one-time browser-session delivery, denial, password save/removal,
 and the server's refusal to let a web session change a password or approve
 another browser. All accounts and passwords are generated test data.
+
+## Google accounts and passkeys (KEYALA-9)
+
+Google creates its own Keyala identity, without an Apple account or email-based
+linking. The app uses the system authentication browser with PKCE, state and nonce,
+then sends the Google ID token to the selected backend for signature and identity
+verification. The public iOS OAuth client is registered for `app.sorevan.masterkey`;
+its reversed client-ID URL scheme is in Info.plist. There is no client secret in the
+app and no Google SDK. Google tokens remain in memory only; the normal Keyala
+session is stored in Keychain. Android can use its own allowlisted Google client ID
+with the same backend endpoint.
+
+The welcome screen reads `/v1/auth/methods` and shows the methods configured by that
+server. Settings > Account > Passkeys adds and removes credentials. Adding requires
+fresh identity verification. Signing in with a passkey returns the existing account,
+including its original Apple/Google provider. Passkey private keys stay with the
+system credential provider. The native UI requires user verification and accepts
+only an RP ID equal to the current HTTPS server host. Production and staging use
+separate RP IDs and separate credentials. The app has `webcredentials:` entitlements
+for `app.keyala.io` and `staging.keyala.io`; custom servers need their own signed
+associated-domain configuration. iOS 17.4 and later also pass exclusion hints to the
+registration sheet; the backend enforces credential uniqueness on all supported OS
+versions.
+
+Account deletion requires a fresh Google/Apple identity or an existing passkey,
+with the DELETE confirmation retained. Switching servers or accounts cancels native
+authentication and discards stale results. Removing a passkey on Keyala does not
+remove its saved entry from the user's credential manager.
+
+Local contract and backend tests do not establish live Google consent, AASA CDN
+propagation, signed-device passkey creation, credential-manager sync, or Android
+operation. Those require the configured backend, associated-domain provisioning,
+and actual devices. This source change does not upload or distribute a TestFlight
+build.
+
+The standalone native Passkey API check uses a disposable localhost mock backend
+with development login enabled and `KEYALA_PUBLIC_URL=https://localhost` (the
+transport remains local HTTP). It creates a fictional account and a test-only
+P-256 credential, verifies enrollment requires fresh identity, exercises list /
+remove / login, rejects replay, and deletes its account with a fresh assertion:
+
+```sh
+swiftc -module-cache-path /private/tmp/keyala-swift-modules \
+  ios/Keyala/Models.swift ios/Keyala/Networking.swift \
+  ios/Tests/PasskeyIntegrationChecks.swift -o /private/tmp/keyala-passkey-checks
+/private/tmp/keyala-passkey-checks http://127.0.0.1:8099
+```

@@ -4,6 +4,8 @@ import UserNotifications
 import UIKit
 import AuthenticationServices
 import LocalAuthentication
+import CryptoKit
+import Security
 
 @MainActor final class AppStore: ObservableObject {
     @Published var requests: [RequestRecord] = []
@@ -37,6 +39,9 @@ import LocalAuthentication
     private let vault = SessionVault()
     private var approvalAuthentication: LAContext?
     private let providerBrowser = ProviderAuthenticationBrowser()
+    private let passkeyAuthorization = PasskeyAuthorization()
+    @Published private(set) var authenticationMethods: AuthenticationMethods?
+    @Published private(set) var passkeys: [PasskeyRecord] = []
     @Published private var session: AuthenticatedSession?
     var account: AccountProfile? { session?.user }
     var supportsPasswordSignIn: Bool {
@@ -85,6 +90,140 @@ import LocalAuthentication
     func signInApple(idToken: String) async {
         await signIn { try await $0.appleLogin(idToken: idToken) }
     }
+    func loadAuthenticationMethods() async {
+        let generation = contextGeneration
+        do {
+            let methods = try await client.authenticationMethods()
+            guard generation == contextGeneration else { return }
+            authenticationMethods = methods
+        } catch { if generation == contextGeneration { authenticationMethods = nil } }
+    }
+    private func googleIdentityToken(reauthenticate: Bool = false) async throws -> String {
+        func random() throws -> String {
+            var bytes = [UInt8](repeating: 0, count: 32)
+            guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw APIError.invalidResponse }
+            return Data(bytes).base64URL
+        }
+        let verifier = try random()
+        let attempt = try GoogleSignInAttempt(verifier: verifier, state: random(), nonce: random(), challenge: Data(SHA256.hash(data: Data(verifier.utf8))).base64URL)
+        let generation = contextGeneration
+        let callback = try await providerBrowser.authenticate(url: attempt.authorizationURL(reauthenticate: reauthenticate), callbackScheme: GoogleSignInAttempt.callbackScheme, ephemeral: reauthenticate)
+        guard generation == contextGeneration else { throw CancellationError() }
+        let token = try await APIClient.exchangeGoogleCode(attempt.code(from: callback), attempt: attempt)
+        try attempt.validateNonce(idToken: token)
+        return token
+    }
+    func signInGoogle() async {
+        await signIn { api in
+            let generation = self.contextGeneration
+            let token = try await self.googleIdentityToken()
+            guard generation == self.contextGeneration else { throw CancellationError() }
+            return try await api.googleLogin(idToken: token)
+        }
+    }
+    func signInPasskey() async {
+        let server = serverURL
+        await signIn { api in
+            let generation = self.contextGeneration
+            let challenge = try await api.passkeyOptions()
+            guard generation == self.contextGeneration else { throw CancellationError() }
+            let credential = try await self.passkeyAuthorization.assert(challenge, serverURL: server)
+            guard generation == self.contextGeneration else { throw CancellationError() }
+            return try await api.passkeyLogin(PasskeyProof(challengeID: challenge.challengeID, credential: credential))
+        }
+    }
+    func loadPasskeys() async {
+        let generation = contextGeneration
+        do {
+            let records = try await client.passkeys()
+            guard generation == contextGeneration else { return }
+            passkeys = records
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func addPasskey(proof: FreshIdentity) async -> Bool {
+        guard !busy, !demoMode, account != nil else { return false }
+        let generation = contextGeneration; let api = client; let server = serverURL
+        busy = true
+        defer { busy = false }
+        do {
+            let challenge = try await api.passkeyRegistrationOptions(proof: proof)
+            guard generation == contextGeneration else { return false }
+            let credential = try await passkeyAuthorization.register(challenge, serverURL: server)
+            guard generation == contextGeneration else { return false }
+            _ = try await api.registerPasskey(PasskeyProof(challengeID: challenge.challengeID, credential: credential))
+            guard generation == contextGeneration else { return false }
+            await loadPasskeys()
+            infoMessage = localized("Passkey added. You can now use it to sign in to this Keyala account.")
+            return true
+        } catch { if generation == contextGeneration { reportAuthenticationError(error) }; return false }
+    }
+    func addPasskeyWithGoogle() async -> Bool {
+        guard !busy, !demoMode, account?.authProvider == "google" else { return false }
+        let generation = contextGeneration
+        busy = true
+        defer { busy = false }
+        do {
+            let token = try await googleIdentityToken(reauthenticate: true)
+            guard generation == contextGeneration else { return false }
+            busy = false
+            return await addPasskey(proof: FreshIdentity(idToken: token))
+        } catch { if generation == contextGeneration { reportAuthenticationError(error) }; return false }
+    }
+    func addPasskeyWithExistingPasskey() async -> Bool {
+        guard !busy, !demoMode, account != nil else { return false }
+        let generation = contextGeneration; let api = client; let server = serverURL
+        busy = true
+        defer { busy = false }
+        do {
+            let challenge = try await api.passkeyOptions()
+            guard generation == contextGeneration else { return false }
+            let credential = try await passkeyAuthorization.assert(challenge, serverURL: server)
+            guard generation == contextGeneration else { return false }
+            busy = false
+            return await addPasskey(proof: FreshIdentity(passkey: PasskeyProof(challengeID: challenge.challengeID, credential: credential)))
+        } catch { if generation == contextGeneration { reportAuthenticationError(error) }; return false }
+    }
+    func removePasskey(id: String) async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.removePasskey(id: id)
+            guard generation == contextGeneration else { return }
+            await loadPasskeys()
+        } catch { if generation == contextGeneration { report(error) } }
+    }
+    func deleteWithGoogle() async {
+        guard !busy, !demoMode, account?.authProvider == "google" else { return }
+        let generation = contextGeneration
+        busy = true
+        defer { busy = false }
+        do {
+            let token = try await googleIdentityToken(reauthenticate: true)
+            guard generation == contextGeneration else { return }
+            busy = false
+            await deleteAccount(AccountDeletionRequest(idToken: token))
+        } catch { if generation == contextGeneration { reportAuthenticationError(error) } }
+    }
+    func deleteWithPasskey() async {
+        guard !busy, !demoMode, account != nil else { return }
+        let generation = contextGeneration; let api = client; let server = serverURL
+        busy = true
+        defer { busy = false }
+        do {
+            let challenge = try await api.passkeyOptions()
+            guard generation == contextGeneration else { return }
+            let credential = try await passkeyAuthorization.assert(challenge, serverURL: server)
+            guard generation == contextGeneration else { return }
+            busy = false
+            await deleteAccount(AccountDeletionRequest(passkey: PasskeyProof(challengeID: challenge.challengeID, credential: credential)))
+        } catch { if generation == contextGeneration { reportAuthenticationError(error) } }
+    }
+    private func reportAuthenticationError(_ error: Error) {
+        if error is CancellationError || (error as? ASAuthorizationError)?.code == .canceled || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { return }
+        report(error)
+    }
     func signInPassword(username: String, password: String) async {
         guard supportsPasswordSignIn else { return }
         await signIn { try await $0.passwordLogin(username: username, password: password) }
@@ -103,10 +242,12 @@ import LocalAuthentication
             session = result
             await refresh()
         }
-        catch { if generation == contextGeneration { report(error) } }
+        catch { if generation == contextGeneration { reportAuthenticationError(error) } }
     }
     func signOut() {
         providerBrowser.cancel()
+        passkeyAuthorization.cancel()
+        passkeys = []
         isConnectingOpenRouter = false
         approvalAuthentication?.invalidate()
         approvalAuthentication = nil
@@ -187,6 +328,7 @@ import LocalAuthentication
             _ = try APIClient(baseURL: value, allowLocalHTTP: allowLocalHTTP, token: nil).resolvedURL(for: "/healthz")
             guard value != serverURL else { return }
             signOut()
+            authenticationMethods = nil
             pendingConnectCode = nil
             pendingEnrollmentID = nil
             keySetupReturnCode = nil
@@ -653,19 +795,20 @@ extension Notification.Name {
     private var completion: CheckedContinuation<URL, Error>?
     private var attemptID: UUID?
 
-    func authenticate(url: URL) async throws -> URL {
+    func authenticate(url: URL, callbackScheme: String = "keyala", ephemeral: Bool = false) async throws -> URL {
         guard completion == nil else { throw APIError.http(0, "Finish the current provider connection first.") }
         return try await withCheckedThrowingContinuation { continuation in
             let attempt = UUID()
             attemptID = attempt
             completion = continuation
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "keyala") { [weak self] url, error in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { [weak self] url, error in
                 Task { @MainActor in
                     if let error { self?.finish(.failure(error), attempt: attempt) }
                     else if let url { self?.finish(.success(url), attempt: attempt) }
                     else { self?.finish(.failure(APIError.invalidResponse), attempt: attempt) }
                 }
             }
+            session.prefersEphemeralWebBrowserSession = ephemeral
             session.presentationContextProvider = self
             browserSession = session
             if !session.start() { finish(.failure(APIError.http(0, "Open Keyala in the foreground, then try connecting again.")), attempt: attempt) }
@@ -685,5 +828,70 @@ extension Notification.Name {
         UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .filter { $0.activationState == .foregroundActive }
             .flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
+    }
+}
+
+// Passkey private keys stay with the system credential provider.
+@MainActor private final class PasskeyAuthorization: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    private var controller: ASAuthorizationController?
+    private var completion: CheckedContinuation<PasskeyCredential, Error>?
+
+    func register(_ options: PasskeyCreationOptions, serverURL: String) async throws -> PasskeyCredential {
+        let challenge = try validatedPasskeyData(rpID: options.rpID, challenge: options.challenge, serverURL: serverURL)
+        guard let userID = Data(base64URL: options.userID), !userID.isEmpty, userID.count <= 64 else { throw APIError.invalidResponse }
+        let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: options.rpID)
+        let request = provider.createCredentialRegistrationRequest(challenge: challenge, name: options.userName, userID: userID)
+        request.userVerificationPreference = .required
+        if #available(iOS 17.4, *) {
+            request.excludedCredentials = try options.excludeCredentials.map {
+                guard let id = Data(base64URL: $0) else { throw APIError.invalidResponse }
+                return ASAuthorizationPlatformPublicKeyCredentialDescriptor(credentialID: id)
+            }
+        }
+        return try await perform(request)
+    }
+    func assert(_ options: PasskeyRequestOptions, serverURL: String) async throws -> PasskeyCredential {
+        let challenge = try validatedPasskeyData(rpID: options.rpID, challenge: options.challenge, serverURL: serverURL)
+        let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: options.rpID)
+        let request = provider.createCredentialAssertionRequest(challenge: challenge)
+        request.userVerificationPreference = .required
+        return try await perform(request)
+    }
+    func perform(_ request: ASAuthorizationRequest) async throws -> PasskeyCredential {
+        guard completion == nil else { throw APIError.invalidResponse }
+        return try await withCheckedThrowingContinuation { continuation in
+            completion = continuation
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            self.controller = controller
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            controller.performRequests()
+        }
+    }
+    func cancel() {
+        controller?.cancel()
+        finish(.failure(CancellationError()))
+    }
+    private func finish(_ result: Result<PasskeyCredential, Error>) {
+        guard let continuation = completion else { return }
+        completion = nil; controller = nil
+        continuation.resume(with: result)
+    }
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard controller === self.controller else { return }
+        if let credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialRegistration,
+           let attestation = credential.rawAttestationObject {
+            finish(.success(PasskeyCredential(id: credential.credentialID.base64URL, response: .init(clientDataJSON: credential.rawClientDataJSON.base64URL, attestationObject: attestation.base64URL))))
+        } else if let credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialAssertion {
+            finish(.success(PasskeyCredential(id: credential.credentialID.base64URL, response: .init(clientDataJSON: credential.rawClientDataJSON.base64URL, authenticatorData: credential.rawAuthenticatorData.base64URL, signature: credential.signature.base64URL, userHandle: credential.userID.base64URL))))
+        } else { finish(.failure(APIError.invalidResponse)) }
+    }
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        guard controller === self.controller else { return }
+        finish(.failure(error))
+    }
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }.flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
     }
 }

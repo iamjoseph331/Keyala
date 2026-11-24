@@ -223,7 +223,7 @@ struct AccountProfile: Codable {
 
     enum CodingKeys: String, CodingKey { case id, email; case authProvider = "auth_provider" }
 
-    var displayEmail: String? { email.hasSuffix("@apple.invalid") ? nil : email }
+    var displayEmail: String? { (email.hasSuffix("@apple.invalid") || email.hasSuffix("@google.invalid")) ? nil : email }
 }
 
 struct AccountDeletionRequest: Encodable {
@@ -232,8 +232,9 @@ struct AccountDeletionRequest: Encodable {
     var authorizationCode: String? = nil
     var password: String? = nil
     var email: String? = nil
+    var passkey: PasskeyProof? = nil
     enum CodingKeys: String, CodingKey {
-        case confirm, password, email
+        case confirm, password, email, passkey
         case idToken = "id_token", authorizationCode = "authorization_code"
     }
 }
@@ -544,5 +545,144 @@ enum WebLoginLink {
         } else { return nil }
         guard path.range(of: "^/wl_[A-Za-z0-9_-]{22}$", options: .regularExpression) != nil else { return nil }
         return String(path.dropFirst())
+    }
+}
+
+extension Data {
+    var base64URL: String { base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "") }
+    init?(base64URL: String) {
+        guard !base64URL.isEmpty, base64URL.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { return nil }
+        let padded = base64URL.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/") + String(repeating: "=", count: (4 - base64URL.count % 4) % 4)
+        self.init(base64Encoded: padded)
+        guard self.base64URL == base64URL else { return nil }
+    }
+}
+
+struct PasskeyCredential {
+    let id: String
+    let response: Response
+    struct Response {
+        let clientDataJSON: String
+        var attestationObject: String? = nil
+        var authenticatorData: String? = nil
+        var signature: String? = nil
+        var userHandle: String? = nil
+    }
+}
+
+struct FreshIdentity: Encodable {
+    var idToken: String? = nil
+    var password: String? = nil
+    var email: String? = nil
+    var passkey: PasskeyProof? = nil
+    enum CodingKeys: String, CodingKey { case password, email, passkey; case idToken = "id_token" }
+}
+
+struct PasskeyCreationOptions: Decodable {
+    let challengeID: String
+    let challenge: String
+    let rpID: String
+    let userID: String
+    let userName: String
+    let excludeCredentials: [String]
+    enum CodingKeys: String, CodingKey {
+        case challengeID = "challenge_id", challenge, rpID = "rp_id", userID = "user_id", userName = "user_name", excludeCredentials = "exclude_credentials"
+    }
+}
+struct PasskeyRequestOptions: Decodable {
+    let challengeID: String
+    let challenge: String
+    let rpID: String
+    enum CodingKeys: String, CodingKey { case challengeID = "challenge_id", challenge, rpID = "rp_id" }
+}
+
+// Do not let server metadata request a credential for a different service.
+func validatedPasskeyData(rpID: String, challenge: String, serverURL: String) throws -> Data {
+    guard let server = URLComponents(string: serverURL), server.scheme == "https",
+          server.user == nil, server.password == nil, server.query == nil, server.fragment == nil,
+          let host = server.host?.lowercased(), rpID == host,
+          let bytes = Data(base64URL: challenge), (16...1024).contains(bytes.count) else { throw APIError.invalidResponse }
+    return bytes
+}
+
+struct AuthenticationMethods: Decodable {
+    let google: Bool
+    let passkeys: Bool
+    let passkeyRPID: String?
+    enum CodingKeys: String, CodingKey { case google, passkeys; case passkeyRPID = "passkey_rp_id" }
+}
+struct PasskeyProof: Encodable {
+    let challengeID: String
+    let credentialID: String
+    let clientDataJSON: String
+    let attestationObject: String?
+    let authenticatorData: String?
+    let signature: String?
+    let userHandle: String?
+    init(challengeID: String, credential: PasskeyCredential) {
+        self.challengeID = challengeID
+        credentialID = credential.id
+        clientDataJSON = credential.response.clientDataJSON
+        attestationObject = credential.response.attestationObject
+        authenticatorData = credential.response.authenticatorData
+        signature = credential.response.signature
+        userHandle = credential.response.userHandle
+    }
+    enum CodingKeys: String, CodingKey {
+        case challengeID = "challenge_id", credentialID = "credential_id", clientDataJSON = "client_data_json", attestationObject = "attestation_object", authenticatorData = "authenticator_data", signature, userHandle = "user_handle"
+    }
+}
+struct PasskeyRecord: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let createdAt: String
+    var lastUsedAt: String? = nil
+    enum CodingKeys: String, CodingKey { case id, name; case createdAt = "created_at", lastUsedAt = "last_used_at" }
+}
+
+struct GoogleSignInAttempt {
+    // Public OAuth metadata for the shipping iOS bundle; no client secret belongs in an app.
+    static let clientID = "646877252874-cvebf2bup7d47m7ggvnlc5og7i6fei2a.apps.googleusercontent.com"
+    static let callbackScheme = "com.googleusercontent.apps.646877252874-cvebf2bup7d47m7ggvnlc5og7i6fei2a"
+    static let redirectURI = callbackScheme + ":/oauthredirect"
+    let verifier: String
+    let state: String
+    let nonce: String
+    let challenge: String
+    func authorizationURL(reauthenticate: Bool) -> URL {
+        var url = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
+        url.queryItems = [
+            URLQueryItem(name: "client_id", value: Self.clientID),
+            URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "scope", value: "openid email"),
+            URLQueryItem(name: "state", value: state),
+            URLQueryItem(name: "nonce", value: nonce),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "prompt", value: "select_account")
+        ]
+        if reauthenticate { url.queryItems?.append(URLQueryItem(name: "max_age", value: "0")) }
+        return url.url!
+    }
+    func code(from callback: URL) throws -> String {
+        guard let parts = URLComponents(url: callback, resolvingAgainstBaseURL: false),
+              parts.scheme == Self.callbackScheme, parts.host == nil, parts.path == "/oauthredirect",
+              parts.user == nil, parts.password == nil, parts.port == nil, parts.fragment == nil,
+              let items = parts.queryItems, Set(items.map(\.name)).count == items.count,
+              items.first(where: { $0.name == "state" })?.value == state else { throw APIError.invalidResponse }
+        if let error = items.first(where: { $0.name == "error" })?.value {
+            if error == "access_denied" { throw CancellationError() }
+            throw APIError.http(0, localized("Google sign-in could not finish. Please try again."))
+        }
+        guard let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty else { throw APIError.invalidResponse }
+        return code
+    }
+    func validateNonce(idToken: String) throws {
+        let pieces = idToken.split(separator: ".", omittingEmptySubsequences: false)
+        guard pieces.count == 3, let payload = Data(base64URL: String(pieces[1])),
+              let claims = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              claims["nonce"] as? String == nonce, claims["aud"] as? String == Self.clientID else { throw APIError.invalidResponse }
+        // The backend verifies Google's signature, issuer, audience and expiry before creating a session.
     }
 }

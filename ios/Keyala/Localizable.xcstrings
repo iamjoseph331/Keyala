@@ -10452,6 +10452,535 @@
           }
         }
       }
+    },
+    "Continue with Google": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue with Google"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Google 繼續"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google で続ける"
+          }
+        }
+      }
+    },
+    "Google creates a separate Keyala account. No Apple account is required.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google creates a separate Keyala account. No Apple account is required."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google 會建立獨立的 Keyala 帳號，不需要 Apple 帳號。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google で独立した Keyala アカウントを作成します。Apple アカウントは不要です。"
+          }
+        }
+      }
+    },
+    "Google manages your sign-in identity. This Keyala account is independent of Sign in with Apple.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google manages your sign-in identity. This Keyala account is independent of Sign in with Apple."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的登入身分由 Google 管理。此 Keyala 帳號與「使用 Apple 登入」相互獨立。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン情報は Google が管理します。この Keyala アカウントは「Apple でサインイン」とは独立しています。"
+          }
+        }
+      }
+    },
+    "Sign in with a passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with a passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Passkey 登入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーでサインイン"
+          }
+        }
+      }
+    },
+    "Passkeys": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkeys"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキー"
+          }
+        }
+      }
+    },
+    "Passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキー"
+          }
+        }
+      }
+    },
+    "Add a passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增 Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーを追加"
+          }
+        }
+      }
+    },
+    "Registered passkeys": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registered passkeys"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已註冊的 Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録済みのパスキー"
+          }
+        }
+      }
+    },
+    "No passkeys registered.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No passkeys registered."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未註冊 Passkey。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーはまだ登録されていません。"
+          }
+        }
+      }
+    },
+    "Remove passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除 Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーを削除"
+          }
+        }
+      }
+    },
+    "Remove this passkey?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this passkey?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除此 Passkey？"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このパスキーを削除しますか？"
+          }
+        }
+      }
+    },
+    "You will need another passkey or your original sign-in provider to sign in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You will need another passkey or your original sign-in provider to sign in again."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下次登入時，你需要使用另一組 Passkey 或原本的登入方式。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次回のサインインには、別のパスキーか元のログイン方法が必要です。"
+          }
+        }
+      }
+    },
+    "Passkeys sign in to this Keyala account with your device or credential manager. They do not require an Apple sign-in account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkeys sign in to this Keyala account with your device or credential manager. They do not require an Apple sign-in account."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkey 可透過你的裝置或憑證管理工具登入此 Keyala 帳號，不需要 Apple 登入帳號。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーは端末や認証情報マネージャーを使って、この Keyala アカウントにサインインします。Apple のログインアカウントは不要です。"
+          }
+        }
+      }
+    },
+    "Create a passkey after signing in. To use another device, use your credential manager’s sync or the system’s nearby-device option.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a passkey after signing in. To use another device, use your credential manager’s sync or the system’s nearby-device option."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入後即可建立 Passkey。跨裝置使用時，請透過憑證管理工具同步，或使用系統提供的附近裝置選項。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインイン後にパスキーを作成できます。別の端末では、認証情報マネージャーの同期やシステムの近くの端末を使う機能をご利用ください。"
+          }
+        }
+      }
+    },
+    "Removing a passkey disables it on this server. Your credential manager may keep its saved copy; remove that copy there if needed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removing a passkey disables it on this server. Your credential manager may keep its saved copy; remove that copy there if needed."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除後，此伺服器將不再接受該 Passkey。憑證管理工具可能仍保留副本；如有需要，請在該工具中刪除。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除すると、このサーバーではそのパスキーを使えなくなります。認証情報マネージャーに保存されたコピーは、必要に応じてそちらで削除してください。"
+          }
+        }
+      }
+    },
+    "Passkey added. You can now use it to sign in to this Keyala account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passkey added. You can now use it to sign in to this Keyala account."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已新增 Passkey，現在可以用它登入此 Keyala 帳號。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーを追加しました。この Keyala アカウントへのサインインに使えます。"
+          }
+        }
+      }
+    },
+    "Verify the same Google account again to permanently delete this Keyala account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify the same Google account again to permanently delete this Keyala account."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請再次驗證同一個 Google 帳號，以永久刪除此 Keyala 帳號。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Keyala アカウントを完全に削除するには、同じ Google アカウントで再確認してください。"
+          }
+        }
+      }
+    },
+    "Verify with Google and delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify with Google and delete"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Google 驗證並刪除"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google で確認して削除"
+          }
+        }
+      }
+    },
+    "Verify with passkey and delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify with passkey and delete"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Passkey 驗證並刪除"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーで確認して削除"
+          }
+        }
+      }
+    },
+    "Verify your identity before adding a passkey.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify your identity before adding a passkey."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增 Passkey 前，請先重新驗證身分。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスキーを追加する前に、本人確認を行ってください。"
+          }
+        }
+      }
+    },
+    "Verify and add passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify and add passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證並新增 Passkey"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認してパスキーを追加"
+          }
+        }
+      }
+    },
+    "Verify with an existing passkey": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify with an existing passkey"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用現有 Passkey 驗證"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既存のパスキーで確認"
+          }
+        }
+      }
+    },
+    "Google sign-in could not finish. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google sign-in could not finish. Please try again."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法完成 Google 登入，請再試一次。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google でのサインインを完了できませんでした。もう一度お試しください。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

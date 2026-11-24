@@ -8,6 +8,8 @@
 	<array><string>Default</string></array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>webcredentials:app.keyala.io</string>
+		<string>webcredentials:staging.keyala.io</string>
 		<string>applinks:app.keyala.io</string>
 		<string>applinks:staging.keyala.io</string>
 		<string>applinks:masterkey-prod-vkgm.onrender.com</string>
