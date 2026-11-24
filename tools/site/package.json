@@ -1,0 +1,7 @@
+{
+  "name": "keyala-site-build",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test build.test.mjs" },
+  "dependencies": { "marked": "12.0.2", "parse5": "7.2.1" }
+}
