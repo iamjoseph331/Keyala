@@ -3,7 +3,7 @@ name: Publish developer page
 on:
   push:
     branches: [main]
-    paths: ["site/**", "examples/resume-tailor/**", "tools/build_news.py", ".github/workflows/pages.yml"]
+    paths: ["site/**", "examples/resume-tailor/**", "tools/build_news.py", "tools/site/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/site/package-lock.json
+      - run: npm ci --prefix tools/site --ignore-scripts --no-audit --no-fund
       # site/ at the root, static example apps under /examples/ (e.g. /examples/resume-tailor/)
       - run: |
           mkdir -p _site/examples
@@ -33,6 +39,8 @@ jobs:
           cp -R examples/resume-tailor _site/examples/
           python3 tools/build_news.py --test
           python3 tools/build_news.py _site
+          node tools/site/build.mjs _site
+          npm test --prefix tools/site
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
