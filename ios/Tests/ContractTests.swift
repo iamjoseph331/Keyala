@@ -91,6 +91,47 @@ enum ContractTests {
         let invalidEnrollment = try decoder.decode(KeyEnrollment.self, from: Data(#"{"id":"en_abcdefghijklmnopqrstuv","vendor":"openai","status":"submitted","last4":null,"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
         precondition(!invalidEnrollment.canConfirm)
         let login = try decoder.decode(AuthenticatedSession.self, from: Data(#"{"session_token":"keyala_sess_test","user":{"id":"usr_test","email":"preview@example.invalid"}}"#.utf8))
+        let passkeyChallenge = Data(repeating: 42, count: 32).base64URL
+        precondition(Data(base64URL: passkeyChallenge) == Data(repeating: 42, count: 32))
+        for invalid in ["", "ab+_", "ab==", "a", "Zh"] { precondition(Data(base64URL: invalid) == nil) }
+        let validPasskeyChallenge = try validatedPasskeyData(rpID: "app.keyala.io", challenge: passkeyChallenge, serverURL: "https://app.keyala.io")
+        precondition(validPasskeyChallenge.count == 32)
+        for (rp, challenge, server) in [
+            ("keyala.io", passkeyChallenge, "https://app.keyala.io"),
+            ("staging.keyala.io", passkeyChallenge, "https://app.keyala.io"),
+            ("app.keyala.io", passkeyChallenge, "http://app.keyala.io"),
+            ("app.keyala.io", "AA", "https://app.keyala.io"),
+            ("app.keyala.io", passkeyChallenge, "https://user@app.keyala.io")
+        ] {
+            do { _ = try validatedPasskeyData(rpID: rp, challenge: challenge, serverURL: server); preconditionFailure("Untrusted RP or malformed challenge accepted") }
+            catch APIError.invalidResponse { }
+        }
+        let credential = PasskeyCredential(id: "dGVzdA", response: .init(clientDataJSON: "e30", authenticatorData: "AA", signature: "AA", userHandle: "dXNlcg"))
+        let credentialJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(PasskeyProof(challengeID: "pkc_test", credential: credential))) as! [String: Any]
+        precondition(credentialJSON["credential_id"] as? String == "dGVzdA" && credentialJSON["challenge_id"] as? String == "pkc_test")
+        precondition(credentialJSON["user_handle"] as? String == "dXNlcg" && credentialJSON["attestation_object"] == nil && credentialJSON["credential"] == nil)
+        let creationOptions = try decoder.decode(PasskeyCreationOptions.self, from: Data(#"{"challenge_id":"pkc_test","challenge":"dGVzdA","rp_id":"app.keyala.io","user_id":"dXNlcg","user_name":"test@example.invalid","exclude_credentials":["dGVzdA"],"expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(creationOptions.rpID == "app.keyala.io" && creationOptions.excludeCredentials == ["dGVzdA"])
+        let assertionOptions = try decoder.decode(PasskeyRequestOptions.self, from: Data(#"{"challenge_id":"pkc_test","challenge":"dGVzdA","rp_id":"app.keyala.io","expires_at":"2099-01-01T00:00:00Z"}"#.utf8))
+        precondition(assertionOptions.challengeID == "pkc_test")
+        let attempt = GoogleSignInAttempt(verifier: "verifier", state: "expected-state", nonce: "expected-nonce", challenge: "challenge")
+        let googleURL = URLComponents(url: attempt.authorizationURL(reauthenticate: true), resolvingAgainstBaseURL: false)!
+        precondition(googleURL.host == "accounts.google.com" && googleURL.queryItems!.contains(URLQueryItem(name: "max_age", value: "0")))
+        let goodCallback = GoogleSignInAttempt.redirectURI + "?state=expected-state&code=test-code"
+        let googleCode = try attempt.code(from: URL(string: goodCallback)!)
+        precondition(googleCode == "test-code")
+        for callback in [goodCallback.replacingOccurrences(of: "expected-state", with: "wrong-state"), goodCallback + "&code=second", "keyala:/oauthredirect?state=expected-state&code=test-code", GoogleSignInAttempt.callbackScheme + "://evil/oauthredirect?state=expected-state&code=test-code"] {
+            do { _ = try attempt.code(from: URL(string: callback)!); preconditionFailure("OAuth callback must match scheme, path, state and unique fields") } catch APIError.invalidResponse { }
+        }
+        func idToken(nonce: String) throws -> String {
+            "e30." + (try JSONSerialization.data(withJSONObject: ["nonce": nonce, "aud": GoogleSignInAttempt.clientID])).base64URL + ".signature"
+        }
+        try attempt.validateNonce(idToken: idToken(nonce: "expected-nonce"))
+        do { try attempt.validateNonce(idToken: idToken(nonce: "wrong-nonce")); preconditionFailure("ID token nonce must match OAuth attempt") } catch APIError.invalidResponse { }
+        let passkeyDeletion = try JSONSerialization.jsonObject(with: JSONEncoder().encode(AccountDeletionRequest(passkey: PasskeyProof(challengeID: "pkc_test", credential: credential)))) as! [String: Any]
+        precondition((passkeyDeletion["passkey"] as! [String: Any])["credential_id"] as? String == "dGVzdA")
+        let googleAccount = try decoder.decode(AccountProfile.self, from: Data(#"{"id":"usr_google","email":"test@example.invalid","auth_provider":"google"}"#.utf8))
+        precondition(googleAccount.authProvider == "google")
         let accountWithProvider = try decoder.decode(AccountProfile.self, from: Data(#"{"id":"usr_apple","email":"relay@example.invalid","auth_provider":"apple"}"#.utf8))
         precondition(accountWithProvider.authProvider == "apple")
         let deletion = AccountDeletionRequest(idToken: "test-fresh-identity", authorizationCode: "test-authorization-code")

@@ -139,16 +139,28 @@ pub async fn stop_all(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>>
 
 // ---------- account deletion ----------
 
+/// Proof that the caller is the account owner right now (one of the four).
+#[derive(Deserialize)]
+pub struct FreshIdentity {
+    id_token: Option<String>,
+    password: Option<String>,
+    email: Option<String>,
+    /// any account with a passkey: an assertion for a `/v1/auth/passkey/options` challenge
+    passkey: Option<crate::passkey::Assertion>,
+}
+
+/// Field names of [`FreshIdentity`], for endpoints that reject anything else.
+pub const FRESH_FIELDS: [&str; 4] = ["id_token", "password", "email", "passkey"];
+
 #[derive(Deserialize)]
 pub struct DeleteReq {
     confirm: String,
-    id_token: Option<String>,
     authorization_code: Option<String>,
-    password: Option<String>,
-    email: Option<String>,
+    #[serde(flatten)]
+    proof: FreshIdentity,
 }
 
-fn reauth_failed() -> ApiError {
+pub(crate) fn reauth_failed() -> ApiError {
     api(
         401,
         "reauth_failed",
@@ -244,32 +256,31 @@ async fn sending_count(
         .await
 }
 
-pub async fn delete_account(
-    State(s): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    h: HeaderMap,
-    J(b): J<DeleteReq>,
-) -> R<Json<Value>> {
-    let u = auth_session(&s, &h).await?;
-    if b.confirm != "DELETE" {
-        return Err(api(
-            400,
-            "confirmation_required",
-            "send {\"confirm\": \"DELETE\"} to delete the account",
-        ));
-    }
-    rate_limit(&s, peer, &h, "delete", 5, 600, "account deletion attempts")?;
-    let (email, apple_sub): (String, Option<String>) =
-        sqlx::query_as("SELECT email, apple_sub FROM users WHERE id=?")
-            .bind(&u)
+/// Fresh identity for user `u`, same generic 401 for every failure. Returns whether the account is an
+/// Apple one (deletion then revokes the Apple tokens).
+pub(crate) async fn verify_fresh_identity(s: &AppState, u: &str, b: &FreshIdentity) -> R<bool> {
+    let (email, apple_sub, google_sub): (String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT email, apple_sub, google_sub FROM users WHERE id=?")
+            .bind(u)
             .fetch_one(&s.db)
             .await?;
-    // fresh identity, same generic 401 for every failure
     let is_apple = apple_sub.is_some();
-    if let Some(sub) = &apple_sub {
-        let c = apple::verify(&s, b.id_token.as_deref().ok_or_else(reauth_failed)?)
+    if let Some(a) = &b.passkey {
+        // the challenge is at most 5 minutes old and single use, so this is fresh too
+        let who = crate::passkey::verify_assertion(s, a)
             .await
             .map_err(|_| reauth_failed())?;
+        if who != u {
+            return Err(reauth_failed());
+        }
+    } else if let Some(sub) = apple_sub.as_ref().or(google_sub.as_ref()) {
+        let tok = b.id_token.as_deref().ok_or_else(reauth_failed)?;
+        let c = if is_apple {
+            apple::verify(s, tok).await
+        } else {
+            apple::verify_google(s, tok).await
+        }
+        .map_err(|_| reauth_failed())?;
         let iat = c.iat.ok_or_else(reauth_failed)?;
         if !ct_eq(c.sub.as_bytes(), sub.as_bytes())
             || iat < unix_now() - 300
@@ -294,6 +305,25 @@ pub async fn delete_account(
     {
         return Err(reauth_failed());
     }
+    Ok(is_apple)
+}
+
+pub async fn delete_account(
+    State(s): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    h: HeaderMap,
+    J(b): J<DeleteReq>,
+) -> R<Json<Value>> {
+    let u = auth_session(&s, &h).await?;
+    if b.confirm != "DELETE" {
+        return Err(api(
+            400,
+            "confirmation_required",
+            "send {\"confirm\": \"DELETE\"} to delete the account",
+        ));
+    }
+    rate_limit(&s, peer, &h, "delete", 5, 600, "account deletion attempts")?;
+    let is_apple = verify_fresh_identity(&s, &u, &b.proof).await?;
     let in_flight = || {
         api(
             409,
@@ -322,6 +352,8 @@ pub async fn delete_account(
         "DELETE FROM enrollments WHERE user_id=?1",
         "DELETE FROM oauth_flows WHERE user_id=?1",
         "DELETE FROM web_logins WHERE user_id=?1",
+        "DELETE FROM passkeys WHERE user_id=?1",
+        "DELETE FROM passkey_challenges WHERE user_id=?1",
         // apps outlive their owner: they keep working with their secret
         "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id=?1",
         "DELETE FROM users WHERE id=?1",

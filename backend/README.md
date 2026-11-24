@@ -24,6 +24,11 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `KEYALA_PRICES_VERIFIED` | off | `1` = operator checked `src/pricing.rs` against vendor pricing pages. Without it (and without mock) every model is rejected with `model_not_priced` (fail closed) |
 | `KEYALA_APPLE_BUNDLE_ID` | `app.sorevan.masterkey` | required `aud` of Apple identity tokens |
 | `KEYALA_APPLE_JWKS_URL` | Apple's | override only for tests |
+| `KEYALA_GOOGLE_CLIENT_IDS` | unset | comma-separated Google OAuth client IDs (iOS, later Android/web) accepted as ID-token `aud`. Unset = `POST /v1/auth/google` answers 404 and `/v1/auth/methods` says `google: false` |
+| `KEYALA_GOOGLE_JWKS_URL` | Google's | override only for tests |
+| `KEYALA_PASSKEY_RP_ID` | host of `KEYALA_PUBLIC_URL` | WebAuthn RP ID passkeys are bound to. Passkeys are offered only when `KEYALA_PUBLIC_URL` is `https://` on this host. Changing it orphans every stored passkey |
+| `KEYALA_PASSKEY_ORIGINS` | unset | extra accepted origins, comma separated (`https://{rp_id}` is always accepted) |
+| `KEYALA_ANDROID_PACKAGE`, `KEYALA_ANDROID_CERT_SHA256` | unset | Android app for `/.well-known/assetlinks.json` and its passkey origin; fingerprints as `AB:CD:…`, comma separated. Both or neither |
 | `KEYALA_APNS_KEY_P8`, `KEYALA_APNS_KEY_ID`, `KEYALA_APNS_TEAM_ID` | unset | APNs token auth (.p8 PEM contents; `\n` escapes ok). All three needed, otherwise push is a no-op |
 | `KEYALA_APNS_TOPIC` | `app.sorevan.masterkey` | `apns-topic` (bundle id) |
 | `KEYALA_APNS_SANDBOX` | off | `1` = api.sandbox.push.apple.com |
@@ -32,7 +37,10 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `KEYALA_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
 | `KEYALA_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `KEYALA_MOCK_FAIL` yields a 500) |
 
-`POST /v1/auth/apple` verifies Apple identity tokens; Google sign-in is not implemented. APNs push is optional (see env).
+`POST /v1/auth/apple` and `POST /v1/auth/google` verify Apple / Google identity tokens. A Google sign-in is its own
+account (Google `sub`), never linked to an Apple account by email. Passkeys (`/v1/me/passkeys`, `/v1/auth/passkey`) need
+fresh identity to add and work for any account; the app needs `webcredentials:{host}`, which this server's
+`apple-app-site-association` declares. `GET /v1/auth/methods` tells clients which of these the server offers. APNs push is optional (see env).
 
 ## Full loop with curl
 
@@ -88,4 +96,5 @@ body is `409 idempotency_conflict`. After a `202` (held) or `504` (uncertain), p
 - Deploy: repo-root `render.yaml` (Render Blueprint): `main` -> `masterkey-prod`, `staging` -> `masterkey-staging`,
   both free plan, deployed only after Backend CI passes. Free plan has no disk, so SQLite data resets on every
   deploy/restart/spin-down; use `plan: starter` + a disk at `/data` to keep it. `KEYALA_PUBLIC_URL` defaults to
-  Render's `RENDER_EXTERNAL_URL`.
+  Render's `RENDER_EXTERNAL_URL`. With a custom domain (e.g. `app.keyala.io`), set `KEYALA_PUBLIC_URL` to it: it is
+  also the passkey RP ID, and the iOS app only accepts an RP ID equal to the server host it talks to.

@@ -581,17 +581,21 @@ struct AccountView: View {
                     }
                     LabeledContent("Account ID", value: account.id)
                     LabeledContent("Server", value: store.serverURL)
+                    if account.authProvider == "google" {
+                        Text("Google manages your sign-in identity. This Keyala account is independent of Sign in with Apple.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                    }
                     if account.authProvider == "apple" {
                         Text("Apple manages your sign-in identity. Change your email or Apple Account settings with Apple. You can set a separate web password in Settings > Web password.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
                     }
                     Button("Sign out on this iPhone") { confirmSignOut = true }.disabled(store.busy)
                 } else {
-                    AppleAuthenticationButton(mode: .signIn)
+                    AccountAuthenticationButtons(mode: .signIn)
                     Text("New here? Continuing creates your Keyala account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
                 }
             }
             if !store.demoMode, store.account != nil {
                 Section("Security & access") {
+                    if store.authenticationMethods?.passkeys == true { NavigationLink("Passkeys") { PasskeysView() } }
                     Button("Sign out other devices") { confirmSessions = true }.disabled(store.busy)
                     Button("Stop all app permissions", role: .destructive) { confirmStop = true }.disabled(store.busy)
                     Text("Signing out devices does not revoke app permissions. Stop permissions separately if an app or token may be compromised.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
@@ -626,6 +630,7 @@ struct AccountView: View {
                 }
             }
         }.scrollContentBackground(.hidden).background(KeyalaStyle.navy.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
+        .task(id: store.serverURL) { await store.loadAuthenticationMethods() }
         .confirmationDialog("Sign out on this iPhone?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { Task { await store.signOutRemotely() } }
         } message: { Text("This ends this device’s server session. Other devices and app permissions stay active.") }
@@ -636,6 +641,113 @@ struct AccountView: View {
             Button("Stop permissions", role: .destructive) { Task { await store.stopAllPermissions() } }
         } message: { Text("Every connected app will lose access. Unsent requests are denied. Already-sent requests may still finish; your keys stay stored.") }
 
+    }
+}
+
+struct AccountAuthenticationButtons: View {
+    @EnvironmentObject private var store: AppStore
+    let mode: SignInWithAppleButton.Label
+    var body: some View {
+        VStack(spacing: 12) {
+            AppleAuthenticationButton(mode: mode)
+            if store.authenticationMethods?.google == true {
+                Button("Continue with Google") { Task { await store.signInGoogle() } }
+                    .frame(maxWidth: .infinity, minHeight: 46).buttonStyle(.bordered).disabled(store.busy)
+                Text("Google creates a separate Keyala account. No Apple account is required.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+            }
+            if store.authenticationMethods?.passkeys == true {
+                Button { Task { await store.signInPasskey() } } label: { Label("Sign in with a passkey", systemImage: "person.badge.key") }
+                    .frame(maxWidth: .infinity, minHeight: 46).buttonStyle(.bordered).disabled(store.busy)
+            }
+            if store.busy { ProgressView("Verifying account…") }
+        }.task(id: store.serverURL) { await store.loadAuthenticationMethods() }
+    }
+}
+
+struct PasskeysView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var removing: PasskeyRecord?
+    @State private var adding = false
+    var body: some View {
+        Form {
+            Section {
+                Text("Passkeys sign in to this Keyala account with your device or credential manager. They do not require an Apple sign-in account.")
+                Text("Create a passkey after signing in. To use another device, use your credential manager’s sync or the system’s nearby-device option.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                LabeledContent("Server", value: store.serverURL)
+                Button("Add a passkey") { adding = true }.disabled(store.busy)
+            }
+            Section("Registered passkeys") {
+                if store.passkeys.isEmpty { Text("No passkeys registered.").foregroundStyle(KeyalaStyle.muted) }
+                ForEach(store.passkeys) { passkey in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(passkey.name.isEmpty ? localized("Passkey") : passkey.name)
+                        Text(passkey.createdAt.asDate).font(.caption).foregroundStyle(KeyalaStyle.muted)
+                        Button("Remove passkey", role: .destructive) { removing = passkey }.disabled(store.busy)
+                    }
+                }
+            }
+            Section {
+                Text("Removing a passkey disables it on this server. Your credential manager may keep its saved copy; remove that copy there if needed.").font(.footnote)
+                InfoBanner()
+            }
+        }.scrollContentBackground(.hidden).background(KeyalaStyle.navy).localizedNavigationTitle("Passkeys")
+            .sheet(isPresented: $adding) { NavigationStack { PasskeyEnrollmentVerificationView() } }
+            .task(id: store.contextGeneration) { await store.loadPasskeys() }
+            .confirmationDialog("Remove this passkey?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
+                if let passkey = removing { Button("Remove passkey", role: .destructive) { removing = nil; Task { await store.removePasskey(id: passkey.id) } } }
+            } message: { Text("You will need another passkey or your original sign-in provider to sign in again.") }
+    }
+}
+
+struct PasskeyEnrollmentVerificationView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var password = ""
+    @State private var generation: Int?
+    var body: some View {
+        Form {
+            Section {
+                Text("Verify your identity before adding a passkey.")
+                if store.account?.authProvider == "apple" {
+                    SignInWithAppleButton(.continue, onRequest: { request in
+                        generation = store.contextGeneration; request.requestedScopes = []
+                    }, onCompletion: verifyApple)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black).frame(height: 46).disabled(store.busy)
+                } else if store.account?.authProvider == "google", store.authenticationMethods?.google == true {
+                    Button("Continue with Google") { Task { if await store.addPasskeyWithGoogle() { dismiss() } } }.disabled(store.busy)
+                } else if store.account?.authProvider == "password" {
+                    SecureField("Account password", text: $password).textContentType(.password)
+                    Button("Verify and add passkey") {
+                        let value = password; password = ""
+                        Task { if await store.addPasskey(proof: FreshIdentity(password: value)) { dismiss() } }
+                    }.disabled(store.busy || password.isEmpty)
+                } else if store.account?.authProvider == "dev", store.developerOptions {
+                    Button("Verify and add passkey") { Task { if await store.addPasskey(proof: FreshIdentity(email: store.account?.email)) { dismiss() } } }.disabled(store.busy)
+                }
+                if !store.passkeys.isEmpty {
+                    Button("Verify with an existing passkey") { Task { if await store.addPasskeyWithExistingPasskey() { dismiss() } } }.disabled(store.busy)
+                }
+                if store.busy { ProgressView("Verifying account…") }
+                InfoBanner()
+            }
+        }.localizedNavigationTitle("Add a passkey")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(store.busy) } }
+            .onChange(of: store.contextGeneration) { _, _ in dismiss() }
+            .interactiveDismissDisabled(store.busy)
+    }
+    private func verifyApple(_ result: Result<ASAuthorization, Error>) {
+        do {
+            let authorization = try result.get()
+            guard generation == store.contextGeneration else { return }
+            generation = nil
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let token = credential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else { throw APIError.invalidResponse }
+            Task { if await store.addPasskey(proof: FreshIdentity(idToken: token)) { dismiss() } }
+        } catch {
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            store.errorMessage = error.localizedDescription; store.showError = true
+        }
     }
 }
 
@@ -681,7 +793,7 @@ struct WelcomeView: View {
                 Label("Scan an app’s connection QR", systemImage: "2.circle")
                 Label("Review and approve requests", systemImage: "3.circle")
             }.font(.subheadline)
-            AppleAuthenticationButton(mode: .continue)
+            AccountAuthenticationButtons(mode: .continue)
             Text("New here? Continuing creates your Keyala account. Returning users sign in to the same account.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
             Text("An experimental personal project by Joseph Chen, built with care. Provider usage is billed separately.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
             HStack { NavigationLink("Privacy & data") { PrivacyView() }; NavigationLink("Help & contact") { SupportView() } }.font(.footnote)
@@ -1280,6 +1392,10 @@ struct DeleteAccountView: View {
                     }, onCompletion: deleteWithApple)
                         .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black).frame(height: 46)
                         .disabled(confirmation != "DELETE" || store.busy)
+                } else if store.account?.authProvider == "google" {
+                    Text("Verify the same Google account again to permanently delete this Keyala account.").font(.footnote)
+                    Button("Verify with Google and delete", role: .destructive) { Task { await store.deleteWithGoogle() } }
+                        .disabled(confirmation != "DELETE" || store.busy || store.authenticationMethods?.google != true)
                 } else if store.account?.authProvider == "password" {
                     SecureField("Account password", text: $password).textContentType(.password)
                     Button("Permanently delete account", role: .destructive) {
@@ -1295,9 +1411,17 @@ struct DeleteAccountView: View {
                     Text("Sign in again to confirm your account type before deleting it. If this server has not been updated, contact support.")
                     Link("Contact support", destination: SupportContact.mailURL)
                 }
+                if !store.passkeys.isEmpty, store.authenticationMethods?.passkeys == true {
+                    Button("Verify with passkey and delete", role: .destructive) { Task { await store.deleteWithPasskey() } }
+                        .disabled(confirmation != "DELETE" || store.busy)
+                }
                 if store.busy { ProgressView("Verifying account…") }
             }
         }.scrollContentBackground(.hidden).background(KeyalaStyle.navy).localizedNavigationTitle("Delete account").navigationBarTitleDisplayMode(.inline)
+            .task(id: store.contextGeneration) {
+                await store.loadAuthenticationMethods()
+                if store.authenticationMethods?.passkeys == true { await store.loadPasskeys() }
+            }
             .onChange(of: store.account?.id) { _, id in if id == nil { dismiss() } }
     }
     private func deleteWithApple(_ result: Result<ASAuthorization, Error>) {
