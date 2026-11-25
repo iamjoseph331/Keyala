@@ -33,3 +33,23 @@ Privacy and support pages retain `noindex` and stay out of the sitemap.
 The legacy operational console, review tool and tutorial redirect are not locale
 content pages. A metadata change does not establish Google indexing or ranking;
 use Search Console to evaluate that separately.
+
+## Social covers
+
+`site/media/social/keyala-cover-a-<language>-v1.png` contains the approved
+1200×630 A layout in all three languages. The shared page/news metadata selects
+the page language and includes image type, dimensions and translated alt text.
+Change the filename version when replacing an image to avoid reusing an old URL.
+
+The editable layout is `tools/site/social-cover.html`. To render it, copy it to a
+local preview folder together with `site/fonts/` and `site/brand/`, serve that
+folder, and open `/social-cover.html?lang=en` (or `zh-Hant`, `ja`) at a 1200×630
+viewport. Wait for fonts to load, then export the full canvas as PNG. The exported
+PNGs are committed assets; normal site builds do not need a browser. Keep all
+critical content within the 80px inset and review a half-size preview.
+
+Search favicon assets are rasterized from `site/brand/koala.svg`: a 96px PNG,
+48px root ICO and 180px Apple touch icon. The generated head keeps the SVG for
+browsers and declares all raster URLs. Only the domain homepage emits `WebSite`
+JSON-LD with name `Keyala` and URL `https://keyala.io/`; locale subdirectories do
+not declare separate sites. Google controls whether and when these appear.

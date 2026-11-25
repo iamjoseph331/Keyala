@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1200"><title>Keyala social cover A</title><style>
+@font-face{font-family:Figtree;src:url(/fonts/figtree-latin.woff2);font-weight:400 800}
+@font-face{font-family:Fraunces;src:url(/fonts/fraunces-latin.woff2);font-weight:600 700}
+*{box-sizing:border-box}html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+body{background:#F1F5EE;color:#1D2B22;font-family:Figtree,sans-serif;-webkit-font-smoothing:antialiased}
+.cover{position:relative;width:1200px;height:630px;overflow:hidden}
+.brand{position:absolute;left:80px;top:80px;display:flex;align-items:center;gap:13px;font-family:Fraunces,serif;font-size:34px;font-weight:700;line-height:1}
+.brand img{width:42px;height:42px;border-radius:11px}
+h1{margin:0;font-family:Fraunces,serif;font-size:64px;font-weight:600;line-height:1.06;letter-spacing:-2.2px}
+h1 span{display:block}.green{color:#245E3E}
+.address{position:absolute;left:80px;bottom:80px;font-size:23px;font-weight:650;color:#245E3E}
+.card{position:absolute;background:#fff;border:1px solid #E2E9DF;border-radius:25px;box-shadow:0 16px 34px #1D2B2212;padding:28px 30px;color:#2A362F}
+.receipt-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.receipt-top strong{font-family:Fraunces,serif;font-size:28px;font-weight:600}.example{font-size:17px;color:#4F5F54;letter-spacing:.4px}
+.divider{border:0;border-top:1.5px dashed #CFDACB;margin:17px 0}
+.row{display:flex;justify-content:space-between;align-items:baseline;font-size:21px;gap:15px}.muted{color:#4F5F54}
+.protected{background:#E4EFE0;border-radius:14px;padding:16px 18px;margin:17px -3px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.protected .label{font-size:20px;line-height:1.25;max-width:190px}.protected b{font-family:Fraunces,serif;font-size:35px;font-weight:650;color:#245E3E;letter-spacing:-.8px}
+.cost{font-size:20px}.cost strong{font-weight:600;color:#4F5F54}
+.a h1{position:absolute;left:80px;top:185px;width:600px}
+.a .note{position:absolute;left:83px;top:426px;margin:0;font-size:22px;line-height:1.4;color:#4F5F54}
+.a .koala{position:absolute;left:790px;top:113px;width:250px;height:210px}
+.a .card{left:720px;top:256px;width:400px;height:294px;padding-top:25px}
+.a .receipt-top{margin-bottom:10px}.a .divider{margin:14px 0}.a .protected{margin:14px -3px;padding:13px 15px}
+
+html[lang="zh-Hant"] h1{font-size:58px;line-height:1.14;letter-spacing:-1px;font-family:Figtree,"PingFang TC","Noto Sans CJK TC",sans-serif}
+html[lang="ja"] h1{font-size:58px;line-height:1.14;letter-spacing:-1px;font-family:Figtree,"Hiragino Sans","Noto Sans JP",sans-serif}
+html:not([lang="en"]) .note{font-size:21px}
+</style></head><body><main class="cover a"><div class="brand" data-critical><img src="/brand/koala.svg" alt="">Keyala</div><h1 data-critical id="headline"></h1><p class="note" data-critical id="note">Your key. Your permission. Your receipt.</p><div class="address" data-critical>keyala.io</div><svg class="koala" viewBox="0 140 1024 680" aria-hidden="true"><circle cx="265" cy="360" r="160" fill="#fff" stroke="#C9D8C5" stroke-width="10"/><circle cx="759" cy="360" r="160" fill="#fff" stroke="#C9D8C5" stroke-width="10"/><circle cx="265" cy="360" r="94" fill="#C9DBC7"/><circle cx="759" cy="360" r="94" fill="#C9DBC7"/><path d="M247 560C247 323 350 251 512 251s265 72 265 309v260H247Z" fill="#fff"/><circle cx="389" cy="492" r="23" fill="#1F3329"/><circle cx="635" cy="492" r="23" fill="#1F3329"/><circle cx="350" cy="590" r="30" fill="#F7C9B8"/><circle cx="674" cy="590" r="30" fill="#F7C9B8"/><path d="M455 505c0-43 24-71 57-71s57 28 57 71v84c0 34-25 57-57 57s-57-23-57-57Z" fill="#1F3329"/></svg><div class="card"><div class="receipt-top" data-critical><strong id="receipt">Receipt</strong><span class="example" id="example">Example</span></div><hr class="divider"><div class="row" data-critical><span class="muted" id="app">App</span><span>Paperplane AI</span></div><div class="protected" data-critical><span class="label" id="key-label">Key shared with app</span><b id="key-value">Never</b></div><div class="row cost" data-critical><span class="muted" id="provider-cost">Provider cost</span><strong>$0.0169</strong></div></div></main><script>
+const copy = {
+  en: {headline:['Use AI Apps','Without Sharing','Your API Key'], note:'Your key. Your permission. Your receipt.', receipt:'Receipt', example:'Example', app:'App', 'key-label':'Key shared with app', 'key-value':'Never', 'provider-cost':'Provider cost'},
+  'zh-Hant': {headline:['使用 AI 工具，','不需將 API 金鑰','交出去。'], note:'你的金鑰。你的授權。你的收據。', receipt:'收據', example:'範例', app:'App', 'key-label':'金鑰交給 App', 'key-value':'從不', 'provider-cost':'服務商費用'},
+  ja: {headline:['API キーを','渡さずに、','その AI を利用。'], note:'あなたのキー。あなたの許可。あなたの明細。', receipt:'利用明細', example:'サンプル', app:'アプリ', 'key-label':'アプリへのキー共有', 'key-value':'なし', 'provider-cost':'プロバイダー費用'}
+};
+const requested = new URLSearchParams(location.search).get('lang');
+const lang = Object.hasOwn(copy, requested) ? requested : 'en';
+document.documentElement.lang = lang;
+document.title = 'Keyala social cover A / ' + lang;
+for (const [id,value] of Object.entries(copy[lang])) {
+  const target=document.getElementById(id);
+  if (id==='headline') value.forEach((line,i)=>{const span=document.createElement('span');span.textContent=line;if(i===2)span.className='green';target.append(span);});
+  else target.textContent=value;
+}
+</script></body></html>
