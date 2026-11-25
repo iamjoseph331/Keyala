@@ -73,16 +73,23 @@ function links(doc, sourcePath, lang) {
 function metadata(doc, lang, title, desc, urls, canonical, article = false) {
   const head = first(doc, n => tag(n, 'head'));
   for (const n of all(head, n => tag(n, 'title') || (tag(n, 'meta') &&
-    (['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image'].includes(attr(n, 'name')) || attr(n, 'property')?.startsWith('og:'))) ||
-    (tag(n, 'link') && (attr(n, 'rel') === 'canonical' || attr(n, 'hreflang'))))) remove(n);
-  append(head, `<title>${esc(title)}</title><meta name="description" content="${esc(desc)}">
+    (['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image', 'twitter:image:alt'].includes(attr(n, 'name')) || attr(n, 'property')?.startsWith('og:'))) ||
+    (tag(n, 'link') && (['canonical', 'icon', 'shortcut icon', 'apple-touch-icon'].includes(attr(n, 'rel')) || attr(n, 'hreflang'))) ||
+    (tag(n, 'script') && attr(n, 'id') === 'site-name'))) remove(n);
+  append(head, `<link rel="icon" type="image/x-icon" sizes="48x48" href="/favicon.ico">
+<link rel="icon" type="image/svg+xml" sizes="any" href="/brand/koala.svg">
+<link rel="icon" type="image/png" sizes="96x96" href="/brand/favicon-96x96.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/apple-touch-icon.png">
+<title>${esc(title)}</title><meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${canonical}">
 ${Object.entries(urls).map(([l, u]) => `<link rel="alternate" hreflang="${l}" href="${SITE}${u}">`).join('')}
 <link rel="alternate" hreflang="x-default" href="${SITE}${urls.en || Object.values(urls)[0]}">
 <meta property="og:site_name" content="Keyala"><meta property="og:type" content="${article ? 'article' : 'website'}">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${canonical}">
-<meta property="og:locale" content="${locale[lang]}"><meta property="og:image" content="${SITE}/social.svg">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}/social.svg">`);
+<meta property="og:locale" content="${locale[lang]}"><meta property="og:image" content="${SITE}/media/social/keyala-cover-a-${lang}-v1.png">
+<meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${esc(seo[lang].socialAlt)}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}/media/social/keyala-cover-a-${lang}-v1.png"><meta name="twitter:image:alt" content="${esc(seo[lang].socialAlt)}">`);
+  if (canonical === SITE + '/') append(head, '<script id="site-name" type="application/ld+json">' + JSON.stringify({'@context':'https://schema.org','@type':'WebSite',name:'Keyala',url:SITE+'/'}) + '</script>');
 }
 function documentPage(doc, lang) {
   const ui = seo[lang].docsUI;

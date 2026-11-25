@@ -50,7 +50,8 @@
       "tech": "Tech blog",
       "none": "No posts here yet.",
       "feed": "RSS feed"
-    }
+    },
+    "socialAlt": "Keyala: Use AI Apps Without Sharing Your API Key. A koala peeks over an example receipt showing the app never receives your key."
   },
   "zh-Hant": {
     "home": [
@@ -103,7 +104,8 @@
       "tech": "技術部落格",
       "none": "尚無文章。",
       "feed": "RSS 訂閱"
-    }
+    },
+    "socialAlt": "Keyala：使用 AI 工具，不需將 API 金鑰交出去。無尾熊從範例收據後探頭，收據顯示金鑰從不交給 App。"
   },
   "ja": {
     "home": [
@@ -156,6 +158,7 @@
       "tech": "技術ブログ",
       "none": "記事はまだありません。",
       "feed": "RSS フィード"
-    }
+    },
+    "socialAlt": "Keyala：API キーを渡さずに、その AI を利用。コアラがサンプルの利用明細から顔を出し、アプリへのキー共有がないことを示す。"
   }
 }
