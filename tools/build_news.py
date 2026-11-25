@@ -121,7 +121,7 @@ def page(lang, title, desc, url, body, depth, extra_head=""):
 <title>{html.escape(title)} - Keyala</title><meta name="description" content="{html.escape(desc)}">
 <link rel="canonical" href="{url}"><meta property="og:title" content="{html.escape(title)}">
 <meta property="og:description" content="{html.escape(desc)}"><meta property="og:url" content="{url}">
-<meta property="og:image" content="{SITE}/social.svg"><meta property="og:type" content="article">
+<meta property="og:image" content="{SITE}/media/social/keyala-cover-a-{lang}-v1.png"><meta property="og:type" content="article">
 <link rel="alternate" type="application/rss+xml" title="Keyala news" href="{SITE}/news/feed.xml">
 <link rel="icon" href="{up}brand/koala.svg"><link rel="stylesheet" href="{up}base.css"><link rel="stylesheet" href="{up}news.css">
 {extra_head}<script>window.KEYALA_STRINGS={json.dumps(strings, ensure_ascii=False)};</script><script src="{up}i18n.js" defer></script></head>

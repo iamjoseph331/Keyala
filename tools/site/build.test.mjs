@@ -16,6 +16,7 @@ const attr = (n, k) => n.attrs?.find(a => a.name === k)?.value;
 const read = url => parse(fs.readFileSync(path.join(out, url, 'index.html'), 'utf8'));
 const one = (doc, fn) => { const nodes=all(doc,fn); assert.equal(nodes.length,1); return nodes[0]; };
 const meta = (doc, name) => attr(one(doc,n => n.tagName === 'meta' && attr(n,'name')===name),'content');
+const socialAlt = JSON.parse(fs.readFileSync(path.join(ROOT,'site/seo.json'),'utf8'));
 const codeBlocks = s => [...s.matchAll(/```[^\n]*\n[\s\S]*?```/g)].map(m=>m[0]);
 
 test('every locale has static content, matching metadata and reciprocal language URLs', () => {
@@ -26,6 +27,9 @@ test('every locale has static content, matching metadata and reciprocal language
     assert(title.includes('Keyala'));
     assert(meta(doc,'description').length>20);
     assert.equal(meta(doc,'twitter:title'),title);
+    assert.equal(meta(doc,'twitter:image'),`${SITE}/media/social/keyala-cover-a-${lang}-v1.png`);
+    assert.equal(meta(doc,'twitter:image:alt'),socialAlt[lang].socialAlt);
+    for(const [key,value] of Object.entries({'og:image':meta(doc,'twitter:image'),'og:image:type':'image/png','og:image:width':'1200','og:image:height':'630','og:image:alt':socialAlt[lang].socialAlt})) assert.equal(attr(one(doc,n=>n.tagName==='meta' && attr(n,'property')===key),'content'),value);
     assert.equal(attr(one(doc,n=>n.tagName==='meta' && attr(n,'property')==='og:title'),'content'),title);
     assert.equal(attr(one(doc,n=>n.tagName==='link' && attr(n,'rel')==='canonical'),'href'),SITE+url);
     for(const l of [...LANGS,'x-default']) assert.equal(attr(one(doc,n=>n.tagName==='link' && attr(n,'hreflang')===l),'href'),SITE+route(page,l==='x-default'?'en':l));
@@ -103,4 +107,44 @@ test('generated locale pages and news articles have valid local resources and an
     }
   }
   assert.deepEqual(failures,[]);
+});
+
+
+test('published covers are 1200x630 PNGs and every news article uses its own locale cover', () => {
+  for (const lang of LANGS) {
+    const file=path.join(out,`media/social/keyala-cover-a-${lang}-v1.png`);
+    const image=fs.readFileSync(file);
+    assert.deepEqual([...image.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+    assert.equal(image.readUInt32BE(16),1200);
+    assert.equal(image.readUInt32BE(20),630);
+    assert(image.length < 1000000, 'Keep sharing images below 1 MB');
+  }
+  for (const post of fs.readdirSync(path.join(ROOT,'site/news/posts'))) {
+    const match=post.match(/^(.*)\.(en|zh-Hant|ja)\.md$/);
+    if(!match)continue;
+    const [,stem,lang]=match;
+    const doc=read(`/news/${stem}/${lang}/`);
+    assert.equal(meta(doc,'twitter:image'),`${SITE}/media/social/keyala-cover-a-${lang}-v1.png`);
+    assert.equal(attr(one(doc,n=>n.tagName==='meta' && attr(n,'property')==='og:image'),'content'),meta(doc,'twitter:image'));
+  }
+});
+
+
+test('search favicon assets and site name are available to crawlers', () => {
+  const png = fs.readFileSync(path.join(out,'brand/favicon-96x96.png'));
+  assert.equal(png.readUInt32BE(16),96); assert.equal(png.readUInt32BE(20),96);
+  const apple=fs.readFileSync(path.join(out,'brand/apple-touch-icon.png'));
+  assert.equal(apple.readUInt32BE(16),180); assert.equal(apple.readUInt32BE(20),180);
+  const ico=fs.readFileSync(path.join(out,'favicon.ico'));
+  assert.equal(ico.readUInt16LE(2),1); assert.equal(ico.readUInt16LE(4),1);
+  assert.equal(ico[6],48); assert.equal(ico[7],48);
+  for(const page of PAGES)for(const lang of LANGS){
+    const doc=read(route(page,lang));
+    assert.equal(attr(one(doc,n=>n.tagName==='link' && attr(n,'rel')==='icon' && attr(n,'type')==='image/png'),'href'),'/brand/favicon-96x96.png');
+    assert.equal(attr(one(doc,n=>n.tagName==='link' && attr(n,'rel')==='apple-touch-icon'),'href'),'/brand/apple-touch-icon.png');
+    const data=all(doc,n=>n.tagName==='script' && attr(n,'type')==='application/ld+json');
+    if(page==='home' && lang==='en')assert.deepEqual(JSON.parse(text(data[0])),{'@context':'https://schema.org','@type':'WebSite',name:'Keyala',url:SITE+'/'});
+    else assert.equal(data.length,0);
+  }
+  assert(fs.readFileSync(path.join(out,'robots.txt'),'utf8').includes('Allow: /'));
 });

@@ -186,6 +186,7 @@ and [restore check](docs/ops/restore-drill.sh) scripts.
 
 | Need | Go to |
 |:---|:---|
+| Homepage | [keyala.io](https://keyala.io) |
 | Integrate an app | [Developer docs](https://keyala.io/docs/), [Markdown copy](site/docs/keyala.md) |
 | Exact API contract | [docs/PLAN.md](docs/PLAN.md) |
 | Use the iPhone app | [User guide](https://keyala.io/guide/) |
