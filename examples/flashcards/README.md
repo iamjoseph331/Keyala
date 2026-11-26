@@ -13,7 +13,7 @@ Plan and test script: [docs/examples-plan.md](../../docs/examples-plan.md).
 
 1. In `https://app.keyala.io/console` → My apps → Create app: name `Flashcards`, homepage
    `https://keyala.io/examples/flashcards/`, allowed origin `https://keyala.io`.
-2. Put the App ID in `APP_ID` in `index.html` (it is `app_REPLACE_WITH_CONSOLE_ID` until then, and connecting fails).
+2. The App ID is in `APP_ID` in `index.html` (`app_EAqJcusVcVz1jPVq`).
 3. Add `examples/flashcards` to the copy step and `paths` of `.github/workflows/pages.yml`.
 
 ## Run it locally (mock vendor, no real credits)
