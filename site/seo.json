@@ -24,6 +24,14 @@
       "Keyala News — Product Updates and Development Notes",
       "Product updates and technical notes from Keyala, the open-source way to use AI apps without giving them your API key."
     ],
+    "testflight": [
+      "Keyala TestFlight guide",
+      "Install Keyala on iPhone, try the seven pilot tasks and send feedback on your TestFlight experience."
+    ],
+    "examples": [
+      "Keyala Example Apps — Try AI Apps With Your Own Key",
+      "Try four AI apps that use Keyala: mock interviews, resume tailoring, language flashcards and a daily journal. No API key in the app; approve each call on iPhone."
+    ],
     "nav": [
       "Developers",
       "Users",
@@ -78,6 +86,14 @@
       "Keyala 最新消息 — 產品更新與開發筆記",
       "Keyala 的產品更新與技術筆記。以開放原始碼打造不必把 API 金鑰交給第三方應用的 AI 使用方式。"
     ],
+    "testflight": [
+      "Keyala TestFlight 測試指南",
+      "在 iPhone 安裝 Keyala，試做七個測試任務，回報 TestFlight 的使用體驗。"
+    ],
+    "examples": [
+      "Keyala 範例應用 — 用自己的金鑰試用 AI 應用",
+      "試用四個使用 Keyala 的 AI 應用：模擬面試、履歷調整、語言字卡與每日日記。應用不會拿到 API 金鑰，每筆呼叫都在 iPhone 批准。"
+    ],
     "nav": [
       "開發者",
       "使用者",
@@ -131,6 +147,14 @@
     "news": [
       "Keyala ニュース — 製品の更新と開発ノート",
       "API キーを接続先のアプリに渡さず AI を使うための、オープンソースの Keyala。製品の更新と開発の記録をお届けします。"
+    ],
+    "testflight": [
+      "Keyala TestFlight テストガイド",
+      "iPhone に Keyala をインストールし、7つの項目を試して、TestFlight の利用体験をお知らせください。"
+    ],
+    "examples": [
+      "Keyala サンプルアプリ — 自分のキーで AI アプリを試す",
+      "Keyala を使う 4 つの AI アプリを試せます。模擬面接、履歴書の調整、語学カード、日記。アプリに API キーは渡らず、呼び出しは iPhone で許可します。"
     ],
     "nav": [
       "開発者",

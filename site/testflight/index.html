@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Keyala TestFlight guide</title>
+  <link rel="stylesheet" href="/base.css">
+  <link rel="stylesheet" href="/guide/guide.css">
+  <link rel="stylesheet" href="/testflight/testflight.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="/"><img src="/brand/koala.svg" alt=""> Keyala</a>
+</div></header>
+<main id="main" class="wrap">
+  <article data-language="en" lang="en" class="pilot">
+    <div class="hero">
+      <h1>Keyala TestFlight guide</h1>
+      <p class="lead">Thanks for trying Keyala. Do as much as you have time for. An incomplete test or a note about where you got stuck is welcome.</p>
+      <p>The invite-only pilot will run for 14 days with a minimum of 10 and a maximum of 20 testers. Dates and the test build will be confirmed in the invitation.</p>
+    </div>
+    <div class="steps">
+      <section class="step card" id="setup">
+        <h2>Install and sign in</h2>
+        <p>On an iPhone with iOS 17 or later, install <a href="https://apps.apple.com/app/testflight/id899247664">Apple TestFlight from the App Store</a>. Open Apple’s Keyala invitation, then choose <strong>View in TestFlight → Accept → Install</strong>. Check the version and build against the invitation.</p>
+        <p>Open Keyala and sign in with your own Apple or Google account. These create separate Keyala accounts even if the email matches. Keep using the same sign-in method and account throughout the pilot.</p>
+      </section>
+      <section class="step card" id="tasks">
+        <h2>Seven things to try</h2>
+        <p>Try each goal before opening its steps. If you get stuck, note where it happened, then open the details.</p>
+        <ol class="task-list">
+          <li data-task="understand">
+            <h3>Describe what you think Keyala does.</h3>
+            <p>After you see the first screens, write a sentence in your own words. Keep it for your feedback before reading any of the explanations below.</p>
+            <details><summary>After you’ve written it</summary>
+              <p>Keyala lets connected AI apps ask to make model calls. The apps receive revocable permissions and the results of approved calls. Keyala stores your API key encrypted on its server and uses it to send approved requests without handing the key to the connected app. You are trusting the Keyala server operator to handle that key. The pilot sponsor may see provider usage or logs, so use fictional inputs throughout.</p>
+            </details>
+          </li>
+          <li data-task="key">
+            <h3>Add the pilot key.</h3>
+            <details><summary>Show steps and test options</summary>
+              <p>For the free connected test, Joseph sends each tester a private OpenRouter key with a US$1 spending limit. You can paste it without an OpenRouter account or OAuth sign-in.</p>
+              <p>The US$1 is the total for the pilot. It does not reset or get topped up automatically. The key expires at the end of the shared 14-day pilot, on the date in your personal invitation. How far it goes depends on usage. If the credit runs out, stop there. Keyala does not automatically fall back to a paid key.</p>
+              <p>In Keyala, open <strong>Keys → Paste a key on this iPhone</strong>. Choose <strong>OpenRouter</strong> under <strong>Provider</strong>, paste the key and tap <strong>Save key</strong>. If you already have your own OpenRouter key in Keyala, keep it and tell Joseph before adding a pilot key. Using your own key uses your provider balance and may incur charges.</p>
+              <p>For an offline tour, go to <strong>Settings → Developer options</strong>, enable developer options and turn on <strong>Use sample data</strong>. Switching signs you out. Offline samples make no network calls and cannot verify live connections or billing. Turn samples off and sign back in with the same account before continuing the connected test.</p>
+            </details>
+          </li>
+          <li data-task="connect">
+            <h3>Connect Interview Prepper to Keyala.</h3>
+            <details><summary>Show steps</summary>
+              <p><strong>Before pairing</strong>, choose your billing route. For the sponsored or your own OpenRouter key, turn on <strong>Settings → Use OpenRouter for OpenAI and Anthropic</strong>. To use your own Anthropic key directly, leave this switch off and check that your Anthropic key is saved. Existing connections retain their billing route. To change it, disconnect Interview Prepper in Keyala and reconnect.</p>
+              <p>Open <a href="https://iamjoseph331.github.io/interview_prepper/">Interview Prepper</a> and choose <strong>Connect Keyala</strong>. Open the pairing link on the iPhone or scan the QR code from another screen. If either fails, enter the <code>KY-</code> code in Keyala. Confirm Interview Prepper and the billing route you chose, then choose <strong>Connect and ask each time</strong> to start with Ask.</p>
+            </details>
+          </li>
+          <li data-task="approve">
+            <h3>Review a request and approve it once.</h3>
+            <details><summary>Show steps and a fictional example</summary>
+              <p>In Interview Prepper, set the level to <strong>Junior</strong>, choose <strong>Machine learning fundamentals</strong> under Categories and set Questions to <strong>1</strong>. Under <strong>Graded session → Configure</strong>, select <strong>Haiku 5.5</strong> (<code>claude-haiku-5-5</code> in the model list shown after Keyala connects). Tap <strong>Start graded session</strong> to generate a question for a fictional junior AI/ML interview.</p>
+              <p>Keep Keyala open for the first attempt. In <strong>Inbox</strong>, check the request text, model, estimated cost and billing route. Select <strong>This call only</strong> and tap <strong>Allow</strong>. Check that Interview Prepper receives a response. A graded session can trigger several calls. Keep each approval separate and review or deny any follow-up before it runs.</p>
+            </details>
+          </li>
+          <li data-task="deny">
+            <h3>Deny a request.</h3>
+            <details><summary>Show steps</summary>
+              <p>Use the next pending request. If you have a question and there’s no request waiting, enter a short fictional answer and tap <strong>Submit</strong> to request grading. For example, if asked about overfitting, write “In a fictional project, I’d compare training and validation errors.” Tap <strong>Deny</strong> in Keyala and see what Interview Prepper shows. If the page moves on, check Activity for the denial.</p>
+            </details>
+          </li>
+          <li data-task="history">
+            <h3>Find what happened to the requests.</h3>
+            <details><summary>Show steps</summary>
+              <p>Open <strong>Inbox → Activity</strong> and look for the approved and denied requests. Check their statuses and, where shown, the model, route and cost. Keyala’s estimates and usage-based costs can differ from the provider’s bill.</p>
+            </details>
+          </li>
+          <li data-task="revoke">
+            <h3>Revoke the connection and see what happens on the next attempt.</h3>
+            <details><summary>Show steps</summary>
+              <p>Open <strong>Apps → Interview Prepper → Disconnect app</strong> and confirm. In Interview Prepper, choose <strong>New session</strong> if you’re on the results screen, then try <strong>Start graded session</strong> once. Check that the page asks you to reconnect. A request already sent upstream may still finish. You can end the test when asked to reconnect.</p>
+            </details>
+          </li>
+        </ol>
+        <p class="note">If a step fails or a request is marked uncertain, stop there. Check Activity and report what you saw. Skip repeated attempts that could spend more credit.</p>
+      </section>
+      <section class="step card" id="optional-examples">
+        <h2>Optional example apps</h2>
+        <p>Interview Prepper is the main exercise. If you want to try another app, keep Keyala set to Ask for each call. Paste API keys only into Keyala. Use fictional inputs. You can repeat the approval, denial, Activity and revocation checks with either app.</p>
+        <h3><a href="https://keyala.io/examples/flashcards/">Flashcards</a></h3>
+        <p>To try the review without a key or model call, open <strong>Example deck</strong> under <strong>My decks</strong>. Flip a card and choose <strong>Know</strong> or <strong>Don’t know</strong>. Generated decks and their scores stay in this browser.</p>
+        <p>To generate one deck with <code>gpt-4o-mini</code>, choose a language, level and topic (for example, beginner Japanese for ordering in a fictional café), set <strong>Cards</strong> to <strong>10</strong> and choose <strong>Make deck</strong>. If prompted, connect with Keyala. Use an OpenAI key directly with the routing switch off. For the sponsored or your own OpenRouter key, turn on <strong>Settings → Use OpenRouter for OpenAI and Anthropic</strong> before connecting. To change the route for an existing Flashcards connection, revoke it in Keyala and reconnect. Check the route and estimated cost, then approve only the deck request.</p>
+        <h3><a href="https://keyala.io/examples/daily-reflection/">Daily Reflection</a></h3>
+        <p>Write one or two fictional lines, such as “I sketched a paper boat in an imaginary art class.” Choose <strong>Reflect</strong>, connect with Keyala if prompted and approve one request. Follow-ups use <strong>Send</strong>. The app calls <code>anthropic/claude-haiku-5.5</code> directly through OpenRouter with your saved OpenRouter key. The OpenAI/Anthropic routing switch is irrelevant to this connection.</p>
+        <p>Each message approved and sent to the model is billable and resends that day’s conversation. The daily limit is 10 of your messages. Keep Ask even if the page suggests <strong>Next calls</strong> or <strong>Budget</strong>. The journal is saved in this browser and does not sync. Use only invented entries, with no real diary text or sensitive information.</p>
+      </section>
+      <section class="step card" id="extras">
+        <h2>Optional checks</h2>
+        <ul>
+          <li>Allow notifications, lock your iPhone and check whether a request notification opens the right screen. If none arrives, open Keyala and check Inbox.</li>
+          <li>Change Keyala’s language, reopen the app and check that your choice is saved.</li>
+        </ul>
+        <p>Keep your account for the pilot. Account deletion is irreversible and is outside the test tasks.</p>
+        <p>Coupon sharing is a future concept. There’s no coupon flow to test or announced pricing or release date. The US$1 pilot keys are supplied manually for this test.</p>
+      </section>
+      <section class="step card" id="feedback">
+        <h2>Send feedback</h2>
+        <p id="feedback-form"><a href="https://docs.google.com/forms/d/e/1FAIpQLSdqT46s_9CAEkFoq_1YImjQ2rrBOMtjLoo-Ora2qWRq18n_NQ/viewform">Open the English feedback form</a>. Feedback is optional and needs no sign-in. You can send it even if you could not install Keyala.</p>
+        <p>For bugs, reply to the introductory email or email <a href="mailto:support@keyala.io">support@keyala.io</a>. You can also open <strong>TestFlight → Keyala → Send Beta Feedback</strong>. Apple also receives feedback submitted there.</p>
+        <p>You can include the Keyala version and build, iPhone model, iOS version, app language, date and time zone, steps, expected and actual results, provider and model, or a request ID sent privately to support. Screenshots are optional. Hide keys, passwords, tokens, pairing codes and QR codes, personal information and private prompts or replies before sharing.</p>
+      </section>
+      <section class="step card">
+        <h2>Video walkthroughs</h2>
+        <p>The <a data-video-guide href="/guide/">Keyala user guide</a> has videos for adding a key, connecting an app, approving and denying requests, setting limits and routing through OpenRouter.</p>
+      </section>
+    </div>
+  </article>
+  <article data-language="zh-Hant" lang="zh-Hant" class="pilot">
+    <div class="hero">
+      <h1>Keyala TestFlight 測試指南</h1>
+      <p class="lead">謝謝你願意試用 Keyala！有空做到哪裡就好。即使只試了幾步，告訴我們在哪裡卡住也很有幫助。</p>
+      <p>這次採邀請制，測試為期 14 天，最少 10 人、最多 20 人。確切日期和測試版本會在邀請中確認。</p>
+    </div>
+    <div class="steps">
+      <section class="step card" id="setup">
+        <h2>安裝與登入</h2>
+        <p>使用 iOS 17 以上的 iPhone，在 App Store 安裝 <a href="https://apps.apple.com/app/testflight/id899247664">Apple 的 TestFlight</a>。開啟 Apple 寄來的 Keyala 邀請，依序點選<strong>在 TestFlight 中查看、接受、安裝</strong>。比對邀請中的版本與組建編號。</p>
+        <p>開啟 Keyala，使用自己的 Apple 或 Google 帳號登入。即使電子郵件相同，兩種方式也會建立各自獨立的 Keyala 帳號。測試期間請固定使用同一種登入方式和同一個帳號。</p>
+      </section>
+      <section class="step card" id="tasks">
+        <h2>七個測試任務</h2>
+        <p>請先看目標並試著完成。卡住時先記下卡在哪裡，再展開步驟。</p>
+        <ol class="task-list">
+          <li data-task="understand">
+            <h3>用自己的話說明 Keyala 的用途。</h3>
+            <p>看完 App 的開場畫面後，先寫一句你對 Keyala 的理解，再往下讀說明。請把這句話留到回饋時使用。</p>
+            <details><summary>寫完後再展開</summary>
+              <p>與 Keyala 連結的 AI 工具可以提出模型呼叫請求，並取得可撤銷的授權與你批准的呼叫結果。Keyala 將 API 金鑰加密存放在伺服器，並使用金鑰轉送你批准的請求。連結的工具不會取得金鑰。使用時，你需要信任 Keyala 的伺服器營運者會妥善處理金鑰。測試贊助者可能看得到服務商用量或紀錄，請全程使用虛構資料。</p>
+            </details>
+          </li>
+          <li data-task="key">
+            <h3>新增測試用金鑰。</h3>
+            <details><summary>查看步驟與測試方式</summary>
+              <p>若要免費測試連線流程，Joseph 會私下提供每人一把支出上限為 1 美元的 OpenRouter 金鑰。直接貼上即可，無須 OpenRouter 帳號或 OAuth 登入。</p>
+              <p>1 美元是整段測試的總上限，額度不會重設或自動補充。所有人的金鑰會在共同的 14 天測試結束時到期，日期以個別邀請為準。可呼叫幾次取決於實際用量。額度用完就先停止，Keyala 不會自動改用其他付費金鑰。</p>
+              <p>在 Keyala 開啟 <strong>Keys → 在這台 iPhone 貼上 key</strong>。在<strong>服務商</strong>選擇 <strong>OpenRouter</strong>，貼上金鑰後點<strong>儲存 key</strong>。若 Keyala 已有你自己的 OpenRouter 金鑰，請保留原金鑰，新增測試金鑰前先聯絡 Joseph。使用自帶金鑰會消耗你自己的服務商餘額，可能產生費用。</p>
+              <p>若只想離線看介面，可到<strong>設定 → 開發者選項</strong>，啟用開發者選項後開啟<strong>使用範例資料</strong>。切換會登出。離線範例不會發出網路請求，無法驗證實際連線或計費。要繼續連線測試時，先關閉範例，再以原帳號登入。</p>
+            </details>
+          </li>
+          <li data-task="connect">
+            <h3>將 Interview Prepper 連結到 Keyala。</h3>
+            <details><summary>查看步驟</summary>
+              <p><strong>配對前</strong>先選擇計費路徑。使用測試金鑰或自己的 OpenRouter 金鑰時，在<strong>設定</strong>開啟<strong>透過 OpenRouter 使用 OpenAI 與 Anthropic</strong>。要直接使用自帶的 Anthropic 金鑰，請保持這個開關關閉，並確認已儲存 Anthropic 金鑰。既有連結會保留原計費路徑。要變更時，請先在 Keyala 中斷 Interview Prepper 的連結，再重新配對。</p>
+              <p>開啟 <a href="https://iamjoseph331.github.io/interview_prepper/">Interview Prepper</a>，選擇 <strong>Connect Keyala</strong>。在 iPhone 開啟配對連結，或掃描另一個螢幕上的 QR 碼。失敗時可在 Keyala 輸入 <code>KY-</code> 代碼。確認是 Interview Prepper，且計費路徑符合你的選擇，再選擇<strong>連結並每次詢問</strong>，初始權限保持逐次詢問（Ask）。</p>
+            </details>
+          </li>
+          <li data-task="approve">
+            <h3>檢查一筆請求，只批准這一次。</h3>
+            <details><summary>查看步驟及虛構範例</summary>
+              <p>在 Interview Prepper 選 <strong>Junior</strong>，在 Categories 選 <strong>Machine learning fundamentals</strong>，將 Questions 設為 <strong>1</strong>。開啟 <strong>Graded session → Configure</strong>，選 <strong>Haiku 5.5</strong>（與 Keyala 連結後的模型清單中對應 <code>claude-haiku-5-5</code>）。點 <strong>Start graded session</strong>，為虛構的初階 AI／機器學習工程師面試產生一道題目。</p>
+              <p>首次測試先讓 Keyala 保持開啟。在<strong>收件匣</strong>確認請求內容、模型、預估費用及計費路徑，選<strong>僅這次呼叫</strong>並點<strong>允許</strong>。確認 Interview Prepper 有收到回應。一次評分練習可能觸發多筆呼叫，請逐筆檢查，再決定允許或拒絕後續請求。</p>
+            </details>
+          </li>
+          <li data-task="deny">
+            <h3>拒絕一筆請求。</h3>
+            <details><summary>查看步驟</summary>
+              <p>使用下一筆待處理請求。若題目已出現且沒有待處理請求，可填一段虛構的短答案，點 <strong>Submit</strong> 送出評分請求。例如題目問過擬合，可以回答：「在虛構專案中，我會比較訓練和驗證誤差。」在 Keyala 點<strong>拒絕</strong>，觀察 Interview Prepper 的畫面。若畫面已跳轉，可到活動紀錄查看拒絕結果。</p>
+            </details>
+          </li>
+          <li data-task="history">
+            <h3>找出請求的處理結果。</h3>
+            <details><summary>查看步驟</summary>
+              <p>開啟<strong>收件匣 → 活動紀錄</strong>，找出批准與拒絕的請求。查看狀態，以及畫面上有顯示的模型、計費路徑與費用。Keyala 顯示的預估金額和依用量計算的費用可能與服務商帳單不同。</p>
+            </details>
+          </li>
+          <li data-task="revoke">
+            <h3>撤銷連結，確認下次使用時會發生什麼。</h3>
+            <details><summary>查看步驟</summary>
+              <p>開啟 <strong>Apps → Interview Prepper → 中斷 App 連結</strong>並確認。回到 Interview Prepper，若在結果頁就選 <strong>New session</strong>，再試按一次 <strong>Start graded session</strong>。確認頁面要求重新連結。先前已送往服務商的請求仍可能完成。看到重新連結的提示就可結束。</p>
+            </details>
+          </li>
+        </ol>
+        <p class="note">步驟失敗或請求顯示結果不確定（uncertain）時，請先停下來。查看活動紀錄，回報看到的情況即可。無須反覆重送並消耗更多額度。</p>
+      </section>
+      <section class="step card" id="optional-examples">
+        <h2>選做的範例 App</h2>
+        <p>Interview Prepper 是主要測試。若想再試其他 App，請維持逐次詢問（Ask），並只在 Keyala 貼上 API 金鑰。請使用虛構資料。兩個 App 都可以用來再試一次批准、拒絕、查看活動紀錄及撤銷授權。</p>
+        <h3><a href="https://keyala.io/examples/flashcards/">Flashcards 單字卡</a></h3>
+        <p>到<strong>我的卡組</strong>開啟<strong>範例卡組</strong>，即可翻牌，並選<strong>會</strong>或<strong>不會</strong>，不用金鑰，也不會呼叫模型。產生的卡組和複習分數都保存在這個瀏覽器。</p>
+        <p>要用 <code>gpt-4o-mini</code> 產生一副卡組，選語言、程度和主題，例如初級日文及在虛構咖啡店點餐。將<strong>張數</strong>設為 <strong>10</strong>，點<strong>製作卡組</strong>，依提示連結 Keyala。直接使用自帶 OpenAI 金鑰時保持路由開關關閉。若使用測試金鑰或自己的 OpenRouter 金鑰，請在配對前到<strong>設定</strong>開啟<strong>透過 OpenRouter 使用 OpenAI 與 Anthropic</strong>。要變更 Flashcards 既有連結的路由，請先在 Keyala 撤銷授權再重新連結。確認計費路徑和預估費用，再只批准這一副卡組的請求。</p>
+        <h3><a href="https://keyala.io/examples/daily-reflection/">Daily Reflection 每日回顧</a></h3>
+        <p>輸入一兩句虛構內容，例如「今天在虛構的美術課上畫了一艘紙船。」點<strong>回顧今天</strong>，依提示連結 Keyala，並只批准這一筆請求。後續回覆使用<strong>送出</strong>。App 會用已儲存的 OpenRouter 金鑰直接透過 OpenRouter 呼叫 <code>anthropic/claude-haiku-5.5</code>，不需要調整 OpenAI／Anthropic 路由開關。</p>
+        <p>每則批准並送往模型的訊息都會計費，並重送當天的對話。每天最多可送出 10 則訊息。即使頁面提示使用<strong>接下來幾次</strong>或<strong>預算</strong>，請維持逐次詢問。日記只存在這個瀏覽器，不會同步。請使用虛構內容，勿輸入真實日記或敏感資料。</p>
+      </section>
+      <section class="step card" id="extras">
+        <h2>有空再試</h2>
+        <ul>
+          <li>允許通知後鎖定 iPhone，確認點通知會開啟對應請求。沒收到通知時，可開啟 Keyala 查看收件匣。</li>
+          <li>切換 Keyala 語言，重新開啟 App，確認語言設定有保留。</li>
+        </ul>
+        <p>測試期間請保留帳號。刪除帳號無法復原，這次不用測試。</p>
+        <p>分享優惠券是未來的構想，功能尚未實作，也尚未公布價格與推出日期。此次 1 美元的測試金鑰由專案方手動提供。</p>
+      </section>
+      <section class="step card" id="feedback">
+        <h2>提供回饋</h2>
+        <p id="feedback-form"><a href="https://docs.google.com/forms/d/e/1FAIpQLSeym6NgP_VFPEh_fdAvUWnTndogjh-Jy6ngaDjWQkb574BRlA/viewform">填寫繁體中文回饋表</a>。回饋可自由填寫，無須登入。即使沒能安裝 Keyala，也歡迎告訴我們遇到了什麼。</p>
+        <p>遇到問題時，請直接回覆介紹信，或寄信至 <a href="mailto:support@keyala.io">support@keyala.io</a>。也可從 <strong>TestFlight → Keyala → 傳送 Beta 版回饋</strong>回報，透過此途徑送出的回饋也會傳給 Apple。</p>
+        <p>可附 Keyala 版本與組建編號、iPhone 機型、iOS 版本、App 語言、日期時間與時區、操作步驟、預期與實際結果、服務商與模型。若有請求 ID，可私下提供給支援。截圖可省略。分享前請遮蔽金鑰、密碼、權杖、配對代碼與 QR 碼、個資及私人提示詞與回覆。</p>
+      </section>
+      <section class="step card">
+        <h2>操作影片</h2>
+        <p><a data-video-guide href="/guide/">Keyala 使用指南</a>有新增金鑰、連結 App、批准與拒絕、設定用量上限及 OpenRouter 路由的操作影片。</p>
+      </section>
+    </div>
+  </article>
+  <article data-language="ja" lang="ja" class="pilot">
+    <div class="hero">
+      <h1>Keyala TestFlight テストガイド</h1>
+      <p class="lead">Keyala を試していただき、ありがとうございます。時間のある範囲でお試しください。途中まででも、どこで困ったかを教えていただけると助かります。</p>
+      <p>今回は招待制で、期間は14日間、参加人数は10〜20人です。日程と対象ビルドは招待時にお知らせします。</p>
+    </div>
+    <div class="steps">
+      <section class="step card" id="setup">
+        <h2>インストールとサインイン</h2>
+        <p>iOS 17 以降の iPhone に、App Store から <a href="https://apps.apple.com/app/testflight/id899247664">Apple の TestFlight</a> を入れます。Apple から届いた Keyala の招待を開き、<strong>TestFlight で表示 → 承認 → インストール</strong>の順に進みます。バージョンとビルド番号を招待の案内と照合してください。</p>
+        <p>Keyala を開き、ご自身の Apple Account または Google アカウントでサインインします。メールアドレスが同じでも、別々の Keyala アカウントになります。テスト期間中は同じサインイン方法とアカウントを使ってください。</p>
+      </section>
+      <section class="step card" id="tasks">
+        <h2>試していただきたい7つのこと</h2>
+        <p>まず各項目の目標を読んで試してみてください。途中で困ったら、どこで困ったかをメモしてから手順を開いてください。</p>
+        <ol class="task-list">
+          <li data-task="understand">
+            <h3>Keyala が何をするアプリだと思ったか、自分の言葉で説明する。</h3>
+            <p>最初の画面を見たら、ガイドの説明を読む前に、ご自身の言葉で一文書いてください。あとでフィードバックに使えるように残しておいてください。</p>
+            <details><summary>書き終えたら開く</summary>
+              <p>Keyala に接続した AI アプリは、モデルの呼び出しをリクエストできます。AI アプリが受け取るのは、取り消し可能な権限と、許可された呼び出しの結果です。Keyala は API キーを暗号化してサーバーに保存し、許可されたリクエストを送る際に使います。接続した AI アプリにキーが渡ることはありません。利用するには、Keyala のサーバー運営者にキーの取り扱いを任せることになります。テストの費用を負担する側がプロバイダーの利用状況やログを確認できる場合があるので、入力には架空の内容を使ってください。</p>
+            </details>
+          </li>
+          <li data-task="key">
+            <h3>テスト用のキーを追加する。</h3>
+            <details><summary>手順とテスト方法を表示</summary>
+              <p>無料の接続テストには、Joseph が一人ずつ個別にお渡しする、利用上限が1米ドルの OpenRouter キーを使えます。キーを貼り付けるだけなので、OpenRouter のアカウントや OAuth での認証は不要です。</p>
+              <p>1米ドルはテスト期間全体の上限です。残高はリセットされず、自動で追加されることもありません。キーは共通の14日間のテストが終わると失効します。終了日は個別の招待をご確認ください。呼び出せる回数は使い方によって変わります。残高を使い切ったらそこで止めてください。Keyala が別の有料キーに自動で切り替えることはありません。</p>
+              <p>Keyala で <strong>キー → この iPhone にキーを貼り付け</strong>を開きます。<strong>プロバイダー</strong>で <strong>OpenRouter</strong> を選び、キーを貼り付け、<strong>キーを保存</strong>を押します。ご自身の OpenRouter キーをすでに Keyala に登録している方は、そのまま残し、テスト用キーを追加する前に Joseph にお知らせください。ご自身のキーを使う場合は、プロバイダーの残高を使い、料金が発生することがあります。</p>
+              <p>画面だけ試す場合は、<strong>設定 → 開発者向け設定</strong>で開発者向け設定を有効にし、<strong>サンプルデータを使用</strong>をオンにします。切り替えるとサインアウトします。サンプルはオフラインで動作し、通信しないため、実際の接続や課金は確認できません。接続テストに進むときはサンプルをオフにし、元のアカウントでサインインし直してください。</p>
+            </details>
+          </li>
+          <li data-task="connect">
+            <h3>Interview Prepper を Keyala に接続する。</h3>
+            <details><summary>手順を表示</summary>
+              <p><strong>接続する前に</strong>請求先を選びます。今回お渡しするキーやご自身の OpenRouter キーを使う場合は、<strong>設定</strong>の <strong>OpenAI と Anthropic に OpenRouter を使う</strong>をオンにします。ご自身の Anthropic キーで直接利用する場合は、スイッチをオフにし、Anthropic キーが登録済みであることを確認します。既存の接続は以前の請求先を使い続けます。変える場合は、Keyala で Interview Prepper の接続を解除してからつなぎ直してください。</p>
+              <p><a href="https://iamjoseph331.github.io/interview_prepper/">Interview Prepper</a> を開き、<strong>Connect Keyala</strong> を選びます。iPhone で接続リンクを開くか、別の画面に表示した QR コードを読み取ります。うまくいかない場合は Keyala で <code>KY-</code> コードを入力します。Interview Prepper への接続で、請求先が選んだものになっていることを確認し、<strong>接続して毎回確認</strong>を選びます。最初は毎回確認（Ask）のまま進めます。</p>
+            </details>
+          </li>
+          <li data-task="approve">
+            <h3>リクエストを確認し、1回だけ許可する。</h3>
+            <details><summary>手順と架空の例を表示</summary>
+              <p>Interview Prepper で <strong>Junior</strong>、Categories で <strong>Machine learning fundamentals</strong> を選び、Questions は <strong>1</strong> にします。<strong>Graded session → Configure</strong> で <strong>Haiku 5.5</strong> を選びます（Keyala に接続した後に表示される一覧の <code>claude-haiku-5-5</code>）。<strong>Start graded session</strong> を押し、架空の若手 AI・機械学習エンジニアの面接用に質問を1件作ります。</p>
+              <p>初回は Keyala を開いておきます。<strong>受信トレイ</strong>でリクエストの内容、モデル、概算費用、請求先を確認します。<strong>今回の呼び出しのみ</strong>を選んで<strong>許可</strong>をタップし、Interview Prepper に応答が返ることを確認します。採点付きセッションでは複数の呼び出しが発生することがあります。後続のリクエストも1件ずつ確認し、許可するか拒否するかを決めてください。</p>
+            </details>
+          </li>
+          <li data-task="deny">
+            <h3>リクエストを拒否する。</h3>
+            <details><summary>手順を表示</summary>
+              <p>次の確認待ちのリクエストを使います。質問が表示され、確認待ちのリクエストがない場合は、架空の短い回答を入力し、<strong>Submit</strong> を押して採点を依頼します。過学習について聞かれたら、例えば「架空のプロジェクトで、訓練と検証の誤差を比べます」と書きます。Keyala で<strong>拒否</strong>をタップし、Interview Prepper の表示を確認します。画面が切り替わったら、履歴で拒否を確認できます。</p>
+            </details>
+          </li>
+          <li data-task="history">
+            <h3>リクエストの結果を確認する。</h3>
+            <details><summary>手順を表示</summary>
+              <p><strong>受信トレイ → 履歴</strong>を開き、許可したものと拒否したものを探します。ステータスと、表示されている場合はモデル、請求先、費用を確認してください。Keyala に表示される概算額や使用量からの計算額は、プロバイダーの請求額と異なる場合があります。</p>
+            </details>
+          </li>
+          <li data-task="revoke">
+            <h3>接続を解除し、次に使おうとするとどうなるか確かめる。</h3>
+            <details><summary>手順を表示</summary>
+              <p><strong>アプリ → Interview Prepper → アプリの接続を解除</strong>を開き、解除を確定します。Interview Prepper に戻り、結果画面にいる場合は <strong>New session</strong> を選びます。<strong>Start graded session</strong> を1回押し、再接続を求められることを確認します。すでにプロバイダーに送信済みのリクエストは完了することがあります。再接続の案内が出たらそこで終了できます。</p>
+            </details>
+          </li>
+        </ol>
+        <p class="note">手順がうまくいかないときや、リクエストが結果不明（uncertain）の場合は、そこで止めてください。履歴で状況を確認し、気づいたことをお知らせください。再現のために残高を使って繰り返す必要はありません。</p>
+      </section>
+      <section class="step card" id="optional-examples">
+        <h2>任意で試せるサンプルアプリ</h2>
+        <p>主なテストは Interview Prepper です。別のアプリを試す場合も Keyala は毎回確認（Ask）のままにしてください。API キーを貼り付ける先は Keyala だけにし、入力には架空の内容を使います。どちらのアプリでも、許可、拒否、履歴の確認、接続の解除を改めて試せます。</p>
+        <h3><a href="https://keyala.io/examples/flashcards/">Flashcards 単語カード</a></h3>
+        <p><strong>マイデッキ</strong>で<strong>サンプルデッキ</strong>を開きます。カードをめくり、<strong>わかる</strong>か<strong>わからない</strong>を選びます。サンプルを使うだけならキーは不要で、モデルの呼び出しもありません。生成したデッキや復習の結果はこのブラウザに保存されます。</p>
+        <p><code>gpt-4o-mini</code> でデッキを1つ作るには、学ぶ言語、レベル、トピックを選びます。例えば初級日本語で、架空のカフェでの注文を指定します。<strong>枚数</strong>を <strong>10</strong> にして<strong>デッキを作る</strong>を押し、案内に従って Keyala に接続します。ご自身の OpenAI キーを直接使う場合はルーティングのスイッチをオフにします。今回お渡しするキーやご自身の OpenRouter キーを使う場合は、接続前に<strong>設定</strong>で <strong>OpenAI と Anthropic に OpenRouter を使う</strong>をオンにします。既存の Flashcards 接続の請求先を変える場合は、Keyala で解除してからつなぎ直します。請求先と概算費用を確認し、そのデッキのリクエストだけを許可します。</p>
+        <h3><a href="https://keyala.io/examples/daily-reflection/">Daily Reflection 一日の振り返り</a></h3>
+        <p>「架空の美術の授業で紙の船を描いた」など、架空の出来事を1〜2行書きます。<strong>振り返る</strong>を押し、案内が出たら Keyala に接続してリクエストを1件だけ許可します。続きは<strong>送信</strong>を使います。登録済みの OpenRouter キーで <code>anthropic/claude-haiku-5.5</code> を直接呼び出すため、OpenAI や Anthropic 向けのルーティング設定は不要です。</p>
+        <p>許可してモデルに送信したメッセージには毎回料金がかかり、その日の会話も再送されます。送れるメッセージは1日10件までです。<strong>次の数回</strong>や<strong>予算</strong>が提案されても、毎回確認を続けてください。日記はこのブラウザに保存され、同期されません。本当の日記や機密情報は入力せず、架空の内容を使ってください。</p>
+      </section>
+      <section class="step card" id="extras">
+        <h2>時間があれば試すこと</h2>
+        <ul>
+          <li>通知を許可して iPhone をロックし、通知をタップしたときに該当するリクエストが開くか確認します。通知が来なければ、Keyala を開いて受信トレイを確認してください。</li>
+          <li>Keyala の言語を変更し、アプリを開き直しても設定が残るか確認します。</li>
+        </ul>
+        <p>テスト期間中はアカウントを残しておいてください。削除は元に戻せないため、テスト項目に含めていません。</p>
+        <p>クーポンの共有は今後の構想です。機能は未実装で、価格と提供開始日は未発表です。今回の1米ドル分のキーは、このテストのために個別にお渡しします。</p>
+      </section>
+      <section class="step card" id="feedback">
+        <h2>フィードバックを送る</h2>
+        <p id="feedback-form"><a href="https://docs.google.com/forms/d/e/1FAIpQLScOWcYcknRf1R76zxO-cL6VLR_2RQpekE-PN176NG2D8kYlmg/viewform">日本語のフィードバックフォームを開く</a>。回答は任意で、ログインは不要です。Keyala をインストールできなかった場合も送信できます。</p>
+        <p>不具合は、案内メールへの返信か <a href="mailto:support@keyala.io">support@keyala.io</a> へお願いします。<strong>TestFlight → Keyala → ベータ版フィードバックを送信</strong>でも報告できます。TestFlight から送った内容は Apple にも届きます。</p>
+        <p>必要に応じて、Keyala のバージョンとビルド番号、iPhone の機種、iOS のバージョン、アプリの言語、日時とタイムゾーン、手順、期待した結果と実際の結果、プロバイダーとモデルを添えてください。リクエスト ID は必要な場合にのみ、サポートへ個別にお送りください。スクリーンショットは任意です。共有前にキー、パスワード、トークン、接続コードと QR コード、個人情報、非公開の入力や応答を隠してください。</p>
+      </section>
+      <section class="step card">
+        <h2>動画で操作を確認する</h2>
+        <p><a data-video-guide href="/guide/">Keyala ユーザーガイド</a>には、キーの追加、アプリの接続、許可と拒否、利用上限の設定、OpenRouter 経由での利用方法を説明する動画があります。</p>
+      </section>
+    </div>
+  </article>
+</main>
+<footer class="footer"><div class="wrap">
+  <span data-language="en"><a href="/privacy/">Privacy</a> / <a href="/support/">Support</a></span>
+  <span data-language="zh-Hant"><a href="/privacy/">隱私</a> / <a href="/support/">支援</a></span>
+  <span data-language="ja"><a href="/privacy/">プライバシー</a> / <a href="/support/">サポート</a></span>
+</div></footer>
+</body>
+</html>

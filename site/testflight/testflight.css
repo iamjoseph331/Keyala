@@ -1,0 +1,8 @@
+.pilot { max-width: 760px; margin-inline: auto; overflow-wrap: anywhere; }
+.pilot .hero { padding-bottom: 24px; }
+.pilot .task-list { padding-inline-start: 1.5rem; margin-block-end: 1.5rem; }
+.pilot .task-list > li + li { margin-block-start: 1rem; }
+.pilot .task-list h3 { font-size: 1.125rem; margin: 0 0 0.35rem; }
+.pilot .task-list details { border-top: 0; padding: 0; }
+.pilot .task-list details[open] { padding-bottom: 0.5rem; }
+.pilot .task-list summary { color: var(--green); }

@@ -9,7 +9,8 @@ import { marked } from 'marked';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const SITE = 'https://keyala.io';
 export const LANGS = ['en', 'zh-Hant', 'ja'];
-export const PAGES = ['home', 'guide', 'docs', 'privacy', 'support', 'news'];
+export const PAGES = ['home', 'guide', 'docs', 'privacy', 'support', 'news', 'testflight', 'examples'];
+export const NOINDEX_PAGES = ['privacy', 'support', 'testflight'];
 const names = { en: 'English', 'zh-Hant': '繁體中文', ja: '日本語' };
 const locale = { en: 'en_US', 'zh-Hant': 'zh_TW', ja: 'ja_JP' };
 const seo = JSON.parse(fs.readFileSync(path.join(ROOT, 'site/seo.json')));
@@ -202,7 +203,7 @@ export function build(out) {
       write(out, urls[lang], result.html);
       if (result.md) fs.writeFileSync(path.join(out, urls[lang], 'keyala.md'), result.md);
     }
-    if (!['privacy', 'support'].includes(page)) groups.push(urls);
+    if (!NOINDEX_PAGES.includes(page)) groups.push(urls);
   }
   const news = path.join(out, 'news');
   for (const stem of fs.readdirSync(news, { withFileTypes: true }).filter(d => d.isDirectory() && LANGS.some(l => fs.existsSync(path.join(news, d.name, l, 'index.html'))))) {
