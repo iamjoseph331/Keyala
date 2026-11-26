@@ -9,6 +9,9 @@ import { ROOT, SITE, LANGS, PAGES, NOINDEX_PAGES, route, build, all, text } from
 
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'keyala-site-test-'));
 fs.cpSync(path.join(ROOT, 'site'), out, {recursive:true});
+for (const app of ['flashcards', 'daily-reflection']) {
+  fs.cpSync(path.join(ROOT, 'examples', app), path.join(out, 'examples', app), { recursive: true });
+}
 execFileSync('python3', [path.join(ROOT, 'tools/build_news.py'), out]);
 build(out);
 after(() => fs.rmSync(out, {recursive:true, force:true}));
@@ -81,6 +84,20 @@ test('TestFlight pages show all seven localized task goals before optional steps
     assert.equal(attr(one(feedback, n => n.tagName === 'a'), 'href'), forms[lang]);
     one(article, n => attr(n, 'href') === 'https://apps.apple.com/app/testflight/id899247664');
     assert.equal(all(article, n => n.tagName === 'script').length, 0);
+  }
+});
+
+test('every TestFlight locale links to both optional examples with their own model instructions', () => {
+  const titles = ['Optional example apps', '選做的範例 App', '任意で試せるサンプルアプリ'];
+  for (const [index, lang] of LANGS.entries()) {
+    const doc = read(route('testflight', lang));
+    const examples = one(doc, n => attr(n, 'id') === 'optional-examples');
+    assert.equal(text(one(examples, n => n.tagName === 'h2')), titles[index]);
+    assert.deepEqual(
+      all(examples, n => n.tagName === 'a').map(n => new URL(attr(n, 'href'), SITE).href),
+      ['https://keyala.io/examples/flashcards/', 'https://keyala.io/examples/daily-reflection/'],
+    );
+    assert.deepEqual(all(examples, n => n.tagName === 'code').map(text), ['gpt-4o-mini', 'anthropic/claude-haiku-5.5']);
   }
 });
 

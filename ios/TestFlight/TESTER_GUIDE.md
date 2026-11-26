@@ -20,6 +20,22 @@ For the sponsored or your own OpenRouter key, turn on **Settings → Use OpenRou
 
 Keyala stores the key encrypted on its server. Connected apps get permission and approved results. They never get the key. This relies on trust in the Keyala server operator, and the pilot sponsor may see provider usage or logs. Use fictional inputs. Offline browsing is available under **Settings → Developer options → Use sample data**. Switching signs you out. Offline samples make no network calls and provide no evidence about the live integration. Notifications and language persistence are optional. Account deletion is irreversible and outside the pilot tasks.
 
+### Optional example apps
+
+Interview Prepper is the main exercise. If you want to try another app, keep Keyala set to Ask for each call. Paste API keys only into Keyala. Use fictional inputs. You can repeat the approval, denial, Activity and revocation checks with either app.
+
+**[Flashcards](https://keyala.io/examples/flashcards/)**
+
+To try the review without a key or model call, open **Example deck** under **My decks**. Flip a card and choose **Know** or **Don’t know**. Generated decks and their scores stay in this browser.
+
+To generate one deck with `gpt-4o-mini`, choose a language, level and topic (for example, beginner Japanese for ordering in a fictional café), set **Cards** to **10** and choose **Make deck**. If prompted, connect with Keyala. Use an OpenAI key directly with the routing switch off. For the sponsored or your own OpenRouter key, turn on **Settings → Use OpenRouter for OpenAI and Anthropic** before connecting. To change the route for an existing Flashcards connection, revoke it in Keyala and reconnect. Check the route and estimated cost, then approve only the deck request.
+
+**[Daily Reflection](https://keyala.io/examples/daily-reflection/)**
+
+Write one or two fictional lines, such as “I sketched a paper boat in an imaginary art class.” Choose **Reflect**, connect with Keyala if prompted and approve one request. Follow-ups use **Send**. The app calls `anthropic/claude-haiku-5.5` directly through OpenRouter with your saved OpenRouter key. The OpenAI/Anthropic routing switch is irrelevant to this connection.
+
+Each message approved and sent to the model is billable and resends that day’s conversation. The daily limit is 10 of your messages. Keep Ask even if the page suggests **Next calls** or **Budget**. The journal is saved in this browser and does not sync. Use only invented entries, with no real diary text or sensitive information.
+
 The [English feedback form](https://docs.google.com/forms/d/e/1FAIpQLSdqT46s_9CAEkFoq_1YImjQ2rrBOMtjLoo-Ora2qWRq18n_NQ/viewform) is optional and needs no sign-in. You can send feedback even if you could not install Keyala.
 
 For bugs, reply to the introductory email or email support@keyala.io. **TestFlight → Keyala → Send Beta Feedback** also sends the report to Apple. Optional context includes build, iPhone model, iOS version, language, date/time zone, steps, expected and actual result, provider/model and a request ID sent privately to support. Redact screenshots and omit keys, credentials, tokens, pairing codes/QRs, private inputs and responses, and personal details.
@@ -38,6 +54,22 @@ Joseph 會私下提供每人一把支出上限為 1 美元的 OpenRouter 測試�
 
 Keyala 將金鑰加密存放於伺服器，連結工具只會取得授權及批准後的回應。使用時需要信任伺服器營運者，測試贊助者也可能看得到服務商的用量或紀錄。請使用虛構資料。只想看畫面可用**設定 → 開發者選項 → 使用範例資料**。切換會登出，離線範例不會連網，無法驗證實際整合。通知及重開後語言保留可自行加測。帳號刪除無法復原，本次不用測。
 
+### 選做的範例 App
+
+Interview Prepper 是主要測試。若想再試其他 App，請維持逐次詢問（Ask），並只在 Keyala 貼上 API 金鑰。請使用虛構資料。兩個 App 都可以用來再試一次批准、拒絕、查看活動紀錄及撤銷授權。
+
+**[Flashcards 單字卡](https://keyala.io/examples/flashcards/)**
+
+到**我的卡組**開啟**範例卡組**，即可翻牌，並選**會**或**不會**，不用金鑰，也不會呼叫模型。產生的卡組和複習分數都保存在這個瀏覽器。
+
+要用 `gpt-4o-mini` 產生一副卡組，選語言、程度和主題，例如初級日文及在虛構咖啡店點餐。將**張數**設為 **10**，點**製作卡組**，依提示連結 Keyala。直接使用自帶 OpenAI 金鑰時保持路由開關關閉。若使用測試金鑰或自己的 OpenRouter 金鑰，請在配對前到**設定**開啟**透過 OpenRouter 使用 OpenAI 與 Anthropic**。要變更 Flashcards 既有連結的路由，請先在 Keyala 撤銷授權再重新連結。確認計費路徑和預估費用，再只批准這一副卡組的請求。
+
+**[Daily Reflection 每日回顧](https://keyala.io/examples/daily-reflection/)**
+
+輸入一兩句虛構內容，例如「今天在虛構的美術課上畫了一艘紙船。」點**回顧今天**，依提示連結 Keyala，並只批准這一筆請求。後續回覆使用**送出**。App 會用已儲存的 OpenRouter 金鑰直接透過 OpenRouter 呼叫 `anthropic/claude-haiku-5.5`，不需要調整 OpenAI／Anthropic 路由開關。
+
+每則批准並送往模型的訊息都會計費，並重送當天的對話。每天最多可送出 10 則訊息。即使頁面提示使用**接下來幾次**或**預算**，請維持逐次詢問。日記只存在這個瀏覽器，不會同步。請使用虛構內容，勿輸入真實日記或敏感資料。
+
 [繁體中文回饋表](https://docs.google.com/forms/d/e/1FAIpQLSeym6NgP_VFPEh_fdAvUWnTndogjh-Jy6ngaDjWQkb574BRlA/viewform) 可自由填寫，無須登入。即使沒能安裝 Keyala，也歡迎填寫。
 
 有問題請回覆介紹信或寄到 support@keyala.io。透過 **TestFlight → Keyala → 傳送 Beta 版回饋**送出的內容也會交給 Apple。可附版本與組建編號、iPhone／iOS、語言、日期時間與時區、步驟、預期及實際結果、服務商／模型，或私下提供請求 ID。請先遮蔽截圖中的敏感內容，並省略金鑰、帳密、權杖、配對碼及 QR 碼、私人對話和個資。
@@ -55,6 +87,22 @@ Joseph が利用上限1米ドルの OpenRouter キーを一人ずつお渡しし
 今回お渡しするキーやご自身の OpenRouter キーを使う場合は、接続前に設定で **OpenAI と Anthropic に OpenRouter を使う**をオンにします。ご自身の Anthropic キーを直接使う場合はオフにし、キーが登録済みであることを確認します。既存の請求先を変える場合は解除してつなぎ直します。[Interview Prepper](https://iamjoseph331.github.io/interview_prepper/) で **Connect Keyala** を選び、リンク、QR コード、または KY- コードでつなぎ、**接続して毎回確認**を選びます。**Junior** と **Machine learning fundamentals** を選び、質問は **1** 件にします。**Graded session → Configure** で **Haiku 5.5**（接続後の一覧では `claude-haiku-5-5`）を選び、架空の若手 AI・機械学習エンジニアの面接を始めます。複数のリクエストが発生する場合は1件ずつ確認し、1回だけ許可した後で次のリクエストを拒否します。**受信トレイ → 履歴**で結果を確認し、**アプリ**から接続を解除してください。失敗や結果不明の場合は追加で送信せず、そこで止めてお知らせください。
 
 Keyala はキーを暗号化してサーバーに保存します。接続したアプリが受け取るのは権限と許可済みの結果です。利用には Keyala のサーバー運営者を信頼することが必要です。テスト費用の負担者がプロバイダーの利用状況やログを見られる場合があります。入力は架空の内容にしてください。画面だけ見る場合は、**設定 → 開発者向け設定 → サンプルデータを使用**を選びます。切替時はサインアウトします。オフラインでは通信しないため、実際の接続や課金は確認できません。通知や言語設定の保存は任意です。元に戻せないアカウント削除は今回の対象外です。
+
+### 任意で試せるサンプルアプリ
+
+主なテストは Interview Prepper です。別のアプリを試す場合も Keyala は毎回確認（Ask）のままにしてください。API キーを貼り付ける先は Keyala だけにし、入力には架空の内容を使います。どちらのアプリでも、許可、拒否、履歴の確認、接続の解除を改めて試せます。
+
+**[Flashcards 単語カード](https://keyala.io/examples/flashcards/)**
+
+**マイデッキ**で**サンプルデッキ**を開きます。カードをめくり、**わかる**か**わからない**を選びます。サンプルを使うだけならキーは不要で、モデルの呼び出しもありません。生成したデッキや復習の結果はこのブラウザに保存されます。
+
+`gpt-4o-mini` でデッキを1つ作るには、学ぶ言語、レベル、トピックを選びます。例えば初級日本語で、架空のカフェでの注文を指定します。**枚数**を **10** にして**デッキを作る**を押し、案内に従って Keyala に接続します。ご自身の OpenAI キーを直接使う場合はルーティングのスイッチをオフにします。今回お渡しするキーやご自身の OpenRouter キーを使う場合は、接続前に**設定**で **OpenAI と Anthropic に OpenRouter を使う**をオンにします。既存の Flashcards 接続の請求先を変える場合は、Keyala で解除してからつなぎ直します。請求先と概算費用を確認し、そのデッキのリクエストだけを許可します。
+
+**[Daily Reflection 一日の振り返り](https://keyala.io/examples/daily-reflection/)**
+
+「架空の美術の授業で紙の船を描いた」など、架空の出来事を1〜2行書きます。**振り返る**を押し、案内が出たら Keyala に接続してリクエストを1件だけ許可します。続きは**送信**を使います。登録済みの OpenRouter キーで `anthropic/claude-haiku-5.5` を直接呼び出すため、OpenAI や Anthropic 向けのルーティング設定は不要です。
+
+許可してモデルに送信したメッセージには毎回料金がかかり、その日の会話も再送されます。送れるメッセージは1日10件までです。**次の数回**や**予算**が提案されても、毎回確認を続けてください。日記はこのブラウザに保存され、同期されません。本当の日記や機密情報は入力せず、架空の内容を使ってください。
 
 [日本語のフィードバックフォーム](https://docs.google.com/forms/d/e/1FAIpQLScOWcYcknRf1R76zxO-cL6VLR_2RQpekE-PN176NG2D8kYlmg/viewform)への回答は任意で、ログインは不要です。Keyala をインストールできなかった場合も送信できます。
 
