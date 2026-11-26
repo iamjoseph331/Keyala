@@ -22,7 +22,7 @@ TMP="$(mktemp -d)"; DB="$TMP/demo.db"
 (cd "$ROOT/backend" && cargo build -q)
 KEYALA_MASTER_KEY="$(openssl rand -base64 32)" KEYALA_DATABASE_URL="sqlite://$DB?mode=rwc" PORT="$PORT" \
   KEYALA_PUBLIC_URL="$B" KEYALA_DEV_LOGIN=1 KEYALA_VENDOR_MOCK=1 \
-  KEYALA_PUBLIC_APPS='[{"id":"app_resume_tailor","name":"Resume Tailor","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]}]' "$ROOT/backend/target/debug/keyala-server" >"$TMP/server.log" 2>&1 &
+  KEYALA_PUBLIC_APPS='[{"id":"app_resume_tailor","name":"Resume Tailor","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]},{"id":"app_flashcards","name":"Flashcards","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]},{"id":"app_daily_reflection","name":"Daily Reflection","allowed_origins":["http://localhost:3001","http://127.0.0.1:3001"]}]' "$ROOT/backend/target/debug/keyala-server" >"$TMP/server.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER ${SIMPID:-} 2>/dev/null; rm -rf "$TMP"' EXIT
 READY=0
@@ -41,6 +41,7 @@ fi
 SESS=$(curl -s "$B/v1/auth/dev" -d '{"email":"demo@keyala.dev"}' | jq -r .session_token)
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/openai" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-FAKE-demo-key-0000"}'
 curl -s -o /dev/null -X PUT "$B/v1/me/keys/anthropic" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-ant-FAKE-demo-key-0000"}'
+curl -s -o /dev/null -X PUT "$B/v1/me/keys/openrouter" -H "Authorization: Bearer $SESS" -d '{"api_key":"sk-or-v1-FAKE-demo-key-0000"}'
 APP=$(curl -s "$B/v1/apps" -d '{"name":"Chat with your key"}' | jq -r .app_secret)
 
 cat <<EOF
@@ -56,6 +57,11 @@ Run the example in another terminal:
 Or the resume tailor, a static page with no server of its own (OpenAI + Anthropic models):
   cd $ROOT/examples/resume-tailor && python3 -m http.server 3001
   open "http://localhost:3001/?ky=$B"
+
+Or the Flashcards and Daily Reflection examples (serve examples/ itself):
+  cd $ROOT/examples && python3 -m http.server 3001
+  open "http://localhost:3001/flashcards/?ky=$B&app=app_flashcards"
+  open "http://localhost:3001/daily-reflection/?ky=$B&app=app_daily_reflection"
 EOF
 
 if [[ $SIM == 1 ]]; then

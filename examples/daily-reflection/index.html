@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Reflection</title>
+<meta name="description" content="A few lines about your day and a short, gentle reflection back. Runs on your own OpenRouter account through Keyala.">
+<link rel="icon" href="keyala-icon.svg">
+<style>
+  :root {
+    --bg:#f8f6f1; --card:#fff; --ink:#1f1d1a; --ink2:#46423b; --muted:#77716a; --line:#e7e2d8; --soft:#f2eee6;
+    --accent:#6b5bd2; --accent-ink:#fff; --accent-soft:#efecfb;
+    --ok:#1e7a4c; --okbg:#e3f2e9; --warn:#946200; --warnbg:#fff3d6; --bad:#b3261e; --badbg:#fde7e5;
+    --ky:#3d7a57; --ky-paper:#faf7f2; --ky-ink:#1f1b16; --ky-muted:#7a7268; --ky-line:#ece6dc;
+    --radius:16px; --shadow:0 1px 2px rgba(31,29,26,.04), 0 8px 24px -12px rgba(31,29,26,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#131211; --card:#1c1b19; --ink:#ece9e3; --ink2:#c9c4bb; --muted:#958f85; --line:#2d2b27; --soft:#22201d;
+      --accent:#a99cf5; --accent-ink:#151225; --accent-soft:#24203a;
+      --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
+      --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
+  a { color:var(--accent) }
+  .container { max-width:720px; margin:0 auto; padding:0 16px }
+  .hidden { display:none !important }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer; background:var(--soft); color:var(--ink) }
+  button:disabled { opacity:.5; cursor:default }
+  button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+  .linkbtn { background:none; padding:0; color:var(--accent); font-weight:600 }
+  nav { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 0 }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:750; font-size:1.05rem; color:var(--ink); text-decoration:none; white-space:nowrap }
+  .logo { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--accent); color:var(--accent-ink) }
+  nav .right { display:flex; align-items:center; gap:16px; font-size:.9rem }
+  nav .right a, nav .right .linkbtn { color:var(--ink2); text-decoration:none; font-weight:500 }
+  nav select { padding:6px 10px; font:inherit; font-size:.85rem; border-radius:8px; color:var(--ink); background:var(--soft); border:1px solid var(--line) }
+  @media (max-width:520px) { nav .right a, #open-privacy { display:none } }
+  .date { color:var(--muted); font-size:.9rem; margin:10px 0 0 }
+  h1 { font-size:clamp(1.6rem,4vw,2.2rem); line-height:1.2; letter-spacing:-.02em; margin:4px 0 6px; font-weight:800 }
+  .lead { color:var(--ink2); margin:0 0 20px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:16px }
+  .chat { display:grid; gap:12px }
+  .msg { max-width:88%; padding:12px 16px; border-radius:16px; white-space:pre-wrap; overflow-wrap:anywhere }
+  .msg.user { justify-self:end; background:var(--accent-soft); border-bottom-right-radius:6px }
+  .msg.ai { justify-self:start; background:var(--soft); border-bottom-left-radius:6px }
+  .msg.wait { color:var(--warn); background:var(--warnbg); display:flex; gap:10px; align-items:center; white-space:normal }
+  .st { flex:none; width:8px; height:8px; border-radius:50%; background:var(--warn); animation:p 1.2s infinite }
+  @keyframes p { 50% { opacity:.25 } }
+  textarea { width:100%; font:inherit; color:var(--ink); background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:12px 14px; resize:vertical; min-height:110px }
+  textarea:focus { outline:0; background:var(--card); border-color:var(--accent) }
+  .acts { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px }
+  .acts .primary { color:var(--accent-ink); background:var(--accent); padding:12px 22px }
+  .acts .count { margin-left:auto; color:var(--muted); font-size:.82rem }
+  .note { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; background:var(--badbg); color:var(--bad); font-size:.92rem; margin-top:12px }
+  .note.tip { background:var(--accent-soft); color:var(--ink2) }
+  .note button { margin-left:auto; padding:6px 12px; font-size:.85rem; background:var(--card) }
+  .closed { text-align:center; color:var(--muted); margin:14px 0 2px }
+  .past h2 { font-size:1rem; margin:0 0 8px }
+  .day { display:flex; gap:12px; width:100%; text-align:left; background:none; padding:10px 0; border-top:1px solid var(--line); border-radius:0; font-weight:400 }
+  .day:first-of-type { border-top:0 }
+  .day b { flex:none; width:96px; font-weight:600 } .day span { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .small { color:var(--muted); font-size:.85rem; margin:8px 0 0 }
+  dialog { width:min(640px, calc(100% - 32px)); border:1px solid var(--line); border-radius:var(--radius); background:var(--card); color:var(--ink); padding:20px 22px; box-shadow:var(--shadow) }
+  dialog::backdrop { background:rgba(0,0,0,.35) }
+  dialog h2 { margin:0 0 12px; font-size:1.1rem }
+  dialog ul { padding-left:18px; display:grid; gap:8px; color:var(--ink2) }
+  .dlg-acts { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px }
+  .danger { background:var(--badbg); color:var(--bad) }
+  .ky { background:var(--ky-paper); color:var(--ky-ink); border:1px solid var(--ky-line); border-radius:14px; padding:16px; font-size:.86rem }
+  .ky-head { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+  .ky-head img { width:30px; height:30px }
+  .ky-head span { display:block; font-size:.72rem; font-weight:700; letter-spacing:.05em; color:var(--ky); text-transform:uppercase }
+  .ky p { margin:0 0 10px; color:var(--ky-muted) }
+  .ky ol { margin:0 0 12px; padding-left:18px; display:grid; gap:6px }
+  .ky ol span { color:var(--ky-muted) }
+  .ky .get { display:flex; align-items:center; gap:12px; padding-top:12px; border-top:1px solid var(--ky-line) }
+  .ky .get img { flex:none; width:76px; height:76px; border-radius:8px; background:#fff; padding:4px }
+  .ky .get a { color:var(--ky); font-weight:600; text-decoration:none; display:block; margin-top:4px }
+  footer { margin-top:40px; padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem }
+  footer p { margin:0 0 6px }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important } }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="brand" href="#"><span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span>Daily Reflection</a>
+    <div class="right">
+      <button type="button" class="linkbtn" id="open-privacy" data-i18n="nav.privacy"></button>
+      <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
+      <select id="ui-lang" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select>
+    </div>
+  </nav>
+
+  <p class="date" id="date"></p>
+  <h1 data-i18n="h1"></h1>
+  <p class="lead"><span data-i18n="lead"></span> <button type="button" class="linkbtn" id="open-privacy2" data-i18n="lead.more"></button></p>
+
+  <section class="card" aria-live="polite">
+    <div class="chat" id="chat"></div>
+    <div id="composer">
+      <textarea id="text" maxlength="4000"></textarea>
+      <div class="acts">
+        <button type="button" class="primary" id="send"></button>
+        <button type="button" id="finish" data-i18n="finish"></button>
+        <span class="count" id="count"></span>
+      </div>
+    </div>
+    <p class="closed hidden" id="closed"></p>
+    <div id="status"></div>
+  </section>
+
+  <section class="card past" id="past"></section>
+
+  <aside class="ky" aria-labelledby="ky-title">
+    <div class="ky-head"><img src="keyala-icon.svg" alt=""><div><span data-i18n="ky.badge"></span><b id="ky-title">Keyala</b></div></div>
+    <p data-i18n="ky.p"></p>
+    <ol>
+      <li><b data-i18n="ky.s1t"></b> <span data-i18n="ky.s1d"></span></li>
+      <li><b data-i18n="ky.s2t"></b> <span data-i18n="ky.s2d"></span></li>
+      <li><b data-i18n="ky.s3t"></b> <span data-i18n="ky.s3d"></span></li>
+    </ol>
+    <div class="get"><img src="keyala-qr.svg" alt="QR: keyala.io"><div><b data-i18n="ky.get"></b><a href="https://keyala.io/" target="_blank" rel="noopener" data-i18n="ky.what"></a></div></div>
+  </aside>
+</div>
+<footer><div class="container"><p data-i18n="foot.care"></p><p><span data-i18n="foot"></span> <span id="conn"></span></p></div></footer>
+
+<dialog id="privacy">
+  <h2 data-i18n="pv.title"></h2>
+  <ul><li data-i18n="pv.1"></li><li data-i18n="pv.2"></li><li data-i18n="pv.3"></li><li data-i18n="pv.4"></li></ul>
+  <div class="dlg-acts"><button type="button" class="danger" id="wipe" data-i18n="pv.wipe"></button><button type="button" id="pv-close" data-i18n="close"></button></div>
+</dialog>
+<dialog id="dayview"></dialog>
+
+<script>
+"use strict";
+// ================= copy: English, Traditional Chinese, Japanese =================
+const T = {
+  en: {
+    'nav.privacy': 'Where your words go', h1: 'How was your day?', lead: 'Write a few lines. You get a short, gentle reflection back, and you can keep talking for a bit. It runs on your own OpenRouter account; nobody else reads it.', 'lead.more': 'Where do my words go?',
+    ph: 'Today I…', 'ph.more': 'Reply…', send: 'Reflect', 'send.more': 'Send', finish: 'Finish for today', turns: '{n} of {max} messages today',
+    'closed.limit': "That's a good place to stop for today.", 'closed.done': 'Done for today. See you tomorrow.',
+    waiting: 'Approve on your phone. Keyala shows your words and the estimated cost first.', sending: 'Reflecting…',
+    tip: 'Tired of tapping? On the next approval in Keyala, pick "Next calls" (say 10) or "Budget" (say $0.10) instead of "Once".', 'tip.ok': 'Got it',
+    'f.denied': 'You declined this in Keyala. Your message is back in the box.', 'f.expired': 'Not approved within 10 minutes. Your message is back in the box.',
+    'f.gone': "This browser's Keyala connection was revoked or reset.", 'f.reconnect': 'Connect again',
+    'f.uncertain': "The provider didn't answer in time. It was not retried; check History in the Keyala app.", 'f.nokey': 'Connect OpenRouter in the Keyala app (one tap), then send again.',
+    'f.reach': 'Could not reach Keyala. It may be waking up; try again in a minute.', 'c.denied': 'You declined the connection on your phone.', again: 'Send again',
+    'past.title': 'Past days', 'past.none': 'Your past days will show here. They are stored only in this browser.', 'day.del': 'Delete this day', 'day.del.q': 'Delete this day from this browser?', close: 'Close',
+    'pv.title': 'Where your words go',
+    'pv.1': 'This page has no server. Your journal is stored only in this browser, and you can delete it here at any time.',
+    'pv.2': "Each message goes through Keyala to OpenRouter and on to the AI model, using your own key. The page's author never sees it.",
+    'pv.3': 'Keyala keeps the text of each call, encrypted, so you can review it in the app, and deletes it 30 days after the call. Cost and token counts stay. Deleting your Keyala account removes it at once; a single call cannot be deleted earlier yet.',
+    'pv.4': 'OpenRouter and the model provider handle your text under their own policies.',
+    'pv.wipe': 'Delete everything in this browser', 'pv.wipe.q': 'Delete your whole journal and the Keyala connection from this browser? This cannot be undone.',
+    'ky.badge': 'Powered by', 'ky.p': 'This app has no API key and no subscription. It uses your own OpenRouter account.',
+    'ky.s1t': 'Get the Keyala app.', 'ky.s1d': 'Scan the code to join the beta.', 'ky.s2t': 'Connect OpenRouter.', 'ky.s2d': 'One tap in the app; no key to copy.',
+    'ky.s3t': 'Approve each message.', 'ky.s3d': 'Or allow the next few at once, or set a budget.', 'ky.get': 'Get Keyala', 'ky.what': 'What is Keyala? →',
+    'foot.care': 'This is not therapy. If you are in crisis or thinking about hurting yourself, please contact someone you trust or your local emergency number.',
+    foot: 'A static page: no server, no API key.', 'conn.on': 'Connected to Keyala ·', 'conn.off': 'Disconnect', 'conn.title': 'Forget the connection in this browser. To revoke it for good, use Apps in the Keyala app.',
+  },
+  'zh-Hant': {
+    'nav.privacy': '你的文字去了哪裡', h1: '今天過得如何？', lead: '寫幾行字，你會收到一段簡短、溫和的回應，也可以再多聊幾句。使用的是你自己的 OpenRouter 帳戶，沒有其他人會看到。', 'lead.more': '我的文字會去哪裡？',
+    ph: '今天我…', 'ph.more': '回覆…', send: '回顧今天', 'send.more': '送出', finish: '今天就到這裡', turns: '今天第 {n} / {max} 則',
+    'closed.limit': '今天就先停在這裡吧。', 'closed.done': '今天的回顧結束了，明天見。',
+    waiting: '請在手機上核准。Keyala 會先顯示你的文字和預估費用。', sending: '正在回應…',
+    tip: '每次都要點很麻煩？下次在 Keyala 核准時，把「一次」改成「接下來幾次」（例如 10 次）或「預算」（例如 $0.10）。', 'tip.ok': '知道了',
+    'f.denied': '你在 Keyala 中拒絕了這個請求，訊息已放回輸入框。', 'f.expired': '10 分鐘內未核准，訊息已放回輸入框。',
+    'f.gone': '這個瀏覽器的 Keyala 連線已被撤銷或重設。', 'f.reconnect': '重新連接',
+    'f.uncertain': 'AI 服務沒有及時回應，系統沒有重試；請到 Keyala App 的紀錄查看。', 'f.nokey': '請在 Keyala App 連接 OpenRouter（點一下即可），再送出一次。',
+    'f.reach': '無法連線到 Keyala，伺服器可能正在啟動，請一分鐘後再試。', 'c.denied': '你在手機上拒絕了連接。', again: '再送一次',
+    'past.title': '過去的日子', 'past.none': '過去的紀錄會顯示在這裡，只儲存在這個瀏覽器。', 'day.del': '刪除這一天', 'day.del.q': '要從這個瀏覽器刪除這一天嗎？', close: '關閉',
+    'pv.title': '你的文字去了哪裡',
+    'pv.1': '這個網頁沒有伺服器。你的日記只儲存在這個瀏覽器，隨時可以在這裡刪除。',
+    'pv.2': '每則訊息會經過 Keyala 送到 OpenRouter，再到 AI 模型，使用的是你自己的金鑰。網頁作者永遠看不到。',
+    'pv.3': 'Keyala 會加密保存每次請求的內容，讓你在 App 中查看，並在 30 天後刪除；費用和 token 數會保留。刪除 Keyala 帳戶會立即移除；目前還不能提前刪除單一請求。',
+    'pv.4': 'OpenRouter 和模型供應商依照各自的政策處理你的文字。',
+    'pv.wipe': '刪除這個瀏覽器中的所有資料', 'pv.wipe.q': '要從這個瀏覽器刪除整本日記和 Keyala 連線嗎？刪除後無法復原。',
+    'ky.badge': 'Powered by', 'ky.p': '這個 App 沒有 API 金鑰，也不用訂閱，使用的是你自己的 OpenRouter 帳戶。',
+    'ky.s1t': '下載 Keyala App。', 'ky.s1d': '掃描 QR 碼加入測試。', 'ky.s2t': '連接 OpenRouter。', 'ky.s2d': '在 App 中點一下，不用複製金鑰。',
+    'ky.s3t': '核准每則訊息。', 'ky.s3d': '也可以一次允許接下來幾則，或設定預算。', 'ky.get': '取得 Keyala', 'ky.what': 'Keyala 是什麼？→',
+    'foot.care': '這不是心理治療。如果你正處於危機或有傷害自己的念頭，請聯絡你信任的人或當地緊急電話。',
+    foot: '靜態網頁：沒有伺服器、沒有 API 金鑰。', 'conn.on': '已連接 Keyala ·', 'conn.off': '中斷連線', 'conn.title': '只在這個瀏覽器忘記連線。要永久撤銷，請到 Keyala App 的「App」。',
+  },
+  ja: {
+    'nav.privacy': '書いた言葉の行き先', h1: '今日はどんな一日でしたか？', lead: '数行書くと、短くやさしい振り返りが返ってきます。そのまま少し話を続けることもできます。あなた自身の OpenRouter アカウントで動き、ほかの誰も読みません。', 'lead.more': '言葉はどこへ行く？',
+    ph: '今日は…', 'ph.more': '返信…', send: '振り返る', 'send.more': '送信', finish: '今日はここまで', turns: '今日 {n} / {max} 件',
+    'closed.limit': '今日はこのあたりで区切りにしましょう。', 'closed.done': '今日の振り返りはおしまいです。また明日。',
+    waiting: 'スマートフォンで承認してください。Keyala が先に文章と見積もり費用を表示します。', sending: '振り返っています…',
+    tip: '毎回タップするのが面倒なら、次に Keyala で承認するとき「1 回」の代わりに「次の数回」（例：10 回）か「予算」（例：$0.10）を選んでください。', 'tip.ok': 'わかった',
+    'f.denied': 'Keyala で拒否しました。メッセージは入力欄に戻しました。', 'f.expired': '10 分以内に承認されませんでした。メッセージは入力欄に戻しました。',
+    'f.gone': 'このブラウザの Keyala 接続は取り消されたか、リセットされました。', 'f.reconnect': 'もう一度接続',
+    'f.uncertain': 'AI サービスが時間内に応答しませんでした。再試行はしていません。Keyala アプリの履歴を確認してください。', 'f.nokey': 'Keyala アプリで OpenRouter を接続（ワンタップ）してから、もう一度送信してください。',
+    'f.reach': 'Keyala に接続できませんでした。起動中かもしれません。1 分後にもう一度お試しください。', 'c.denied': 'スマートフォンで接続が拒否されました。', again: 'もう一度送信',
+    'past.title': 'これまでの日', 'past.none': 'これまでの記録がここに表示されます。このブラウザにだけ保存されます。', 'day.del': 'この日を削除', 'day.del.q': 'この日をこのブラウザから削除しますか？', close: '閉じる',
+    'pv.title': '書いた言葉の行き先',
+    'pv.1': 'このページにはサーバーがありません。日記はこのブラウザにだけ保存され、いつでもここで削除できます。',
+    'pv.2': '各メッセージは Keyala を通って OpenRouter、そして AI モデルへ、あなた自身のキーで送られます。ページの作者が見ることはありません。',
+    'pv.3': 'Keyala はアプリで確認できるよう各リクエストの内容を暗号化して保存し、30 日後に削除します。費用とトークン数は残ります。Keyala アカウントを削除するとすぐに消えます。1 件だけ早く削除することはまだできません。',
+    'pv.4': 'OpenRouter とモデル提供元は、それぞれのポリシーに従って文章を扱います。',
+    'pv.wipe': 'このブラウザのデータをすべて削除', 'pv.wipe.q': '日記全体と Keyala 接続をこのブラウザから削除しますか？元に戻せません。',
+    'ky.badge': 'Powered by', 'ky.p': 'このアプリには API キーもサブスクリプションもありません。あなた自身の OpenRouter アカウントを使います。',
+    'ky.s1t': 'Keyala アプリを入手。', 'ky.s1d': 'コードを読み取ってベータに参加。', 'ky.s2t': 'OpenRouter を接続。', 'ky.s2d': 'アプリでワンタップ。キーのコピーは不要です。',
+    'ky.s3t': 'メッセージごとに承認。', 'ky.s3d': '次の数回をまとめて許可したり、予算を決めたりもできます。', 'ky.get': 'Keyala を入手', 'ky.what': 'Keyala とは？ →',
+    'foot.care': 'これはセラピーではありません。危機的な状況にある、または自分を傷つけたいと思っているときは、信頼できる人や地域の緊急連絡先に連絡してください。',
+    foot: '静的なページです。サーバーも API キーもありません。', 'conn.on': 'Keyala に接続済み ·', 'conn.off': '接続を解除', 'conn.title': 'このブラウザでの接続を忘れます。完全に取り消すには Keyala アプリの「アプリ」から。',
+  },
+};
+const LANGS = ['en', 'zh-Hant', 'ja'];
+let ui = (() => { try { const s = localStorage.getItem('dr-ui'); if (LANGS.includes(s)) return s; } catch {} const n = (navigator.language || 'en').toLowerCase(); return n.startsWith('zh') ? 'zh-Hant' : n.startsWith('ja') ? 'ja' : 'en'; })();
+const t = (k, vars = {}) => String(T[ui][k] ?? T.en[k] ?? k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
+
+// ================= Keyala: the whole backend of this app =================
+// A static page: no server, no API key. The visitor's own key stays in Keyala; this page only holds a
+// grant token, and every call follows the policy the visitor approves on their phone.
+// Local testing (localhost only): ?ky=http://localhost:8080&app=app_resume_tailor   Staging: ?server=staging
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const qs = new URLSearchParams(location.search);
+const SERVERS = { prod: 'https://app.keyala.io', staging: 'https://staging.keyala.io' };
+const KEYALA_URL = ((LOCAL && qs.get('ky')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
+const APP_ID = (LOCAL && qs.get('app')) || 'app_REPLACE_WITH_CONSOLE_ID'; // Keyala console > My apps > Daily Reflection
+const VENDOR = 'openrouter';
+const MODEL = 'anthropic/claude-haiku-5.5'; // must be in the server's allowlist (backend/src/pricing.rs)
+const MAX_TURNS = 10; // user messages per day: bounds the payload (each turn resends the day) and the cost
+
+const ls = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+// ponytail: the grant lives in localStorage (per browser, per Keyala server). Revoked or reset = connect again.
+const GRANT = 'dr-grant:' + KEYALA_URL, PENDING = 'dr-pending:' + KEYALA_URL;
+
+const sdk = new Promise((ok, no) => document.head.append(Object.assign(document.createElement('script'), { src: KEYALA_URL + '/sdk/keyala.js', onload: ok, onerror: no })));
+async function connect() {
+  await sdk;
+  const g = await Keyala.connect({ app: APP_ID, vendor: VENDOR, server: KEYALA_URL, lang: ui });
+  ls.set(GRANT, g.grant_token);
+  renderConn();
+}
+
+async function ky(path, { body, headers = {} } = {}) {
+  const auth = { Authorization: 'Bearer ' + ls.get(GRANT) };
+  const r = await fetch(KEYALA_URL + path, body === undefined ? { headers: auth }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth, ...headers }, body: JSON.stringify(body) });
+  return { status: r.status, json: await r.json().catch(() => ({})) };
+}
+
+// X-Keyala-Wait: 0 answers 202 at once when the call needs a tap on the phone; then we poll, never resend.
+// No retries anywhere: the Idempotency-Key makes an accidental resend harmless.
+async function send(path, body, onWait) {
+  const r = await ky(path, { body, headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-Keyala-Wait': '0' } });
+  if (r.status !== 202) return r;
+  onWait(r.json.request_id);
+  return poll(r.json.request_id);
+}
+async function poll(id) {
+  for (;;) {
+    await sleep(1500);
+    const p = await ky('/v1/requests/' + encodeURIComponent(id));
+    if (p.status !== 200) return p;
+    const st = p.json.status;
+    if (st === 'completed') return { status: 200, json: p.json.response || {} };
+    if (st === 'denied') return { status: 403, json: { error: { type: 'keyala_denied' } } };
+    if (st === 'expired') return { status: 410, json: { error: { type: 'keyala_expired' } } };
+    if (st === 'uncertain') return { status: 504, json: { error: { type: 'keyala_uncertain' } } };
+    if (st === 'failed') return { status: 502, json: p.json.response || {} };
+  }
+}
+// -> null (ok) or { kind, message }. 401 = grant revoked or server reset: drop it.
+function failure({ status, json }) {
+  const type = json?.error?.type;
+  if (status === 200) return null;
+  if (status === 401) { ls.set(GRANT, null); renderConn(); return { kind: 'gone', message: t('f.gone') }; }
+  if (type === 'keyala_denied') return { kind: 'retry', message: t('f.denied') };
+  if (type === 'keyala_expired' || status === 410) return { kind: 'retry', message: t('f.expired') };
+  if (status === 504) return { kind: 'final', message: t('f.uncertain') };
+  if (type === 'no_key') return { kind: 'retry', message: t('f.nokey') };
+  return { kind: 'retry', message: json?.error?.message || `Keyala returned ${status}` };
+}
+// =============================================================================
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+
+// ---------- the prompt ----------
+const SYSTEM = [
+  'You are a warm, calm companion for a short end-of-day reflection. The user tells you about their day.',
+  'Reply in 2 to 4 sentences: notice one or two specific things they said, reflect them back kindly, and when it fits,',
+  'ask one gentle open question. Do not give advice unless asked, do not diagnose, do not use lists or headings.',
+  'Reply in the language the user writes in. You are not a therapist. If the user mentions wanting to hurt themselves',
+  'or someone else, respond with care and encourage them to contact someone they trust or local emergency services.',
+].join(' ');
+const requestFor = (messages) => ({ model: MODEL, max_tokens: 400, temperature: 0.7, messages: [{ role: 'system', content: SYSTEM }, ...messages] });
+
+// ---------- journal: [{ date: 'YYYY-MM-DD', messages: [{role, content}], closed? }], newest first ----------
+const journal = () => ls.get('dr-journal') || [];
+const saveJournal = (j) => ls.set('dr-journal', j);
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const entry = (date = today()) => journal().find((e) => e.date === date) || { date, messages: [] };
+function saveEntry(e) { saveJournal([e, ...journal().filter((x) => x.date !== e.date)].sort((a, b) => b.date.localeCompare(a.date))); }
+const turns = (e) => e.messages.filter((m) => m.role === 'user').length;
+const fmtDate = (date, long) => new Date(date + 'T12:00:00').toLocaleDateString(ui, long ? { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+
+// ---------- today ----------
+let busy = false, waitingNote = null, approvals = 0;
+
+function renderToday() {
+  const e = entry();
+  $('date').textContent = fmtDate(e.date, true);
+  $('chat').replaceChildren(...e.messages.map((m) => el('div', { className: 'msg ' + (m.role === 'user' ? 'user' : 'ai'), textContent: m.content })));
+  if (busy) $('chat').append(el('div', { className: 'msg wait' }, el('span', { className: 'st' }), el('span', { textContent: waitingNote || t('sending') })));
+  const n = turns(e), closed = e.closed || n >= MAX_TURNS;
+  $('composer').classList.toggle('hidden', closed);
+  $('closed').classList.toggle('hidden', !closed);
+  $('closed').textContent = t(e.closed ? 'closed.done' : 'closed.limit');
+  $('text').placeholder = t(n ? 'ph.more' : 'ph');
+  $('text').style.minHeight = n ? '70px' : '';
+  $('send').textContent = t(n ? 'send.more' : 'send');
+  $('send').disabled = busy;
+  $('finish').classList.toggle('hidden', !n || busy);
+  $('count').textContent = n ? t('turns', { n, max: MAX_TURNS }) : '';
+}
+
+function status(text, action, tip) {
+  const n = el('div', { className: 'note' + (tip ? ' tip' : '') }, el('span', { textContent: text }));
+  if (action) n.append(el('button', { type: 'button', textContent: action[0], onclick: action[1] }));
+  $('status').replaceChildren(n);
+}
+
+$('send').onclick = async () => {
+  const text = $('text').value.trim();
+  if (busy || !text) return $('text').focus();
+  $('status').replaceChildren();
+  if (!ls.get(GRANT)) {
+    try { await connect(); } catch (e) {
+      if (e?.code !== 'cancelled') status(e?.code === 'denied' ? t('c.denied') : e?.code === 'unreachable' || !e?.code ? t('f.reach') : e.message);
+      return;
+    }
+  }
+  const e = entry();
+  e.messages.push({ role: 'user', content: text });
+  saveEntry(e); $('text').value = '';
+  await reflect(e.date, () => send('/v1/openrouter/chat/completions', requestFor(e.messages), (id) => {
+    ls.set(PENDING, { id, date: e.date });
+    approvals++; waitingNote = t('waiting'); renderToday();
+  }));
+};
+
+// One turn: `call` resolves to the HTTP-ish result. On failure the user's message goes back into the box.
+async function reflect(date, call) {
+  busy = true; waitingNote = null; renderToday();
+  let r;
+  try { r = await call(); } catch { r = { status: 0, json: { error: { message: t('f.reach') } } }; }
+  ls.set(PENDING, null);
+  busy = false; waitingNote = null;
+  const e = entry(date), err = failure(r);
+  if (err) {
+    const last = e.messages[e.messages.length - 1];
+    if (last?.role === 'user') { e.messages.pop(); saveEntry(e); if (date === today()) $('text').value = last.content; }
+    renderToday(); renderPast();
+    return status(err.message, err.kind === 'gone' ? [t('f.reconnect'), () => $('send').click()] : err.kind === 'retry' ? [t('again'), () => $('send').click()] : null);
+  }
+  e.messages.push({ role: 'assistant', content: (r.json.choices?.[0]?.message?.content || '').trim() || '…' });
+  saveEntry(e); renderToday(); renderPast();
+  // The page can't read the grant's policy, but a 202 means this call needed a tap.
+  if (approvals >= 2 && !ls.get('dr-hint-seen')) status(t('tip'), [t('tip.ok'), () => { ls.set('dr-hint-seen', true); $('status').replaceChildren(); }], true);
+}
+
+$('finish').onclick = () => { const e = entry(); e.closed = true; saveEntry(e); $('status').replaceChildren(); renderToday(); };
+$('text').onkeydown = (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('send').click(); };
+
+// ---------- past days ----------
+function renderPast() {
+  const days = journal().filter((e) => e.date !== today() && e.messages.length);
+  $('past').replaceChildren(el('h2', { textContent: t('past.title') }),
+    ...(days.length ? days.map((d) => el('button', { type: 'button', className: 'day', onclick: () => openDay(d.date) }, el('b', { textContent: fmtDate(d.date) }), el('span', { textContent: d.messages[0].content })))
+      : [el('p', { className: 'small', textContent: t('past.none') })]));
+}
+function openDay(date) {
+  const d = entry(date), dlg = $('dayview');
+  dlg.replaceChildren(el('h2', { textContent: fmtDate(date, true) }),
+    el('div', { className: 'chat' }, ...d.messages.map((m) => el('div', { className: 'msg ' + (m.role === 'user' ? 'user' : 'ai'), textContent: m.content }))),
+    el('div', { className: 'dlg-acts' },
+      el('button', { type: 'button', className: 'danger', textContent: t('day.del'), onclick: () => { if (confirm(t('day.del.q'))) { saveJournal(journal().filter((x) => x.date !== date)); dlg.close(); renderPast(); } } }),
+      el('button', { type: 'button', textContent: t('close'), onclick: () => dlg.close() })));
+  dlg.showModal();
+}
+
+// ---------- privacy ----------
+const openPrivacy = () => $('privacy').showModal();
+$('open-privacy').onclick = openPrivacy; $('open-privacy2').onclick = openPrivacy;
+$('pv-close').onclick = () => $('privacy').close();
+$('wipe').onclick = () => {
+  if (!confirm(t('pv.wipe.q'))) return;
+  for (const k of ['dr-journal', GRANT, PENDING, 'dr-hint-seen']) ls.set(k, null);
+  $('text').value = ''; $('status').replaceChildren(); $('privacy').close();
+  renderToday(); renderPast(); renderConn();
+};
+
+// ---------- connection line, language, boot ----------
+function renderConn() {
+  const on = !!ls.get(GRANT);
+  $('conn').replaceChildren(...(on ? [t('conn.on') + ' ', el('button', { type: 'button', className: 'linkbtn', textContent: t('conn.off'), title: t('conn.title'), onclick: () => { ls.set(GRANT, null); renderConn(); } })] : []));
+}
+function applyText() {
+  document.documentElement.lang = ui;
+  for (const n of document.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
+  $('ui-lang').value = ui;
+}
+$('ui-lang').onchange = () => { ui = $('ui-lang').value; try { localStorage.setItem('dr-ui', ui); } catch {} applyText(); renderToday(); renderPast(); renderConn(); };
+
+applyText(); renderToday(); renderPast(); renderConn();
+// A reply was waiting for approval when the page closed: keep polling so a paid answer isn't lost.
+(() => {
+  const p = ls.get(PENDING);
+  if (!p || !ls.get(GRANT)) return ls.set(PENDING, null);
+  waitingNote = t('waiting');
+  reflect(p.date, () => { busy = true; waitingNote = t('waiting'); renderToday(); return poll(p.id); });
+})();
+</script>
+</body>
+</html>

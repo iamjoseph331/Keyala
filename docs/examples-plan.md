@@ -1,6 +1,7 @@
 # Two new example apps: plan
 
-Status: plan only, nothing built yet. Written 2026-11-26 against `docs/PLAN.md`, `backend/src/pricing.rs`,
+Status: both apps built in `examples/flashcards/` and `examples/daily-reflection/`, tested locally against the mock
+vendor; not yet registered or published (App IDs are placeholders, `pages.yml` not changed). Written 2026-11-26 against `docs/PLAN.md`, `backend/src/pricing.rs`,
 `backend/src/proxy.rs`, `backend/src/keyala.js` and `examples/resume-tailor/` as they are on `dev`.
 
 Two static pages for user testing of Keyala:
@@ -86,7 +87,9 @@ for good, use Apps in the Keyala app").
 ### Calling and waiting
 
 Every call: `Content-Type: application/json`, `Authorization: Bearer <grant>`, `Idempotency-Key: <crypto.randomUUID()>`
-(one per user action, never reused for a different body), `X-Keyala-Wait: 25`. No automatic retries anywhere.
+(one per user action, never reused for a different body), `X-Keyala-Wait: 0`. No automatic retries anywhere.
+With a wait of 0 a call that needs a phone tap answers `202` at once, which is how Reflection knows when to show the
+widen hint (with a longer wait most approvals would come back as `200`).
 
 - `200` → vendor response, verbatim.
 - `202 {request_id}` → show the waiting state, poll `GET /v1/requests/{id}` (same grant) every 1.5 s until the status is
@@ -305,10 +308,10 @@ in this browser.
    deploy/restart/sleep, so a console app made there disappears: test on prod, or on staging with an app declared in
    `KEYALA_PUBLIC_APPS` (as `app_resume_tailor` is). Not needed for the planned user testing.
 
-Local development: `sdk/demo.sh --simulate-phone` (mock vendor, no credits) declares `app_resume_tailor` for
-`http://localhost:3001`; serve the example on port 3001 and open
-`http://localhost:3001/?ky=http://localhost:8080&app=app_resume_tailor`. The phone screens then say "Resume Tailor",
-which is fine locally. The mock answers every call with a fixed sentence: Reflection shows it as the reply; Flashcards
+Local development: `sdk/demo.sh --simulate-phone` (mock vendor, no credits) declares `app_flashcards` and
+`app_daily_reflection` for `http://localhost:3001` and stores fake OpenAI/Anthropic/OpenRouter keys; serve `examples/`
+on port 3001 and open `http://localhost:3001/flashcards/?ky=http://localhost:8080&app=app_flashcards` (or
+`daily-reflection/…&app=app_daily_reflection`). The mock answers every call with a fixed sentence: Reflection shows it as the reply; Flashcards
 shows the "couldn't be read" error, which tests that path (the example deck covers the review UI).
 
 ## Hosting
