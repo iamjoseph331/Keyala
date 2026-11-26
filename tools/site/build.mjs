@@ -9,7 +9,7 @@ import { marked } from 'marked';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const SITE = 'https://keyala.io';
 export const LANGS = ['en', 'zh-Hant', 'ja'];
-export const PAGES = ['home', 'guide', 'docs', 'privacy', 'support', 'news', 'testflight'];
+export const PAGES = ['home', 'guide', 'docs', 'privacy', 'support', 'news', 'testflight', 'examples'];
 export const NOINDEX_PAGES = ['privacy', 'support', 'testflight'];
 const names = { en: 'English', 'zh-Hant': '繁體中文', ja: '日本語' };
 const locale = { en: 'en_US', 'zh-Hant': 'zh_TW', ja: 'ja_JP' };

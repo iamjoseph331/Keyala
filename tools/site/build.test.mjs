@@ -9,7 +9,7 @@ import { ROOT, SITE, LANGS, PAGES, NOINDEX_PAGES, route, build, all, text } from
 
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'keyala-site-test-'));
 fs.cpSync(path.join(ROOT, 'site'), out, {recursive:true});
-for (const app of ['flashcards', 'daily-reflection']) {
+for (const app of ['resume-tailor', 'flashcards', 'daily-reflection']) {
   fs.cpSync(path.join(ROOT, 'examples', app), path.join(out, 'examples', app), { recursive: true });
 }
 execFileSync('python3', [path.join(ROOT, 'tools/build_news.py'), out]);
@@ -126,7 +126,7 @@ urls=root.findall('s:url',ns)
 locs=[u.find('s:loc',ns).text for u in urls]
 assert len(locs)==len(set(locs))
 posts=list(Path(${JSON.stringify(path.join(ROOT,'site/news/posts'))}).glob("*.md"))
-assert len(locs)==12+len(posts), locs
+assert len(locs)==15+len(posts), locs
 for u in urls:
  loc=u.find('s:loc',ns).text
  assert not any('/'+p+'/' in loc for p in ['privacy','support','testflight','review','tutorials','developers'])
