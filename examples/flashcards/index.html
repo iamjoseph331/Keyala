@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flashcards</title>
+<meta name="description" content="Vocabulary flashcards for any language and level, made by AI on your own OpenAI account through Keyala.">
+<link rel="icon" href="keyala-icon.svg">
+<style>
+  :root {
+    --bg:#f7f7f4; --card:#fff; --ink:#15171c; --ink2:#3d424d; --muted:#6c717c; --line:#e4e4de; --soft:#f1f1ec;
+    --accent:#2450d6; --accent-ink:#fff; --accent-soft:#eaf0ff;
+    --ok:#1e7a4c; --okbg:#e3f2e9; --warn:#946200; --warnbg:#fff3d6; --bad:#b3261e; --badbg:#fde7e5;
+    --ky:#3d7a57; --ky-paper:#faf7f2; --ky-ink:#1f1b16; --ky-muted:#7a7268; --ky-line:#ece6dc;
+    --radius:16px; --shadow:0 1px 2px rgba(21,23,28,.04), 0 8px 24px -12px rgba(21,23,28,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
+      --accent:#8aa8ff; --accent-ink:#0d1020; --accent-soft:#1c2440;
+      --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
+      --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
+  a { color:var(--accent) }
+  .container { max-width:760px; margin:0 auto; padding:0 16px }
+  .hidden { display:none !important }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer; background:var(--soft); color:var(--ink) }
+  button:disabled { opacity:.5; cursor:default }
+  button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible, .flip:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+  nav { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 0 }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:750; font-size:1.05rem; color:var(--ink); text-decoration:none }
+  .logo { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--accent); color:var(--accent-ink) }
+  nav .right { display:flex; align-items:center; gap:16px; font-size:.9rem }
+  nav .right a { color:var(--ink2); text-decoration:none }
+  nav select { width:auto; padding:6px 10px; font-size:.85rem; border-radius:8px }
+  h1 { font-size:clamp(1.7rem,4vw,2.4rem); line-height:1.15; letter-spacing:-.03em; margin:12px 0 8px; font-weight:800 }
+  .lead { color:var(--ink2); margin:0 0 22px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-bottom:16px }
+  h2 { font-size:1.05rem; margin:0 0 12px }
+  label.lbl { display:block; font-size:.85rem; color:var(--muted); margin:14px 0 6px; font-weight:500 }
+  input[type=text], select { width:100%; font:inherit; color:var(--ink); background:var(--soft); border:1px solid var(--line); border-radius:11px; padding:10px 12px }
+  input[type=text]:focus, select:focus { outline:0; background:var(--card); border-color:var(--accent) }
+  .two { display:grid; gap:0 14px; grid-template-columns:minmax(0,1fr) }
+  @media (min-width:560px) { .two { grid-template-columns:minmax(0,1fr) minmax(0,1fr) } }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px }
+  .chip { padding:5px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card); font-size:.85rem; font-weight:500 }
+  .seg { display:flex; gap:8px }
+  .seg label { position:relative; flex:1 }
+  .seg input { position:absolute; opacity:0; inset:0 }
+  .seg span { display:block; text-align:center; padding:8px; border-radius:10px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-weight:600 }
+  .seg input:checked + span { background:var(--accent); border-color:var(--accent); color:var(--accent-ink) }
+  .seg input:focus-visible + span { outline:2px solid var(--accent); outline-offset:2px }
+  .est { margin:14px 0 0; padding:10px 12px; border-radius:10px; background:var(--soft); font-size:.86rem; color:var(--ink2) }
+  button.primary { width:100%; margin-top:14px; padding:14px; font-size:1rem; border-radius:13px; color:var(--accent-ink); background:var(--accent) }
+  .note { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; background:var(--warnbg); color:var(--warn); font-size:.92rem; margin-top:14px }
+  .note.bad { background:var(--badbg); color:var(--bad) }
+  .note.ok { background:var(--okbg); color:var(--ok) }
+  .note button { margin-left:auto; padding:6px 12px; font-size:.85rem; background:var(--card) }
+  .st { flex:none; width:8px; height:8px; border-radius:50%; background:var(--warn); animation:p 1.2s infinite }
+  @keyframes p { 50% { opacity:.25 } }
+
+  /* review */
+  .rhead { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:12px; color:var(--muted); font-size:.88rem }
+  .rhead { flex-wrap:wrap } .rhead > * { white-space:nowrap }
+  .rhead b { flex:1; color:var(--ink); font-size:1rem; white-space:normal }
+  @media (max-width:520px) { .rhead b { flex-basis:100% } }
+  .flip { perspective:1200px; height:280px; cursor:pointer; border-radius:var(--radius) }
+  .flip .in { position:relative; height:100%; transition:transform .45s; transform-style:preserve-3d }
+  .flip.on .in { transform:rotateY(180deg) }
+  .face { position:absolute; inset:0; backface-visibility:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:20px; text-align:center; border:1px solid var(--line); border-radius:var(--radius); background:var(--card); box-shadow:var(--shadow) }
+  .face.back { transform:rotateY(180deg); background:var(--accent-soft) }
+  .word { font-size:clamp(1.8rem,7vw,2.8rem); font-weight:800; line-height:1.2 }
+  .reading { color:var(--muted); font-size:1.05rem }
+  .meaning { font-size:1.4rem; font-weight:700 }
+  .ex { color:var(--ink2); max-width:520px } .exm { color:var(--muted); font-size:.9rem; max-width:520px }
+  .hint { font-size:.78rem; color:var(--muted) }
+  .answer { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px }
+  .answer button { padding:14px; font-size:1rem }
+  .no { background:var(--badbg); color:var(--bad) } .yes { background:var(--okbg); color:var(--ok) }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px }
+  .score { font-size:1.6rem; font-weight:800; margin:4px 0 }
+
+  /* decks */
+  .deck { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line) }
+  .deck:first-of-type { border-top:0 }
+  .deck .info { flex:1; min-width:0 } .deck small { display:block; color:var(--muted) }
+  .deck button { padding:6px 12px; font-size:.85rem }
+  .deck .del { background:none; color:var(--muted) }
+
+  /* the Keyala panel */
+  .ky { background:var(--ky-paper); color:var(--ky-ink); border:1px solid var(--ky-line); border-radius:14px; padding:16px; font-size:.86rem }
+  .ky-head { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+  .ky-head img { width:30px; height:30px }
+  .ky-head span { display:block; font-size:.72rem; font-weight:700; letter-spacing:.05em; color:var(--ky); text-transform:uppercase }
+  .ky p { margin:0 0 10px; color:var(--ky-muted) }
+  .ky ol { margin:0 0 12px; padding-left:18px; display:grid; gap:6px }
+  .ky ol span { color:var(--ky-muted) }
+  .ky .get { display:flex; align-items:center; gap:12px; padding-top:12px; border-top:1px solid var(--ky-line) }
+  .ky .get img { flex:none; width:76px; height:76px; border-radius:8px; background:#fff; padding:4px }
+  .ky .get a { color:var(--ky); font-weight:600; text-decoration:none; display:block; margin-top:4px }
+  footer { margin-top:40px; padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem }
+  .linkbtn { background:none; padding:0; color:var(--accent); font-weight:600 }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important } }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="brand" href="#"><span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></svg></span>Flashcards</a>
+    <div class="right">
+      <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
+      <select id="ui-lang" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select>
+    </div>
+  </nav>
+
+  <h1 data-i18n="h1"></h1>
+  <p class="lead" data-i18n="lead"></p>
+
+  <!-- new deck -->
+  <form class="card" id="setup" novalidate>
+    <h2 data-i18n="new.title"></h2>
+    <div class="two">
+      <div><label class="lbl" for="target" data-i18n="f.target"></label><select id="target"></select></div>
+      <div><label class="lbl" for="level" data-i18n="f.level"></label><select id="level"></select></div>
+    </div>
+    <label class="lbl" for="topic" data-i18n="f.topic"></label>
+    <input type="text" id="topic" maxlength="80" autocomplete="off">
+    <div class="chips" id="chips"></div>
+    <label class="lbl" data-i18n="f.count"></label>
+    <div class="seg" id="count" role="radiogroup"></div>
+    <p class="est" id="est"></p>
+    <button class="primary" id="go" type="submit" data-i18n="go"></button>
+    <div id="status"></div>
+  </form>
+
+  <!-- review -->
+  <section class="card hidden" id="review" aria-live="polite"></section>
+
+  <!-- decks -->
+  <section class="card" id="decks"></section>
+
+  <aside class="ky" aria-labelledby="ky-title">
+    <div class="ky-head"><img src="keyala-icon.svg" alt=""><div><span data-i18n="ky.badge"></span><b id="ky-title">Keyala</b></div></div>
+    <p data-i18n="ky.p"></p>
+    <ol>
+      <li><b data-i18n="ky.s1t"></b> <span data-i18n="ky.s1d"></span></li>
+      <li><b data-i18n="ky.s2t"></b> <span data-i18n="ky.s2d"></span></li>
+      <li><b data-i18n="ky.s3t"></b> <span data-i18n="ky.s3d"></span></li>
+    </ol>
+    <div class="get"><img src="keyala-qr.svg" alt="QR: keyala.io"><div><b data-i18n="ky.get"></b><a href="https://keyala.io/" target="_blank" rel="noopener" data-i18n="ky.what"></a></div></div>
+  </aside>
+</div>
+<footer><div class="container"><span data-i18n="foot"></span> <span id="conn"></span></div></footer>
+
+<script>
+"use strict";
+// ================= copy: English, Traditional Chinese, Japanese =================
+const T = {
+  en: {
+    h1: 'Flashcards for any language, at your level.', lead: 'Pick a language, a level and a topic. The AI makes a deck of words with readings and example sentences, and you review them here. It runs on your own OpenAI account.',
+    'new.title': 'New deck', 'f.target': 'Language to learn', 'f.level': 'Level', 'f.topic': 'Topic', 'f.topic.ph': 'e.g. cooking at home', 'f.count': 'Cards',
+    chips: ['Food', 'Travel', 'Work', 'Feelings', 'Home', 'Shopping'],
+    est: 'At most {cost} per deck on your OpenAI account, usually about half. Your phone shows the exact request and estimate before anything runs.',
+    go: 'Make deck', 'go.busy': 'Making the deck…', 'need.topic': 'Pick or type a topic.',
+    waiting: 'Approve on your phone. Keyala shows the full request and an estimate of at most {cost}.', sending: 'Making your deck…',
+    made: 'Made {n} cards.', bad: "The AI's answer couldn't be read as cards.", again: 'Try again',
+    'f.denied': 'You declined this in Keyala.', 'f.expired': 'Not approved within 10 minutes.', 'f.gone': "This browser's Keyala connection was revoked or reset.", 'f.reconnect': 'Connect again',
+    'f.uncertain': "The provider didn't answer in time. It was not retried; check History in the Keyala app.", 'f.nokey': 'Add your OpenAI key in the Keyala app, then try again.',
+    'f.reach': 'Could not reach Keyala. It may be waking up; try again in a minute.', 'c.denied': 'You declined the connection on your phone.',
+    progress: '{i} / {n}', 'tap': 'Tap or press Space to flip', know: 'Know', dont: "Don't know", 'hide.reading': 'Hide reading', 'show.reading': 'Show reading',
+    done: 'You knew {k} of {n} on the first try.', 'again.missed': 'Review the {n} missed', 'again.all': 'Review all again', 'new.deck': 'New deck', close: 'Close',
+    'decks.title': 'My decks', 'decks.none': 'No decks yet. Try the example below, or make one above.', 'decks.example': 'Example deck', open: 'Open', del: 'Delete', 'del.q': 'Delete this deck?',
+    score: 'last: {k}/{n}', 'decks.note': 'Decks are stored only in this browser.',
+    'ky.badge': 'Powered by', 'ky.p': 'This app has no API key and no subscription. It uses your own OpenAI account.',
+    'ky.s1t': 'Get the Keyala app.', 'ky.s1d': 'Scan the code to join the beta.', 'ky.s2t': 'Add your OpenAI key once.', 'ky.s2d': 'Paste it from your computer; this page never sees it.',
+    'ky.s3t': 'Approve each deck.', 'ky.s3d': 'You see the exact prompt and the estimated cost first.', 'ky.get': 'Get Keyala', 'ky.what': 'What is Keyala? →',
+    foot: 'A static page: no server, no API key. Calls go to Keyala with a grant your phone approved.', 'conn.on': 'Connected to Keyala ·', 'conn.off': 'Disconnect',
+    'conn.title': 'Forget the connection in this browser. To revoke it for good, use Apps in the Keyala app.',
+  },
+  'zh-Hant': {
+    h1: '任何語言、符合你程度的單字卡。', lead: '選擇語言、程度和主題，AI 會做出一副附讀音和例句的單字卡，讓你在這裡複習。使用的是你自己的 OpenAI 帳戶。',
+    'new.title': '新的卡組', 'f.target': '要學的語言', 'f.level': '程度', 'f.topic': '主題', 'f.topic.ph': '例如：在家做菜', 'f.count': '張數',
+    chips: ['食物', '旅行', '工作', '心情', '居家', '購物'],
+    est: '每副卡組在你的 OpenAI 帳戶最多花費 {cost}，通常約一半。執行前，手機會顯示完整請求和預估費用。',
+    go: '製作卡組', 'go.busy': '製作中…', 'need.topic': '請選擇或輸入主題。',
+    waiting: '請在手機上核准。Keyala 會顯示完整請求和最多 {cost} 的預估費用。', sending: '正在製作你的卡組…',
+    made: '已製作 {n} 張卡。', bad: '無法把 AI 的回答讀成單字卡。', again: '再試一次',
+    'f.denied': '你在 Keyala 中拒絕了這個請求。', 'f.expired': '10 分鐘內未核准。', 'f.gone': '這個瀏覽器的 Keyala 連線已被撤銷或重設。', 'f.reconnect': '重新連接',
+    'f.uncertain': 'AI 服務沒有及時回應，系統沒有重試；請到 Keyala App 的紀錄查看。', 'f.nokey': '請先在 Keyala App 加入你的 OpenAI 金鑰，再試一次。',
+    'f.reach': '無法連線到 Keyala，伺服器可能正在啟動，請一分鐘後再試。', 'c.denied': '你在手機上拒絕了連接。',
+    progress: '{i} / {n}', tap: '點一下或按空白鍵翻面', know: '會', dont: '不會', 'hide.reading': '隱藏讀音', 'show.reading': '顯示讀音',
+    done: '第一次就答對 {k} / {n} 張。', 'again.missed': '複習答錯的 {n} 張', 'again.all': '全部再複習一次', 'new.deck': '新的卡組', close: '關閉',
+    'decks.title': '我的卡組', 'decks.none': '還沒有卡組。可以先試試下面的範例，或在上方製作一副。', 'decks.example': '範例卡組', open: '開啟', del: '刪除', 'del.q': '要刪除這副卡組嗎？',
+    score: '上次：{k}/{n}', 'decks.note': '卡組只儲存在這個瀏覽器。',
+    'ky.badge': 'Powered by', 'ky.p': '這個 App 沒有 API 金鑰，也不用訂閱，使用的是你自己的 OpenAI 帳戶。',
+    'ky.s1t': '下載 Keyala App。', 'ky.s1d': '掃描 QR 碼加入測試。', 'ky.s2t': '加入一次 OpenAI 金鑰。', 'ky.s2d': '從電腦貼上；這個網頁永遠看不到它。',
+    'ky.s3t': '核准每一副卡組。', 'ky.s3d': '你會先看到完整提示和預估費用。', 'ky.get': '取得 Keyala', 'ky.what': 'Keyala 是什麼？→',
+    foot: '靜態網頁：沒有伺服器、沒有 API 金鑰。請求會帶著你手機核准的授權送到 Keyala。', 'conn.on': '已連接 Keyala ·', 'conn.off': '中斷連線',
+    'conn.title': '只在這個瀏覽器忘記連線。要永久撤銷，請到 Keyala App 的「App」。',
+  },
+  ja: {
+    h1: 'どの言語でも、自分のレベルの単語カード。', lead: '言語・レベル・トピックを選ぶと、AI が読みと例文つきの単語カードを作り、ここで復習できます。あなた自身の OpenAI アカウントで動きます。',
+    'new.title': '新しいデッキ', 'f.target': '学ぶ言語', 'f.level': 'レベル', 'f.topic': 'トピック', 'f.topic.ph': '例：家で料理', 'f.count': '枚数',
+    chips: ['食べ物', '旅行', '仕事', '気持ち', '家', '買い物'],
+    est: '1 デッキあたり OpenAI アカウントで最大 {cost}、実際はたいてい半分ほどです。実行前にスマートフォンで正確なリクエストと見積もりを確認できます。',
+    go: 'デッキを作る', 'go.busy': '作成中…', 'need.topic': 'トピックを選ぶか入力してください。',
+    waiting: 'スマートフォンで承認してください。Keyala にリクエスト全体と最大 {cost} の見積もりが表示されます。', sending: 'デッキを作成しています…',
+    made: '{n} 枚のカードを作りました。', bad: 'AI の回答をカードとして読み取れませんでした。', again: 'もう一度',
+    'f.denied': 'Keyala でこのリクエストを拒否しました。', 'f.expired': '10 分以内に承認されませんでした。', 'f.gone': 'このブラウザの Keyala 接続は取り消されたか、リセットされました。', 'f.reconnect': 'もう一度接続',
+    'f.uncertain': 'AI サービスが時間内に応答しませんでした。再試行はしていません。Keyala アプリの履歴を確認してください。', 'f.nokey': 'Keyala アプリで OpenAI キーを追加してから、もう一度お試しください。',
+    'f.reach': 'Keyala に接続できませんでした。起動中かもしれません。1 分後にもう一度お試しください。', 'c.denied': 'スマートフォンで接続が拒否されました。',
+    progress: '{i} / {n}', tap: 'タップかスペースキーでめくる', know: 'わかる', dont: 'わからない', 'hide.reading': '読みを隠す', 'show.reading': '読みを表示',
+    done: '1 回目で {n} 枚中 {k} 枚わかりました。', 'again.missed': 'わからなかった {n} 枚を復習', 'again.all': 'もう一度全部', 'new.deck': '新しいデッキ', close: '閉じる',
+    'decks.title': 'マイデッキ', 'decks.none': 'まだデッキがありません。下の例を試すか、上で作ってください。', 'decks.example': 'サンプルデッキ', open: '開く', del: '削除', 'del.q': 'このデッキを削除しますか？',
+    score: '前回：{k}/{n}', 'decks.note': 'デッキはこのブラウザにだけ保存されます。',
+    'ky.badge': 'Powered by', 'ky.p': 'このアプリには API キーもサブスクリプションもありません。あなた自身の OpenAI アカウントを使います。',
+    'ky.s1t': 'Keyala アプリを入手。', 'ky.s1d': 'コードを読み取ってベータに参加。', 'ky.s2t': 'OpenAI キーを一度だけ追加。', 'ky.s2d': 'パソコンから貼り付けます。このページからは見えません。',
+    'ky.s3t': 'デッキごとに承認。', 'ky.s3d': '先にプロンプト全文と見積もり費用が表示されます。', 'ky.get': 'Keyala を入手', 'ky.what': 'Keyala とは？ →',
+    foot: '静的なページです。サーバーも API キーもありません。スマートフォンで承認した許可を使って Keyala に送ります。', 'conn.on': 'Keyala に接続済み ·', 'conn.off': '接続を解除',
+    'conn.title': 'このブラウザでの接続を忘れます。完全に取り消すには Keyala アプリの「アプリ」から。',
+  },
+};
+const LANGS = ['en', 'zh-Hant', 'ja'];
+let ui = (() => { try { const s = localStorage.getItem('fc-ui'); if (LANGS.includes(s)) return s; } catch {} const n = (navigator.language || 'en').toLowerCase(); return n.startsWith('zh') ? 'zh-Hant' : n.startsWith('ja') ? 'ja' : 'en'; })();
+const t = (k, vars = {}) => String(T[ui][k] ?? T.en[k] ?? k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
+
+// [code, name used in the prompt, en, zh-Hant, ja]
+const TARGETS = [
+  ['en', 'English', 'English', '英文', '英語'], ['ja', 'Japanese', 'Japanese', '日文', '日本語'], ['ko', 'Korean', 'Korean', '韓文', '韓国語'],
+  ['zh-Hant', 'Chinese (Traditional characters)', 'Chinese (Traditional)', '中文（繁體）', '中国語（繁体字）'],
+  ['es', 'Spanish', 'Spanish', '西班牙文', 'スペイン語'], ['fr', 'French', 'French', '法文', 'フランス語'], ['de', 'German', 'German', '德文', 'ドイツ語'],
+];
+const EXPLAIN = { en: 'English', 'zh-Hant': 'Traditional Chinese', ja: 'Japanese' };
+const levelsFor = (code) => code === 'ja' ? ['JLPT N5', 'JLPT N4', 'JLPT N3', 'JLPT N2', 'JLPT N1'] : ['CEFR A1', 'CEFR A2', 'CEFR B1', 'CEFR B2', 'CEFR C1', 'CEFR C2'];
+const COUNTS = [10, 15, 20];
+
+// ================= Keyala: the whole backend of this app =================
+// A static page: no server, no API key. The visitor's own key stays in Keyala; this page only holds a
+// grant token, and every call follows the policy the visitor approves on their phone.
+// Local testing (localhost only): ?ky=http://localhost:8080&app=app_resume_tailor   Staging: ?server=staging
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const qs = new URLSearchParams(location.search);
+const SERVERS = { prod: 'https://app.keyala.io', staging: 'https://staging.keyala.io' };
+const KEYALA_URL = ((LOCAL && qs.get('ky')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
+const APP_ID = (LOCAL && qs.get('app')) || 'app_REPLACE_WITH_CONSOLE_ID'; // Keyala console > My apps > Flashcards
+const VENDOR = 'openai';
+// Must match the server's allowlist (backend/src/pricing.rs): gpt-4o-mini, USD per 1M tokens in / out.
+const MODEL = { id: 'gpt-4o-mini', i: 0.15, o: 0.60 };
+const PER_CARD = 180; // output tokens budgeted per card; 20 cards = 3600, under the server's 4096 cap
+
+const ls = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+// ponytail: the grant lives in localStorage (per browser, per Keyala server). Revoked or reset = connect again.
+const GRANT = 'fc-grant:' + KEYALA_URL, PENDING = 'fc-pending:' + KEYALA_URL;
+
+const sdk = new Promise((ok, no) => document.head.append(Object.assign(document.createElement('script'), { src: KEYALA_URL + '/sdk/keyala.js', onload: ok, onerror: no })));
+async function connect() {
+  await sdk;
+  const g = await Keyala.connect({ app: APP_ID, vendor: VENDOR, server: KEYALA_URL, lang: ui });
+  ls.set(GRANT, g.grant_token);
+  renderConn();
+}
+
+async function ky(path, { body, headers = {} } = {}) {
+  const auth = { Authorization: 'Bearer ' + ls.get(GRANT) };
+  const r = await fetch(KEYALA_URL + path, body === undefined ? { headers: auth }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth, ...headers }, body: JSON.stringify(body) });
+  return { status: r.status, json: await r.json().catch(() => ({})) };
+}
+
+// X-Keyala-Wait: 0 answers 202 at once when the call needs a tap on the phone; then we poll, never resend.
+// No retries anywhere: the Idempotency-Key makes an accidental resend harmless.
+async function send(path, body, onWait) {
+  const r = await ky(path, { body, headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-Keyala-Wait': '0' } });
+  if (r.status !== 202) return r;
+  onWait(r.json.request_id);
+  return poll(r.json.request_id);
+}
+async function poll(id) {
+  for (;;) {
+    await sleep(1500);
+    const p = await ky('/v1/requests/' + encodeURIComponent(id));
+    if (p.status !== 200) return p;
+    const st = p.json.status;
+    if (st === 'completed') return { status: 200, json: p.json.response || {} };
+    if (st === 'denied') return { status: 403, json: { error: { type: 'keyala_denied' } } };
+    if (st === 'expired') return { status: 410, json: { error: { type: 'keyala_expired' } } };
+    if (st === 'uncertain') return { status: 504, json: { error: { type: 'keyala_uncertain' } } };
+    if (st === 'failed') return { status: 502, json: p.json.response || {} };
+  }
+}
+// -> null (ok) or { kind, message }. 401 = grant revoked or server reset: drop it.
+function failure({ status, json }) {
+  const type = json?.error?.type;
+  if (status === 200) return null;
+  if (status === 401) { ls.set(GRANT, null); renderConn(); return { kind: 'gone', message: t('f.gone') }; }
+  if (type === 'keyala_denied') return { kind: 'retry', message: t('f.denied') };
+  if (type === 'keyala_expired' || status === 410) return { kind: 'retry', message: t('f.expired') };
+  if (status === 504) return { kind: 'final', message: t('f.uncertain') };
+  if (type === 'no_key') return { kind: 'retry', message: t('f.nokey') };
+  return { kind: 'retry', message: json?.error?.message || `Keyala returned ${status}` };
+}
+// =============================================================================
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const usd = (x) => '$' + (x < 0.01 ? x.toFixed(4) : x.toFixed(2));
+
+// ---------- the prompt ----------
+const SYSTEM = [
+  'You make vocabulary flashcards for language learners. Answer with JSON only, exactly this shape:',
+  '{"cards":[{"word":"","reading":"","meaning":"","example":"","example_meaning":""}]}',
+  '- word: a word or short phrase in the target language that suits the level and the topic; no duplicates.',
+  '- reading: pronunciation help: hiragana for Japanese, pinyin for Chinese, romanization for Korean, IPA otherwise.',
+  '- meaning: a short meaning in the explanation language.',
+  '- example: one natural sentence in the target language at the same level, using the word.',
+  '- example_meaning: that sentence in the explanation language.',
+  'Make exactly the requested number of cards.',
+].join('\n');
+
+function requestFor({ target, level, topic, count }) {
+  const name = TARGETS.find((x) => x[0] === target)[1];
+  return {
+    model: MODEL.id, max_tokens: PER_CARD * count, temperature: 0.7, response_format: { type: 'json_object' },
+    messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Target language: ${name}. Level: ${level}. Topic: ${topic}. Cards: ${count}. Explain meanings in: ${EXPLAIN[ui]}.` }],
+  };
+}
+// Same ceiling the server reserves and the phone shows: input <= request JSON bytes + 16/message + 64, output = max_tokens.
+function ceilingUSD(body) {
+  const inTok = new TextEncoder().encode(JSON.stringify(body)).length + 16 * body.messages.length + 64;
+  return (inTok * MODEL.i + body.max_tokens * MODEL.o) / 1e6;
+}
+// Pure: model text -> valid cards (may be fewer than asked), or [] when it isn't usable.
+function parseDeck(text, max) {
+  let data; try { data = JSON.parse(text); } catch { return []; }
+  const seen = new Set(), out = [];
+  for (const c of Array.isArray(data?.cards) ? data.cards : []) {
+    if (!c || typeof c !== 'object') continue;
+    const card = Object.fromEntries(['word', 'reading', 'meaning', 'example', 'example_meaning'].map((k) => [k, typeof c[k] === 'string' ? c[k].trim() : '']));
+    if (!card.word || !card.meaning || !card.example || !card.example_meaning || seen.has(card.word)) continue;
+    seen.add(card.word); out.push(card);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+// ---------- form ----------
+const form = () => ({ target: $('target').value, level: $('level').value, topic: $('topic').value.trim().slice(0, 80), count: +(document.querySelector('[name=count]:checked')?.value || 20) });
+
+function renderForm() {
+  const li = 2 + LANGS.indexOf(ui), keep = $('target').value || (ui === 'ja' ? 'en' : 'ja'), keepL = $('level').value, keepC = form().count;
+  $('target').replaceChildren(...TARGETS.map((x) => el('option', { value: x[0], textContent: x[li] })));
+  $('target').value = keep;
+  renderLevels(keepL);
+  $('topic').placeholder = t('f.topic.ph');
+  $('chips').replaceChildren(...T[ui].chips.map((c) => el('button', { type: 'button', className: 'chip', textContent: c, onclick: () => { $('topic').value = c; renderEst(); } })));
+  $('count').replaceChildren(...COUNTS.map((n) => el('label', {}, el('input', { type: 'radio', name: 'count', value: n, checked: n === keepC, onchange: renderEst }), el('span', { textContent: n }))));
+  renderEst();
+}
+function renderLevels(keep) {
+  const list = levelsFor($('target').value);
+  $('level').replaceChildren(...list.map((l) => el('option', { value: l, textContent: l })));
+  $('level').value = list.includes(keep) ? keep : list[0];
+}
+const renderEst = () => { $('est').textContent = t('est', { cost: usd(ceilingUSD(requestFor({ ...form(), topic: form().topic || 'x' }))) }); };
+$('target').onchange = () => { renderLevels(); renderEst(); };
+$('topic').oninput = renderEst;
+
+function status(kind, text, action) {
+  const n = el('div', { className: 'note' + (kind === 'bad' ? ' bad' : kind === 'ok' ? ' ok' : '') }, kind === 'wait' ? el('span', { className: 'st' }) : '', el('span', { textContent: text }));
+  if (action) n.append(el('button', { type: 'button', textContent: action[0], onclick: action[1] }));
+  $('status').replaceChildren(n);
+}
+
+let busy = false;
+$('setup').onsubmit = async (e) => {
+  e.preventDefault();
+  if (busy) return;
+  const f = form();
+  if (!f.topic) { status('bad', t('need.topic')); return $('topic').focus(); }
+  busy = true; $('go').disabled = true; $('go').textContent = t('go.busy'); $('status').replaceChildren();
+  try { await makeDeck(f); } finally { busy = false; $('go').disabled = false; $('go').textContent = t('go'); }
+};
+
+async function makeDeck(f) {
+  if (!ls.get(GRANT)) {
+    try { await connect(); } catch (e) {
+      if (e?.code !== 'cancelled') status('bad', e?.code === 'denied' ? t('c.denied') : e?.code === 'unreachable' || !e?.code ? t('f.reach') : e.message);
+      return;
+    }
+  }
+  const body = requestFor(f), cost = usd(ceilingUSD(body));
+  status('wait', t('sending'));
+  let r;
+  try { r = await send('/v1/openai/chat/completions', body, (id) => { ls.set(PENDING, { id, f, cost }); status('wait', t('waiting', { cost })); }); }
+  catch { return status('bad', t('f.reach'), [t('again'), () => $('go').click()]); }
+  finish(r, f);
+}
+
+function finish(r, f) {
+  ls.set(PENDING, null);
+  const err = failure(r);
+  if (err) return status('bad', err.message, err.kind === 'gone' ? [t('f.reconnect'), () => $('go').click()] : err.kind === 'retry' ? [t('again'), () => $('go').click()] : null);
+  const cards = parseDeck(r.json.choices?.[0]?.message?.content || '', f.count);
+  if (!cards.length) return status('bad', t('bad'), [t('again'), () => $('go').click()]);
+  const deck = { id: crypto.randomUUID(), created_at: new Date().toISOString(), language: f.target, level: f.level, topic: f.topic, cards, last_score: null };
+  saveDecks([deck, ...decks()].slice(0, 50));
+  status('ok', t('made', { n: cards.length }));
+  renderDecks(); startReview(deck);
+}
+
+// ---------- decks ----------
+const decks = () => ls.get('fc-decks') || [];
+const saveDecks = (d) => ls.set('fc-decks', d);
+const targetLabel = (code) => TARGETS.find((x) => x[0] === code)?.[2 + LANGS.indexOf(ui)] || code;
+
+function renderDecks() {
+  const list = decks();
+  const row = (d, example) => el('div', { className: 'deck' },
+    el('div', { className: 'info' }, el('b', { textContent: example ? t('decks.example') : d.topic }),
+      el('small', { textContent: [targetLabel(d.language), d.level, d.cards.length + ' ×', d.last_score ? t('score', d.last_score) : ''].filter(Boolean).join(' · ') })),
+    el('button', { type: 'button', textContent: t('open'), onclick: () => startReview(d) }),
+    example ? '' : el('button', { type: 'button', className: 'del', textContent: t('del'), onclick: () => { if (confirm(t('del.q'))) { saveDecks(decks().filter((x) => x.id !== d.id)); renderDecks(); } } }));
+  $('decks').replaceChildren(el('h2', { textContent: t('decks.title') }),
+    ...(list.length ? list.map((d) => row(d)) : [el('p', { className: 'hint', textContent: t('decks.none') })]),
+    row(exampleDeck(), true), el('p', { className: 'hint', textContent: t('decks.note') }));
+}
+
+// Built-in example (no AI call): Spanish A1 food, meanings in the UI language.
+const EXAMPLE = [
+  ['la manzana', 'la manˈθana', ['apple', '蘋果', 'りんご'], 'Como una manzana cada día.', ['I eat an apple every day.', '我每天吃一顆蘋果。', '毎日りんごを一つ食べます。']],
+  ['el pan', 'el pan', ['bread', '麵包', 'パン'], 'Compramos pan en la panadería.', ['We buy bread at the bakery.', '我們在麵包店買麵包。', 'パン屋でパンを買います。']],
+  ['el agua', 'el ˈaɣwa', ['water', '水', '水'], '¿Me das un vaso de agua?', ['Can I have a glass of water?', '可以給我一杯水嗎？', '水を一杯もらえますか？']],
+  ['el queso', 'el ˈkeso', ['cheese', '起司', 'チーズ'], 'Este queso es muy rico.', ['This cheese is delicious.', '這塊起司很好吃。', 'このチーズはとてもおいしいです。']],
+  ['la cena', 'la ˈθena', ['dinner', '晚餐', '夕食'], 'La cena está lista.', ['Dinner is ready.', '晚餐準備好了。', '夕食ができました。']],
+];
+function exampleDeck() {
+  const i = LANGS.indexOf(ui);
+  return { id: 'example', language: 'es', level: 'CEFR A1', topic: 'comida', last_score: null,
+    cards: EXAMPLE.map(([word, reading, m, example, em]) => ({ word, reading, meaning: m[i], example, example_meaning: em[i] })) };
+}
+
+// ---------- review ----------
+let rv = null; // { deck, queue: [card index], missed: Set, firstTry: n, seen: Set, flipped, hideReading }
+function startReview(deck, only) {
+  const idx = only || deck.cards.map((_, i) => i);
+  rv = { deck, total: idx.length, queue: [...idx], missed: new Set(), wrongOnce: new Set(), flipped: false, hideReading: rv?.hideReading || false };
+  $('review').classList.remove('hidden');
+  renderReview();
+  $('review').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function answer(knew) {
+  if (!rv || !rv.queue.length) return;
+  const i = rv.queue.shift();
+  if (!knew) { rv.wrongOnce.add(i); rv.queue.push(i); }
+  rv.flipped = false;
+  if (!rv.queue.length && rv.deck.id !== 'example') {
+    const k = rv.total - rv.wrongOnce.size;
+    saveDecks(decks().map((d) => d.id === rv.deck.id ? { ...d, last_score: { k, n: rv.total } } : d));
+    renderDecks();
+  }
+  renderReview();
+}
+const deckTitle = (d) => d.id === 'example' ? t('decks.example') : d.topic;
+function renderReview() {
+  const box = $('review');
+  if (!rv) return box.classList.add('hidden');
+  const close = el('button', { type: 'button', textContent: t('close'), onclick: () => { rv = null; renderReview(); } });
+  if (!rv.queue.length) {
+    const missed = [...rv.wrongOnce];
+    box.replaceChildren(el('div', { className: 'rhead' }, el('b', { textContent: deckTitle(rv.deck) }), close),
+      el('p', { className: 'score', textContent: t('done', { k: rv.total - missed.length, n: rv.total }) }),
+      el('div', { className: 'row' },
+        missed.length ? el('button', { type: 'button', className: 'yes', textContent: t('again.missed', { n: missed.length }), onclick: () => startReview(rv.deck, missed) }) : '',
+        el('button', { type: 'button', textContent: t('again.all'), onclick: () => startReview(rv.deck) }),
+        el('button', { type: 'button', textContent: t('new.deck'), onclick: () => { rv = null; renderReview(); $('setup').scrollIntoView({ behavior: 'smooth' }); $('topic').focus(); } })));
+    return;
+  }
+  const c = rv.deck.cards[rv.queue[0]], done = rv.total - new Set(rv.queue).size;
+  const flip = el('div', { className: 'flip' + (rv.flipped ? ' on' : ''), tabIndex: 0, role: 'button', onclick: () => { rv.flipped = !rv.flipped; flip.classList.toggle('on', rv.flipped); } },
+    el('div', { className: 'in' },
+      el('div', { className: 'face front' }, el('div', { className: 'word', textContent: c.word }), c.reading && !rv.hideReading ? el('div', { className: 'reading', textContent: c.reading }) : '', el('div', { className: 'hint', textContent: t('tap') })),
+      el('div', { className: 'face back' }, el('div', { className: 'meaning', textContent: c.meaning }), c.reading ? el('div', { className: 'reading', textContent: c.word + ' · ' + c.reading }) : '', el('div', { className: 'ex', textContent: c.example }), el('div', { className: 'exm', textContent: c.example_meaning }))));
+  flip.setAttribute('aria-label', t('tap'));
+  const rd = el('button', { type: 'button', className: 'linkbtn', textContent: t(rv.hideReading ? 'show.reading' : 'hide.reading'), onclick: () => { rv.hideReading = !rv.hideReading; renderReview(); } });
+  box.replaceChildren(
+    el('div', { className: 'rhead' }, el('b', { textContent: deckTitle(rv.deck) }), el('span', { textContent: t('progress', { i: Math.min(done + 1, rv.total), n: rv.total }) }), rd, close),
+    flip,
+    el('div', { className: 'answer' }, el('button', { type: 'button', className: 'no', textContent: '← ' + t('dont'), onclick: () => answer(false) }), el('button', { type: 'button', className: 'yes', textContent: t('know') + ' →', onclick: () => answer(true) })));
+}
+document.addEventListener('keydown', (e) => {
+  if (!rv || !rv.queue.length || e.target.closest('input,select,textarea')) return;
+  if (e.key === ' ' || e.key === 'Enter') { if (e.target.closest('button')) return; e.preventDefault(); document.querySelector('.flip')?.click(); }
+  else if (e.key === 'ArrowLeft') answer(false);
+  else if (e.key === 'ArrowRight') answer(true);
+});
+
+// ---------- connection line, language, boot ----------
+function renderConn() {
+  const on = !!ls.get(GRANT);
+  $('conn').replaceChildren(...(on ? [t('conn.on') + ' ', el('button', { type: 'button', className: 'linkbtn', textContent: t('conn.off'), title: t('conn.title'), onclick: () => { ls.set(GRANT, null); renderConn(); } })] : []));
+}
+function applyText() {
+  document.documentElement.lang = ui;
+  for (const n of document.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
+  $('ui-lang').value = ui;
+}
+$('ui-lang').onchange = () => { ui = $('ui-lang').value; try { localStorage.setItem('fc-ui', ui); } catch {} applyText(); renderForm(); renderDecks(); renderConn(); renderReview(); };
+
+applyText(); renderForm(); renderDecks(); renderConn();
+// A deck request was waiting for approval when the page closed: keep polling so a paid answer isn't lost.
+(async () => {
+  const p = ls.get(PENDING);
+  if (!p || !ls.get(GRANT)) return ls.set(PENDING, null);
+  busy = true; $('go').disabled = true; $('go').textContent = t('go.busy');
+  status('wait', t('waiting', { cost: p.cost }));
+  try { finish(await poll(p.id), p.f); } catch { status('bad', t('f.reach')); }
+  busy = false; $('go').disabled = false; $('go').textContent = t('go');
+})();
+</script>
+</body>
+</html>
