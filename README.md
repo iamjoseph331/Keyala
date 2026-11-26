@@ -149,6 +149,8 @@ in English, 繁體中文 and 日本語.
 |:---|:---|:---|
 | [**Resume Tailor**](examples/resume-tailor/) | Tailors a resume to a job description. Static page, no app server, any of the three providers. | [keyala.io/examples/resume-tailor](https://keyala.io/examples/resume-tailor/) |
 | [**Interview Prepper**](https://github.com/iamjoseph331/interview_prepper) | AI/ML mock interviews: Claude writes questions and grades answers. "Connect Keyala" replaces the key field. | [Live on GitHub Pages](https://iamjoseph331.github.io/interview_prepper/) |
+| [**Flashcards**](examples/flashcards/) | Make language-learning cards with readings and examples using GPT-4o mini. Flip and review cards from a generated or built-in deck in your browser. | [Try Flashcards](https://keyala.io/examples/flashcards/) |
+| [**Daily Reflection**](examples/daily-reflection/) | Write a short journal entry and get a reply from Claude Haiku 5.5 through OpenRouter. Journal history is saved in the browser. | [Try Daily Reflection](https://keyala.io/examples/daily-reflection/) |
 
 ## 🚀 Run it locally
 

@@ -5,10 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parse } from 'parse5';
-import { ROOT, SITE, LANGS, PAGES, route, build, all, text } from './build.mjs';
+import { ROOT, SITE, LANGS, PAGES, NOINDEX_PAGES, route, build, all, text } from './build.mjs';
 
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'keyala-site-test-'));
 fs.cpSync(path.join(ROOT, 'site'), out, {recursive:true});
+for (const app of ['flashcards', 'daily-reflection']) {
+  fs.cpSync(path.join(ROOT, 'examples', app), path.join(out, 'examples', app), { recursive: true });
+}
 execFileSync('python3', [path.join(ROOT, 'tools/build_news.py'), out]);
 build(out);
 after(() => fs.rmSync(out, {recursive:true, force:true}));
@@ -36,7 +39,7 @@ test('every locale has static content, matching metadata and reciprocal language
     assert.equal(all(doc,n=>attr(n,'data-language') && attr(n,'data-language')!==lang).length,0);
     assert(!text(doc).includes('window.KEYALA_STRINGS'));
     assert(!all(doc,n=>n.tagName==='script').some(n=>attr(n,'src')?.includes('i18n.js') || attr(n,'src')?.includes('cdnjs')));
-    if(['privacy','support'].includes(page)) assert.equal(meta(doc,'robots'),'noindex');
+    if(NOINDEX_PAGES.includes(page)) assert.equal(meta(doc,'robots'),'noindex');
     else assert.equal(all(doc,n=>n.tagName==='meta' && attr(n,'name')==='robots' && attr(n,'content').includes('noindex')).length,0);
     assert.equal(all(doc,n=>n.tagName==='a' && attr(n,'data-language-link')!==undefined).length,3);
     if(page==='docs') {
@@ -46,6 +49,55 @@ test('every locale has static content, matching metadata and reciprocal language
       assert.equal(attr(one(doc,n=>attr(n,'download')!==undefined),'href'),route('docs',lang)+'keyala.md');
       assert.equal(fs.readFileSync(path.join(out,route('docs',lang),'keyala.md'),'utf8'),fs.readFileSync(path.join(ROOT,`site/docs/keyala${lang==='en'?'':'.'+lang}.md`),'utf8'));
     }
+  }
+});
+
+test('TestFlight pages show all seven localized task goals before optional steps', () => {
+  const headings = ['Install and sign in', '安裝與登入', 'インストールとサインイン'];
+  const forms = {
+    'en': 'https://docs.google.com/forms/d/e/1FAIpQLSdqT46s_9CAEkFoq_1YImjQ2rrBOMtjLoo-Ora2qWRq18n_NQ/viewform',
+    'zh-Hant': 'https://docs.google.com/forms/d/e/1FAIpQLSeym6NgP_VFPEh_fdAvUWnTndogjh-Jy6ngaDjWQkb574BRlA/viewform',
+    'ja': 'https://docs.google.com/forms/d/e/1FAIpQLScOWcYcknRf1R76zxO-cL6VLR_2RQpekE-PN176NG2D8kYlmg/viewform',
+  };
+  for (const [index, lang] of LANGS.entries()) {
+    const doc = read(route('testflight', lang));
+    const article = one(doc, n => n.tagName === 'article');
+    assert.equal(attr(article, 'lang'), lang);
+    assert.equal(text(all(article, n => n.tagName === 'h2')[0]), headings[index]);
+    const tasks = all(article, n => attr(n, 'data-task') !== undefined);
+    assert.deepEqual(tasks.map(n => attr(n, 'data-task')), ['understand', 'key', 'connect', 'approve', 'deny', 'history', 'revoke']);
+    for (const task of tasks) {
+      const goal = one(task, n => n.tagName === 'h3');
+      const details = one(task, n => n.tagName === 'details');
+      assert(task.childNodes.indexOf(goal) < task.childNodes.indexOf(details));
+      assert.equal(attr(details, 'open'), undefined);
+      assert(text(one(details, n => n.tagName === 'summary')).trim());
+      assert(text(details).trim().length > 50);
+    }
+    const firstTaskInstructions = one(tasks[0], n => n.parentNode === tasks[0] && n.tagName === 'p');
+    assert(text(firstTaskInstructions).trim().length > 20);
+    one(tasks[2], n => attr(n, 'href') === 'https://iamjoseph331.github.io/interview_prepper/');
+    assert.equal(text(one(tasks[3], n => n.tagName === 'code')), 'claude-haiku-5-5');
+    assert.equal(attr(one(article, n => attr(n, 'data-video-guide') !== undefined), 'href'), route('guide', lang));
+    assert.equal(attr(one(article, n => attr(n, 'href') === 'mailto:support@keyala.io'), 'href'), 'mailto:support@keyala.io');
+    const feedback = one(article, n => attr(n, 'id') === 'feedback-form');
+    assert.equal(attr(one(feedback, n => n.tagName === 'a'), 'href'), forms[lang]);
+    one(article, n => attr(n, 'href') === 'https://apps.apple.com/app/testflight/id899247664');
+    assert.equal(all(article, n => n.tagName === 'script').length, 0);
+  }
+});
+
+test('every TestFlight locale links to both optional examples with their own model instructions', () => {
+  const titles = ['Optional example apps', '選做的範例 App', '任意で試せるサンプルアプリ'];
+  for (const [index, lang] of LANGS.entries()) {
+    const doc = read(route('testflight', lang));
+    const examples = one(doc, n => attr(n, 'id') === 'optional-examples');
+    assert.equal(text(one(examples, n => n.tagName === 'h2')), titles[index]);
+    assert.deepEqual(
+      all(examples, n => n.tagName === 'a').map(n => new URL(attr(n, 'href'), SITE).href),
+      ['https://keyala.io/examples/flashcards/', 'https://keyala.io/examples/daily-reflection/'],
+    );
+    assert.deepEqual(all(examples, n => n.tagName === 'code').map(text), ['gpt-4o-mini', 'anthropic/claude-haiku-5.5']);
   }
 });
 
@@ -77,7 +129,7 @@ posts=list(Path(${JSON.stringify(path.join(ROOT,'site/news/posts'))}).glob("*.md
 assert len(locs)==12+len(posts), locs
 for u in urls:
  loc=u.find('s:loc',ns).text
- assert not any('/'+p+'/' in loc for p in ['privacy','support','review','tutorials','developers'])
+ assert not any('/'+p+'/' in loc for p in ['privacy','support','testflight','review','tutorials','developers'])
  links=u.findall('x:link',ns)
  assert len(links)>=2
  assert any(l.get('href')==loc for l in links)

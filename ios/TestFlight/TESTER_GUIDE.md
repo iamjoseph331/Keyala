@@ -1,219 +1,163 @@
-# Keyala beta tester guide
+# Keyala TestFlight tester guide
 
-[English](#english) | [繁體中文](#繁體中文) | [日本語](#日本語)
+The public guides contain the full pilot tasks and the feedback form for each language.
 
-[三語邀請文](#邀請-email-文面寄送前填寫方括號) | [Joseph 自測清單](#joseph-自測清單手動填結果)
-
-This guide accompanies a TestFlight invitation. Applying on the website does not install the app or guarantee an invitation. Use the build identified in your invitation; screenshots on the website may show sample data.
+- [English](https://keyala.io/testflight/)
+- [繁體中文](https://keyala.io/zh-Hant/testflight/)
+- [日本語](https://keyala.io/ja/testflight/)
 
 ## English
 
-### Before you start
+Thank you for helping test Keyala. Try as much as you have time for and let us know where you got stuck. The invite-only pilot runs for 14 days with a minimum of 10 and a maximum of 20 testers. The invitation will confirm the dates and build.
 
-- An iPhone running iOS 17 or later, an Apple Account, and Apple's TestFlight app.
-- Install Apple’s TestFlight from the App Store first. Then open Apple’s Keyala invitation email on your iPhone: View in TestFlight → Accept → Install. Developer Mode and a computer are not required for TestFlight installation.
-- About 10–15 minutes. A second screen is useful for scanning a connection QR; on the same phone, use the connection link or KY- code instead.
-- A provider account with API credit only if you choose to test a real model call. Keyala beta access is free; provider usage is billed separately to your provider account. ChatGPT or Claude app subscriptions do not themselves supply API credit.
+Install [Apple TestFlight](https://apps.apple.com/app/testflight/id899247664) on an iPhone with iOS 17 or later. Open Apple’s invitation and select **View in TestFlight → Accept → Install**. Compare the build to the invitation. Sign in with your own Apple or Google account. They are separate Keyala accounts even with the same email. Keep using the same account and sign-in method.
 
-Before opening Keyala, check its version and build in TestFlight against your invitation. You can also find App version in Keyala → Settings → Help & contact. If the build differs, report it before continuing. Sign in with your own Apple Account; public testers must not use Apple reviewer credentials.
+After seeing Keyala’s first screens, write one sentence about what you think it does before opening any explanations in the guide. Then try adding the pilot key, connecting Interview Prepper, allowing one call, denying another, checking Activity and disconnecting. A later attempt should require a new connection.
 
-You can inspect the interface without a provider key: Settings → Developer options → enable developer options → Use sample data. Samples are offline and do not prove that sign-in, pairing, notifications, or billing works. Switch samples off before the real flow; switching this setting signs you out. A separate server mock can exercise an integration without provider charges, but only on an explicitly confirmed mock server with fake keys. The sample switch does not put production into mock mode. Public testers should stay on production and use offline samples unless they choose paid provider testing; Apple reviewer access is not a public mock option.
+Joseph will send each tester a private OpenRouter key limited to US$1 for the free connected test. The US$1 is a total limit with no reset or automatic top-up. It expires at the shared 14-day pilot end shown in your invitation. Cost per call varies, and there is no automatic paid fallback at exhaustion. Use **Keys → Paste a key on this iPhone**, select **OpenRouter** and save. You can paste the key without an OpenRouter account or OAuth. Keep any existing OpenRouter key and contact Joseph before adding a pilot key. Your own key uses your provider balance and can incur charges. The supplied key is separate from the future coupon concept, which has no test flow, announced pricing or release date.
 
-### Your first test
+For the sponsored or your own OpenRouter key, turn on **Settings → Use OpenRouter for OpenAI and Anthropic** before pairing. To use your own Anthropic key directly, leave the switch off and check that your Anthropic key is saved. Disconnect and reconnect to change a route already in use. In [Interview Prepper](https://iamjoseph331.github.io/interview_prepper/), choose **Connect Keyala** and use the link, QR code or KY- code. Keep **Connect and ask each time**. Set **Junior**, **Machine learning fundamentals** and **1** question. Open **Graded session → Configure** and select **Haiku 5.5** (the list shown after connecting uses `claude-haiku-5-5`). Start the session for a fictional junior AI/ML interview. A session can send several requests. Read each one in Inbox, approve only **This call only**, and use a follow-up for the denial task. In **Inbox → Activity**, check results. Disconnect in **Apps** and check that Interview Prepper asks to reconnect. Stop on an error or uncertain state and report it without spending more to reproduce it.
 
-For offline samples only, stop after exploring the sample interface. The steps below are an optional connected test and can incur provider charges on production.
+Keyala stores the key encrypted on its server. Connected apps get permission and approved results. They never get the key. This relies on trust in the Keyala server operator, and the pilot sponsor may see provider usage or logs. Use fictional inputs. Offline browsing is available under **Settings → Developer options → Use sample data**. Switching signs you out. Offline samples make no network calls and provide no evidence about the live integration. Notifications and language persistence are optional. Account deletion is irreversible and outside the pilot tasks.
 
-1. Open Keyala, read the introduction, choose a language, and sign in with Apple. Fresh installs use the production server automatically. Leave custom server settings unchanged for this test.
-2. If testing real calls, connect one provider in Keys. Use Connect OpenRouter or paste your own provider key. Review the provider's consent and billing information. A spending limit is not free credit. Never send a key to us as feedback.
-3. Open the test tool named in your invitation. Use fictional text, for example: “Help me practise a short interview introduction for a fictional bookstore job.” Start its Keyala connection.
-4. Scan its connection QR in Keyala, or open its connection link on the phone. If the link does not open the app, use the KY- code. Check the app name, server, provider, and billing route before connecting. Keep the initial policy at Ask.
-5. Send one short text request from that tool. Keep Keyala in the foreground for the first attempt. In Inbox, inspect the messages, model, estimated cost and any OpenRouter billing route; choose This call only. Confirm the tool receives a response and Activity shows the result. Estimates and usage-derived costs are not a provider invoice.
-6. Send a second request and choose Deny. Confirm that the tool reports the denial. If a request is uncertain, do not repeatedly resubmit it: check history and report the request ID privately.
-7. In Apps, open that tool → Disconnect app → confirm to revoke its access. Already-sent requests may still finish. Confirm it requires a new connection for another call. Try changing the language and reopening Keyala; the preference should remain.
+### Optional example apps
 
-If a step fails, stop there and report it. You do not need to spend more to reproduce it. No provider key or credit is required to report a failure.
+Interview Prepper is the main exercise. If you want to try another app, keep Keyala set to Ask for each call. Paste API keys only into Keyala. Use fictional inputs. You can repeat the approval, denial, Activity and revocation checks with either app.
 
-### Optional tests and stopping
+**[Flashcards](https://keyala.io/examples/flashcards/)**
 
-- Allow notifications, lock the phone, and trigger one request. Record whether a notification arrives and whether tapping it opens the correct request. If none arrives, reopen Keyala; foreground refresh is a separate path.
-- Cancel device verification once: approval should not be sent. Camera permission denial should still leave code entry available.
-- Removing a key in Keyala does not revoke the key at the provider. To end access, revoke the app permission and remove the key; revoke the provider key at its official console if needed.
-- Settings → Account offers account deletion with fresh verification. This is irreversible: use it only if you intend to delete the beta account, and do not recreate it merely for testing. Backups can retain older data until they expire; the privacy page explains handling.
+To try the review without a key or model call, open **Example deck** under **My decks**. Flip a card and choose **Know** or **Don’t know**. Generated decks and their scores stay in this browser.
 
-### Feedback
+To generate one deck with `gpt-4o-mini`, choose a language, level and topic (for example, beginner Japanese for ordering in a fictional café), set **Cards** to **10** and choose **Make deck**. If prompted, connect with Keyala. Use an OpenAI key directly with the routing switch off. For the sponsored or your own OpenRouter key, turn on **Settings → Use OpenRouter for OpenAI and Anthropic** before connecting. To change the route for an existing Flashcards connection, revoke it in Keyala and reconnect. Check the route and estimated cost, then approve only the deck request.
 
-Open TestFlight → Keyala → Send Beta Feedback. Choose Include Screenshot and select a redacted image, or Don’t Include Screenshot; add the report below and tap Submit. Apple also receives TestFlight feedback. Alternatively use [Keyala support](https://keyala.io/support/). Include only what is needed:
+**[Daily Reflection](https://keyala.io/examples/daily-reflection/)**
 
-```text
-Keyala version and build (shown in TestFlight):
-iPhone model / iOS version / app language:
-Date, time and time zone:
-Steps to reproduce (numbered):
-What I expected / what happened:
-Can it happen again? (No need to spend more to check.)
-Provider and model, if relevant:
-Request ID, if relevant (private support only):
-Screenshot with sensitive information hidden, optional:
-```
+Write one or two fictional lines, such as “I sketched a paper boat in an imaginary art class.” Choose **Reflect**, connect with Keyala if prompted and approve one request. Follow-ups use **Send**. The app calls `anthropic/claude-haiku-5.5` directly through OpenRouter with your saved OpenRouter key. The OpenAI/Anthropic routing switch is irrelevant to this connection.
 
-Never include API keys, passwords, session/grant tokens, pairing QR/code, private prompts/responses, or unredacted account details. Check screenshots before sending. The signup form is for applications, not bug reports.
+Each message approved and sent to the model is billable and resends that day’s conversation. The daily limit is 10 of your messages. Keep Ask even if the page suggests **Next calls** or **Budget**. The journal is saved in this browser and does not sync. Use only invented entries, with no real diary text or sensitive information.
+
+The [English feedback form](https://docs.google.com/forms/d/e/1FAIpQLSdqT46s_9CAEkFoq_1YImjQ2rrBOMtjLoo-Ora2qWRq18n_NQ/viewform) is optional and needs no sign-in. You can send feedback even if you could not install Keyala.
+
+For bugs, reply to the introductory email or email support@keyala.io. **TestFlight → Keyala → Send Beta Feedback** also sends the report to Apple. Optional context includes build, iPhone model, iOS version, language, date/time zone, steps, expected and actual result, provider/model and a request ID sent privately to support. Redact screenshots and omit keys, credentials, tokens, pairing codes/QRs, private inputs and responses, and personal details.
 
 ## 繁體中文
 
-### 開始前
+謝謝你試用 Keyala！有空做到哪裡就好。測試採邀請制，為期 14 天，最少 10 人、最多 20 人。日期與測試版本會在邀請中確認。
 
-準備 iOS 17 以上的 iPhone 和自己的 Apple 帳號。先從 App Store 安裝 Apple TestFlight，再開啟 Apple 寄來的 Keyala 邀請 email，點 View in TestFlight → Accept → Install。不需要開啟開發者模式。網站報名不等於已收到邀請。預留 10–15 分鐘；另一個螢幕方便掃 QR，同一支手機可改用連結或 KY- 代碼。
+在 iOS 17 以上的 iPhone 安裝 [Apple TestFlight](https://apps.apple.com/app/testflight/id899247664)。開啟 Apple 寄來的邀請，在 TestFlight 接受並安裝 Keyala，確認版本與組建編號。用自己的 Apple 或 Google 帳號登入。即使電子郵件相同，也會建立各自獨立的 Keyala 帳號。測試期間請沿用同一種登入方式及同一個帳號。
 
-安裝後先在 TestFlight 核對版本與 build 是否符合邀請；App 內也可從 Settings → Help & contact 查看 App version。不同就先回報。公開測試者請用自己的 Apple 帳號登入，不要使用 Apple 審查專用帳密。
+閱讀指南說明前，請先看 App 的開場畫面，再用自己的話寫一句 Keyala 的用途。接著試著新增測試金鑰、連結 Interview Prepper、批准一次、拒絕一次、查看活動紀錄、撤銷連結，並確認下次使用需要重新連結。
 
-Keyala 測試版免費；真實模型呼叫會使用你自己的服務商 API 額度，另外計費。ChatGPT／Claude App 訂閱本身不等於 API 額度。只想看介面，可到 Settings → Developer options 啟用開發者選項，再開 Use sample data；這是離線範例，不能驗證登入、配對、推播或計費。實測前請關閉範例資料；切換會登出。伺服器 mock 可用假 key 測完整流程且不產生服務商費用，但必須先確認該伺服器確實使用 mock；離線樣本開關不會讓正式服務變成 mock。公開測試請維持正式服務，選離線樣本或自行決定是否付費實測，不使用 Apple reviewer 登入。
+Joseph 會私下提供每人一把支出上限為 1 美元的 OpenRouter 測試金鑰。1 美元是整段測試的總上限，額度不會重設或自動補充。金鑰在邀請中指定的共同 14 天測試結束時到期。呼叫次數取決於用量，額度用完不會自動改用其他付費金鑰。在 **Keys → 在這台 iPhone 貼上 key** 選 OpenRouter 並儲存。不需要 OpenRouter 帳號或 OAuth。已有自己的 OpenRouter 金鑰時，請保留原金鑰，先聯絡 Joseph。自帶金鑰會使用你的服務商餘額，可能產生費用。測試金鑰由專案方手動提供。分享優惠券尚未實作，也未公布價格和推出日期。
 
-### 首次測試
+使用測試金鑰或自己的 OpenRouter 金鑰時，配對前在設定開啟**透過 OpenRouter 使用 OpenAI 與 Anthropic**。要直接使用自帶的 Anthropic 金鑰，請關閉開關並確認已儲存金鑰。要變更既有連結的計費路徑，請先中斷再連結。在 [Interview Prepper](https://iamjoseph331.github.io/interview_prepper/) 選 **Connect Keyala**，使用連結、QR 碼或 KY- 代碼，維持**連結並每次詢問**。選 **Junior** 與 **Machine learning fundamentals**，設為 **1** 題。在 **Graded session → Configure** 選 **Haiku 5.5**（連結後的清單使用 `claude-haiku-5-5`），開始虛構的初階 AI／機器學習面試。一次練習可能觸發多筆呼叫，請在收件匣逐筆檢查並只批准一次，再拒絕下一筆。用**收件匣 → 活動紀錄**查看結果，並從 **Apps** 中斷連結。失敗或顯示結果不確定時，先停下來回報，無須再花額度重現。
 
-只看離線樣本可在體驗介面後結束。以下是自選的連線測試，在正式服務可能產生服務商費用。
+Keyala 將金鑰加密存放於伺服器，連結工具只會取得授權及批准後的回應。使用時需要信任伺服器營運者，測試贊助者也可能看得到服務商的用量或紀錄。請使用虛構資料。只想看畫面可用**設定 → 開發者選項 → 使用範例資料**。切換會登出，離線範例不會連網，無法驗證實際整合。通知及重開後語言保留可自行加測。帳號刪除無法復原，本次不用測。
 
-1. 開啟 Keyala、閱讀說明、選擇語言，以 Apple 登入。全新安裝預設連正式服務，不需修改伺服器。
-2. 若要測真實呼叫，在 Keys 連接一個服務商：可連 OpenRouter 或貼上自己的 API key。先確認同意畫面、付款與額度；支出上限不是免費額度。
-3. 開啟邀請中指定的測試工具。只填虛構資料，例如「請幫我練習應徵虛構書店的一分鐘自我介紹」，開始 Keyala 連接。
-4. 用 Keyala 掃工具的 QR，或在手機點連結；連結無法開 App 時可輸入 KY- 代碼。確認 App、伺服器、服務商及計費路徑，初始權限維持逐次詢問。
-5. 從工具送出一個短文字請求，第一次先讓 Keyala 保持前景。在 Inbox 檢查訊息、模型、預估費用及 OpenRouter 計費資訊，只批准這一次。確認工具收到回應，Activity 有紀錄。預估與依用量計算的費用不是服務商帳單。
-6. 第二次選拒絕，確認工具顯示被拒絕。遇到 uncertain 不要連續重送，先看歷史並私下回報 request ID。
-7. 到 Apps 點開工具 → Disconnect app → 確認撤銷；已送出的請求仍可能完成。確認再次呼叫需要重新連接。切換語言、重開 App，確認語言保留。
+### 選做的範例 App
 
-失敗就停在該步回報，不必為了重現問題繼續花費。也可測通知、鎖定畫面點通知、取消裝置驗證，以及拒絕相機權限後輸入代碼。沒有通知時可先開 App 查看，前景更新與推播是不同路徑。
+Interview Prepper 是主要測試。若想再試其他 App，請維持逐次詢問（Ask），並只在 Keyala 貼上 API 金鑰。請使用虛構資料。兩個 App 都可以用來再試一次批准、拒絕、查看活動紀錄及撤銷授權。
 
-### 回報與結束測試
+**[Flashcards 單字卡](https://keyala.io/examples/flashcards/)**
 
-開啟 TestFlight → Keyala → Send Beta Feedback，選 Include Screenshot 加入已遮蔽的截圖，或選 Don’t Include Screenshot 不附圖；填寫下方範本後按 Submit。Apple 也會收到 TestFlight 回饋。也可透過 [支援頁](https://keyala.io/support/?lang=zh-Hant) 回報。附版本／build、iPhone／iOS、語言、時間與時區、操作步驟、預期與實際結果；需要時私下附 request ID。不要附 API key、密碼、token、配對 QR／代碼、私人對話或未遮蔽帳號資料。報名表不用來回報 bug。
+到**我的卡組**開啟**範例卡組**，即可翻牌，並選**會**或**不會**，不用金鑰，也不會呼叫模型。產生的卡組和複習分數都保存在這個瀏覽器。
 
-```text
-Keyala 版本／build：
-iPhone 機型／iOS 版本／App 語言：
-日期、時間與時區：
-重現步驟（依序列出）：
-預期結果：
-實際結果：
-是否曾再次發生（不必額外付費重現）：
-服務商／模型（如相關）：
-request ID（如相關，只交給私人支援渠道）：
-已遮蔽敏感內容的截圖（可省略）：
-```
+要用 `gpt-4o-mini` 產生一副卡組，選語言、程度和主題，例如初級日文及在虛構咖啡店點餐。將**張數**設為 **10**，點**製作卡組**，依提示連結 Keyala。直接使用自帶 OpenAI 金鑰時保持路由開關關閉。若使用測試金鑰或自己的 OpenRouter 金鑰，請在配對前到**設定**開啟**透過 OpenRouter 使用 OpenAI 與 Anthropic**。要變更 Flashcards 既有連結的路由，請先在 Keyala 撤銷授權再重新連結。確認計費路徑和預估費用，再只批准這一副卡組的請求。
 
-結束時可撤銷 App 權限、移除 Keyala 中的 key；這不會在服務商端撤銷 key，需要時請到服務商官網撤銷。Settings → Account 可刪除帳號，需重新驗證且無法復原；只有確實想刪除時才執行。舊備份可能在到期前保留資料，詳見隱私頁。
+**[Daily Reflection 每日回顧](https://keyala.io/examples/daily-reflection/)**
+
+輸入一兩句虛構內容，例如「今天在虛構的美術課上畫了一艘紙船。」點**回顧今天**，依提示連結 Keyala，並只批准這一筆請求。後續回覆使用**送出**。App 會用已儲存的 OpenRouter 金鑰直接透過 OpenRouter 呼叫 `anthropic/claude-haiku-5.5`，不需要調整 OpenAI／Anthropic 路由開關。
+
+每則批准並送往模型的訊息都會計費，並重送當天的對話。每天最多可送出 10 則訊息。即使頁面提示使用**接下來幾次**或**預算**，請維持逐次詢問。日記只存在這個瀏覽器，不會同步。請使用虛構內容，勿輸入真實日記或敏感資料。
+
+[繁體中文回饋表](https://docs.google.com/forms/d/e/1FAIpQLSeym6NgP_VFPEh_fdAvUWnTndogjh-Jy6ngaDjWQkb574BRlA/viewform) 可自由填寫，無須登入。即使沒能安裝 Keyala，也歡迎填寫。
+
+有問題請回覆介紹信或寄到 support@keyala.io。透過 **TestFlight → Keyala → 傳送 Beta 版回饋**送出的內容也會交給 Apple。可附版本與組建編號、iPhone／iOS、語言、日期時間與時區、步驟、預期及實際結果、服務商／模型，或私下提供請求 ID。請先遮蔽截圖中的敏感內容，並省略金鑰、帳密、權杖、配對碼及 QR 碼、私人對話和個資。
 
 ## 日本語
 
-### 始める前に
+Keyala を試していただき、ありがとうございます。時間のある範囲でお試しください。今回は招待制で、期間は14日間、参加人数は10〜20人です。日程と対象ビルドは招待時にお知らせします。
 
-iOS 17 以降の iPhone とご自身の Apple Account をご用意ください。App Store で Apple の TestFlight を入れてから、Apple から届く Keyala の招待メールを開き、View in TestFlight → Accept → Install と進みます。デベロッパモードは不要です。Web での申込みだけでは招待は届きません。所要時間は約10〜15分。別の画面があれば QR を読み取れます。同じ iPhone ではリンクか KY- コードを使えます。
+iOS 17 以降の iPhone に [Apple の TestFlight](https://apps.apple.com/app/testflight/id899247664) を入れます。Apple から届く Keyala の招待を開き、TestFlight で承認してインストールします。ビルド番号を照合し、ご自身の Apple Account または Google アカウントでサインインしてください。メールアドレスが同じでも別々の Keyala アカウントになります。テスト中は同じ方法とアカウントを使ってください。
 
-インストール後は TestFlight のバージョンと build を招待の記載と照合してください。アプリ内の Settings → Help & contact → App version でも確認できます。異なる場合は先に報告してください。一般のテスターはご自身の Apple Account を使い、Apple 審査専用の認証情報は使わないでください。
+説明を読む前に、最初の画面を見て Keyala の用途をご自身の言葉で一文書いてください。その後、キーの追加、Interview Prepper への接続、1回だけの許可、別のリクエストの拒否、履歴確認、接続の解除をお試しください。解除後は、次の利用に再接続が必要になることを確認します。
 
-Keyala のベータは無料ですが、実際のモデル呼び出しにはご自身のプロバイダーの API 残高を使い、別途料金が発生します。ChatGPT や Claude のアプリのサブスクリプション自体に API 残高は含まれません。画面だけを見る場合は Settings → Developer options で開発者オプションを有効にし、Use sample data を選びます。オフラインのサンプルなので、ログイン、接続、通知、課金の確認には使えません。実際のテストではサンプルをオフにしてください。切替時はサインアウトします。サーバーの mock は偽のキーで連携を無料で試せますが、mock 設定の確認が必要です。サンプルのスイッチで本番サーバーが mock になるわけではありません。一般のテストでは本番のままオフラインサンプルを使うか、有料の実呼び出しを行うかを選んでください。Apple reviewer 用のログインは使いません。
+Joseph が利用上限1米ドルの OpenRouter キーを一人ずつお渡しします。1米ドルは期間全体の上限です。リセットや自動追加はありません。招待に記載した共通の14日間が終わると失効します。呼び出し回数は使用量によって変わり、使い切った後に別の有料キーへ自動で切り替わることはありません。**キー → この iPhone にキーを貼り付け**で OpenRouter を選び、保存します。OpenRouter のアカウントや OAuth は不要です。登録済みの OpenRouter キーはそのまま残し、追加する前に Joseph にご連絡ください。ご自身のキーを使う場合は、プロバイダーの残高を使い、料金が発生することがあります。今回のキーは個別にお渡しするものです。クーポン共有は未実装で、価格と提供開始日は未発表です。
 
-### 最初のテスト
+今回お渡しするキーやご自身の OpenRouter キーを使う場合は、接続前に設定で **OpenAI と Anthropic に OpenRouter を使う**をオンにします。ご自身の Anthropic キーを直接使う場合はオフにし、キーが登録済みであることを確認します。既存の請求先を変える場合は解除してつなぎ直します。[Interview Prepper](https://iamjoseph331.github.io/interview_prepper/) で **Connect Keyala** を選び、リンク、QR コード、または KY- コードでつなぎ、**接続して毎回確認**を選びます。**Junior** と **Machine learning fundamentals** を選び、質問は **1** 件にします。**Graded session → Configure** で **Haiku 5.5**（接続後の一覧では `claude-haiku-5-5`）を選び、架空の若手 AI・機械学習エンジニアの面接を始めます。複数のリクエストが発生する場合は1件ずつ確認し、1回だけ許可した後で次のリクエストを拒否します。**受信トレイ → 履歴**で結果を確認し、**アプリ**から接続を解除してください。失敗や結果不明の場合は追加で送信せず、そこで止めてお知らせください。
 
-オフラインサンプルだけなら画面を確認して終了できます。以下の接続テストは任意で、本番ではプロバイダーの料金が発生する場合があります。
+Keyala はキーを暗号化してサーバーに保存します。接続したアプリが受け取るのは権限と許可済みの結果です。利用には Keyala のサーバー運営者を信頼することが必要です。テスト費用の負担者がプロバイダーの利用状況やログを見られる場合があります。入力は架空の内容にしてください。画面だけ見る場合は、**設定 → 開発者向け設定 → サンプルデータを使用**を選びます。切替時はサインアウトします。オフラインでは通信しないため、実際の接続や課金は確認できません。通知や言語設定の保存は任意です。元に戻せないアカウント削除は今回の対象外です。
 
-1. Keyala を開き、説明と言語を確認して Apple でサインインします。新規インストールは本番サーバーにつながります。サーバーの変更は不要です。
-2. 実際の呼び出しを試す場合、Keys で OpenRouter に接続するか、ご自身の API キーを登録します。同意画面と料金を確認してください。利用上限は無料残高ではありません。
-3. 招待で指定されたテスト用ツールを開きます。「架空の書店の面接で話す短い自己紹介を練習したい」など、架空の内容だけを入力して Keyala との接続を始めます。
-4. Keyala で QR を読み取るか、iPhone で接続リンクを開きます。リンクでアプリが開かない場合は KY- コードを使います。アプリ名、サーバー、プロバイダー、請求先を確認し、最初は毎回確認する設定にします。
-5. ツールから短いリクエストを1回送り、最初は Keyala を前面に置きます。Inbox で内容、モデル、見積り、OpenRouter の請求先を確認し、今回だけ許可します。ツールに応答が返り、Activity に記録があることを確認します。見積りや使用量からの計算額は請求書ではありません。
-6. 次のリクエストは拒否し、ツールに拒否が表示されることを確認します。uncertain の場合は繰り返し送信せず、履歴を確認して request ID を非公開の窓口に報告してください。
-7. Apps でツールを開き、Disconnect app を選んで確認します。送信済みのリクエストは完了する場合があります。次の利用には再接続が必要になることを確認します。言語を切り替え、再起動後も設定が残るかもお試しください。
+### 任意で試せるサンプルアプリ
 
-失敗したら、その手順で止めて報告してください。再現のために追加料金を使う必要はありません。通知を許可してロック中の受信とタップ後の画面、端末認証のキャンセル、カメラ拒否後のコード入力も任意で試せます。通知が来なければアプリを開いて確認してください。前面での更新とプッシュ通知は別の経路です。
+主なテストは Interview Prepper です。別のアプリを試す場合も Keyala は毎回確認（Ask）のままにしてください。API キーを貼り付ける先は Keyala だけにし、入力には架空の内容を使います。どちらのアプリでも、許可、拒否、履歴の確認、接続の解除を改めて試せます。
 
-### 報告とテスト終了
+**[Flashcards 単語カード](https://keyala.io/examples/flashcards/)**
 
-TestFlight → Keyala → Send Beta Feedback を開き、Include Screenshot で機密情報を隠した画像を選ぶか、Don’t Include Screenshot で画像なしにします。下の報告内容を入力し Submit を押します。Apple にもフィードバックが届きます。または[サポート](https://keyala.io/support/?lang=ja)をご利用ください。バージョン／build、iPhone／iOS、言語、日時とタイムゾーン、手順、期待した結果と実際の結果を記載します。必要な場合だけ非公開の窓口に request ID を添えてください。API キー、パスワード、token、接続 QR／コード、非公開の会話、未加工のアカウント情報は送らないでください。申込みフォームは不具合の報告用ではありません。
+**マイデッキ**で**サンプルデッキ**を開きます。カードをめくり、**わかる**か**わからない**を選びます。サンプルを使うだけならキーは不要で、モデルの呼び出しもありません。生成したデッキや復習の結果はこのブラウザに保存されます。
 
-```text
-Keyala バージョン／build：
-iPhone 機種／iOS バージョン／アプリの言語：
-日時とタイムゾーン：
-再現手順（順番に）：
-期待した結果：
-実際の結果：
-再発したか（追加料金を使って再現する必要はありません）：
-プロバイダー／モデル（必要な場合）：
-request ID（必要な場合、非公開の窓口のみ）：
-機密情報を隠したスクリーンショット（任意）：
-```
+`gpt-4o-mini` でデッキを1つ作るには、学ぶ言語、レベル、トピックを選びます。例えば初級日本語で、架空のカフェでの注文を指定します。**枚数**を **10** にして**デッキを作る**を押し、案内に従って Keyala に接続します。ご自身の OpenAI キーを直接使う場合はルーティングのスイッチをオフにします。今回お渡しするキーやご自身の OpenRouter キーを使う場合は、接続前に**設定**で **OpenAI と Anthropic に OpenRouter を使う**をオンにします。既存の Flashcards 接続の請求先を変える場合は、Keyala で解除してからつなぎ直します。請求先と概算費用を確認し、そのデッキのリクエストだけを許可します。
 
-終了時はアプリの権限を取り消し、Keyala 内のキーを削除できます。プロバイダー側のキーは失効しないため、必要なら公式コンソールでも取り消してください。Settings → Account のアカウント削除には再認証が必要で、元に戻せません。本当に削除する場合だけ実行してください。古いバックアップには期限までデータが残る場合があります。
+**[Daily Reflection 一日の振り返り](https://keyala.io/examples/daily-reflection/)**
 
-## Links
+「架空の美術の授業で紙の船を描いた」など、架空の出来事を1〜2行書きます。**振り返る**を押し、案内が出たら Keyala に接続してリクエストを1件だけ許可します。続きは**送信**を使います。登録済みの OpenRouter キーで `anthropic/claude-haiku-5.5` を直接呼び出すため、OpenAI や Anthropic 向けのルーティング設定は不要です。
 
-- [User guide](https://keyala.io/guide/)
-- [Privacy](https://keyala.io/privacy/)
-- [Support](https://keyala.io/support/)
-- [Apply for the beta](https://keyala.io/)
+許可してモデルに送信したメッセージには毎回料金がかかり、その日の会話も再送されます。送れるメッセージは1日10件までです。**次の数回**や**予算**が提案されても、毎回確認を続けてください。日記はこのブラウザに保存され、同期されません。本当の日記や機密情報は入力せず、架空の内容を使ってください。
 
+[日本語のフィードバックフォーム](https://docs.google.com/forms/d/e/1FAIpQLScOWcYcknRf1R76zxO-cL6VLR_2RQpekE-PN176NG2D8kYlmg/viewform)への回答は任意で、ログインは不要です。Keyala をインストールできなかった場合も送信できます。
 
-## 邀請 email 文面（寄送前填寫方括號）
+不具合は案内メールへの返信か support@keyala.io へお願いします。**TestFlight → Keyala → ベータ版フィードバックを送信**で送った内容は Apple にも届きます。必要に応じてビルド番号、iPhone と iOS、言語、日時とタイムゾーン、手順、期待した結果と実際の結果、プロバイダーとモデルを添えてください。必要ならリクエスト ID をサポートに個別に送れます。画像の機密情報は隠し、キー、認証情報、トークン、接続コードや QR コード、個人情報、非公開の入力や応答は送らないでください。
 
-這是 Joseph 的簡短說明信，不能取代 Apple 的 TestFlight 邀請。請填入實際可供收件者安裝的 build、已確認測試模式的工具網址，並隨信附上本指南相應語言段落或可存取的指南連結。沒有免費 mock 工具時，直接寫「離線樣本即可，真實呼叫為自選付費項目」，不要放 reviewer 入口。每位收件者分開寄送，避免公開測試者名單。
+## 邀請 email 文面
 
-### English invitation (primary)
+先填上實際測試期間及收件者可安裝的版本與組建編號。這封介紹信搭配 Apple 的正式 TestFlight 邀請。各收件者分開寄送，金鑰也個別提供。
+
+### English
 
 ```text
 Subject: Try Keyala on TestFlight
 
 Hi [name],
 
-I’d love your help trying Keyala, an iPhone app for reviewing and approving AI apps’ API requests. It takes about 10–15 minutes on iOS 17 or later.
+Would you like to help test Keyala? The pilot runs from [start date] to [end date]. You’ll need an iPhone with iOS 17 or later and Apple’s TestFlight app. Please use Apple’s separate invitation to install build [build].
 
-Install Apple’s TestFlight first, then accept Apple’s separate email invitation and install Keyala. Please check that it shows [version (build)]. Use your own Apple Account to sign in.
+Here’s the guide: https://keyala.io/testflight/
 
-Start with the attached quick guide. Test tool / mode: [URL and confirmed mock or paid mode; or offline samples only]. Try approving one request, denying another, and disconnecting the app if you choose the connected flow.
-
-The beta and offline samples are free. Real provider calls use your own API credits and may cost money; they’re optional. Don’t use Apple reviewer credentials or send me keys, tokens or passwords. Please hide private content in screenshots.
-
-Send issues through TestFlight → Keyala → Send Beta Feedback, with your build, iOS, iPhone model, steps, and expected versus actual result. Support: https://keyala.io/support/
+I’ll send a private OpenRouter key with a US$1 limit for the free connected test. Try as much as you have time for. If any step gets confusing, please reply and tell me where you stopped.
 
 Thanks,
 Joseph
 ```
 
-### 繁體中文邀請
+### 繁體中文
 
 ```text
 主旨：邀請你試用 Keyala TestFlight
 
 嗨 [稱呼]，
 
-想邀請你試用 Keyala，這是一個讓你在 iPhone 查看及批准 AI 工具 API 請求的 App。需要 iOS 17 以上，約 10–15 分鐘。
+想邀請你試用 Keyala，測試期間為 [開始日] 至 [結束日]。需要一支 iOS 17 以上的 iPhone 與 Apple TestFlight。請透過 Apple 另外寄來的邀請安裝 [版本與組建編號]。
 
-請先安裝 Apple TestFlight，再接受 Apple 另外寄來的邀請並安裝 Keyala，確認版本是 [版本（build）]，以自己的 Apple 帳號登入。
+測試指南：https://keyala.io/zh-Hant/testflight/
 
-隨信附上短教學。測試工具／模式：[網址及已確認的 mock 或付費模式；或只用離線樣本]。若選連線測試，可試批准一次、拒絕一次，再撤銷工具權限。
-
-測試版與離線樣本免費；真實服務商呼叫會使用你自己的 API 額度，可能產生費用，可自行選擇是否測試。請不要使用 Apple 審查專用帳密，也不要寄回 key、token 或密碼；截圖請先遮蔽私人內容。
-
-遇到問題可從 TestFlight → Keyala → Send Beta Feedback 回報，附 build、iOS、機型、步驟、預期與實際結果。支援：https://keyala.io/support/?lang=zh-Hant
+我會私下提供一把上限 1 美元的 OpenRouter 金鑰，讓你免費測連線流程。有空做到哪裡就好。若卡住，直接回覆這封信告訴我停在哪一步即可。
 
 謝謝！
 Joseph
 ```
 
-### 日本語の招待
+### 日本語
 
 ```text
 件名：Keyala の TestFlight テストへのお誘い
 
 [お名前] さん
 
-iPhone で AI アプリの API リクエストを確認・承認できる Keyala を試していただけませんか。iOS 17 以降で、10〜15分ほどです。
+[開始日] から [終了日] まで、Keyala を試していただけませんか。iOS 17 以降の iPhone と Apple の TestFlight が必要です。Apple から別途届く招待で、[バージョンとビルド番号] をインストールしてください。
 
-Apple の TestFlight を入れ、別途 Apple から届く招待メールを受け取ったら Keyala をインストールしてください。[バージョン（build）] を確認し、ご自身の Apple Account でサインインします。
+テストガイド：https://keyala.io/ja/testflight/
 
-簡単な手順を添付しました。テスト用ツール／モード：[URL と確認済みの mock または有料モード、またはオフラインサンプルのみ]。接続テストを選ぶ場合は、1回の承認、拒否、アプリの接続解除をお試しください。
-
-ベータとオフラインサンプルは無料です。実際のモデル呼び出しにはご自身の API 残高を使い、料金が発生する場合があるため任意です。Apple 審査用の認証情報は使わず、キー、token、パスワードは送らないでください。画像の非公開情報も隠してください。
-
-不具合は TestFlight → Keyala → Send Beta Feedback から、build、iOS、機種、手順、期待した結果と実際の結果を添えてお知らせください。サポート：https://keyala.io/support/?lang=ja
+無料で接続テストができるよう、利用上限1米ドルの OpenRouter キーを個別にお渡しします。時間のある範囲でお試しください。途中で困ったら、どの手順かをこのメールへの返信で教えていただけると助かります。
 
 よろしくお願いします。
 Joseph
@@ -225,14 +169,14 @@ Joseph
 
 - [ ] 核對 App Store Connect 的外部測試資格與群組可用 build；邀請文只寫收件者實際可安裝的版本。Ready to Submit 不代表已提交或通過 Beta Review。
 - [ ] 在乾淨的外部測試裝置走 Apple email → 接受 → 安裝，確認 TestFlight 與 App 顯示同一 build。此流程由 Joseph 自行安排，不因本清單而自動寄邀請。
-- [ ] 離線樣本：確認免費、無需真實 key；關閉樣本後重新登入自己的 Apple 帳號，確認正式服務首次登入及 EN／繁中／日文切換與重開保留。
-- [ ] 使用已確認的私人 mock 環境與假 key 測批准 completed、拒絕 denied；另外記錄正式服務的真實 provider 流程是否未測。禁止把 mock 成功算作正式登入、計費或真實 provider 成功。
+- [ ] 離線樣本：確認免費、無需真實 key；關閉樣本後用原本的 Apple 或 Google 帳號重新登入，確認正式服務首次登入及 EN／繁中／日文切換與重開保留。
+- [ ] 使用已確認的私人 mock 環境與假 key 測批准 completed、拒絕 denied；另外記錄正式服務的真實 provider 流程是否未測。Apple 審查專用環境不向一般測試者開放。禁止把 mock 成功算作正式登入、計費或真實 provider 成功。
 - [ ] 在 Apps → 工具 → Disconnect app 確認撤銷；再次請求應失去權限，重新配對後才能恢復。撤銷不會召回已送出的請求。
 - [ ] 真機確認連接 QR／Universal Link；連結失敗時另測 KY- 代碼，分開記結果。確認取消裝置驗證不會批准。
 - [ ] 真機鎖定／背景狀態測 APNs，點通知進正確請求；前景 Inbox 更新另記，不算推播通過。
 - [ ] 測 TestFlight 回饋，附一張純虛構資料截圖與回報範本，確認送出；檢查沒有真實 key、token、私人 prompt、帳密或配對 QR／代碼。
 - [ ] 僅在確實願意刪除的測試帳號驗收帳號刪除與 Apple 授權撤銷；失敗或未測就保留狀態，勿標通過。這是不可復原操作。
 
-本清單不要求付費呼叫。若日後自行選擇真實 provider 測試，先確認費用與額度，再以虛構短文字做最少次數呼叫，單獨記錄結果；遇到 uncertain 不要重送。
+本清單不要求付費呼叫。若要驗收正式服務的贊助路徑，使用測試專用 OpenRouter 金鑰，確認金鑰上限、路由與回饋表可用性。先以虛構文字做最少次數的呼叫，單獨記錄結果。遇到 uncertain 就停止並回報。
 
 安裝及回饋流程參考 [Apple TestFlight 使用說明](https://testflight.apple.com/)；按鈕顯示語言可能依裝置而異。App 操作標籤以實際安裝的 build 為準。
