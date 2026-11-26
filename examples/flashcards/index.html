@@ -244,7 +244,7 @@ const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const qs = new URLSearchParams(location.search);
 const SERVERS = { prod: 'https://app.keyala.io', staging: 'https://staging.keyala.io' };
 const KEYALA_URL = ((LOCAL && qs.get('ky')) || SERVERS[qs.get('server')] || SERVERS.prod).replace(/\/$/, '');
-const APP_ID = (LOCAL && qs.get('app')) || 'app_REPLACE_WITH_CONSOLE_ID'; // Keyala console > My apps > Flashcards
+const APP_ID = (LOCAL && qs.get('app')) || 'app_EAqJcusVcVz1jPVq'; // Keyala console > My apps > Flashcards
 const VENDOR = 'openai';
 // Must match the server's allowlist (backend/src/pricing.rs): gpt-4o-mini, USD per 1M tokens in / out.
 const MODEL = { id: 'gpt-4o-mini', i: 0.15, o: 0.60 };
