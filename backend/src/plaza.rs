@@ -1,5 +1,5 @@
 //! Plaza: an opt-in list of community apps on the examples page. An owner submits an app that has a
-//! homepage, a reviewer (a user id in KEYALA_PLAZA_REVIEWERS) approves it by hand, and only then do
+//! homepage, a reviewer (a stable identity in KEYALA_PLAZA_REVIEWERS) approves it by hand, and only then do
 //! its name and homepage become public. Everything is 404 unless KEYALA_PLAZA_ENABLED=1.
 //!
 //! Status lives in `apps.plaza_status` (NULL, pending, approved, rejected). Every transition is one
@@ -24,8 +24,37 @@ fn on(s: &AppState) -> R<()> {
         .ok_or_else(|| not_found("page"))
 }
 
-pub fn is_reviewer(s: &AppState, uid: &str) -> bool {
-    s.cfg.plaza_enabled && s.cfg.plaza_reviewers.iter().any(|r| r == uid)
+/// The stable identity a reviewer allowlist entry names: `google:<sub>`, `apple:<sub>`, or
+/// `password:<operator username>`. Read from what sign-in verified (provider columns, the operator
+/// account), never from an email, so it survives a fresh database. Dev-login accounts have none.
+/// `None` while Plaza is off.
+pub async fn review_id(s: &AppState, uid: &str) -> R<Option<String>> {
+    if !s.cfg.plaza_enabled {
+        return Ok(None);
+    }
+    let (email, apple, google): (String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT email, apple_sub, google_sub FROM users WHERE id=?")
+            .bind(uid)
+            .fetch_one(&s.db)
+            .await?;
+    // same precedence as `account()`
+    Ok(if let Some(a) = apple {
+        Some(format!("apple:{a}"))
+    } else if let Some(g) = google {
+        Some(format!("google:{g}"))
+    } else {
+        s.cfg
+            .password_login
+            .as_ref()
+            .filter(|(n, _)| email == format!("{n}@password.invalid"))
+            .map(|(n, _)| format!("password:{n}"))
+    })
+}
+
+pub async fn is_reviewer(s: &AppState, uid: &str) -> R<bool> {
+    Ok(review_id(s, uid)
+        .await?
+        .is_some_and(|id| s.cfg.plaza_reviewers.contains(&id)))
 }
 
 /// An https URL, as the browser's WHATWG parser reads it, naming a public DNS host: no
@@ -158,6 +187,7 @@ async fn reviewer(s: &AppState, h: &HeaderMap) -> R<()> {
     let u = auth_level(s, h, READ).await?;
     // everyone else learns nothing, not even that the route exists
     is_reviewer(s, &u)
+        .await?
         .then_some(())
         .ok_or_else(|| not_found("page"))
 }

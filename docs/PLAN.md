@@ -282,13 +282,17 @@ user; -> `{has_password:true}`), `DELETE /v1/me/password` (-> `{has_password:fal
 
 **Plaza** (KEYALA-3; opt-in, hand-reviewed public list of community apps; migration 0017; staging first, never auto-published)
 - Off unless `KEYALA_PLAZA_ENABLED=1`: every route in this section, `/examples` and `/examples/plaza.js` answer `404 not_found`.
-  Reviewers are user ids (not emails) in `KEYALA_PLAZA_REVIEWERS` (comma separated). Empty (default) = nobody can review, so
-  nothing ever becomes public.
+  Reviewers are stable verified identities in `KEYALA_PLAZA_REVIEWERS` (comma separated): `google:<google_sub>`,
+  `apple:<apple_sub>`, or `password:<username>` for the operator account of `KEYALA_PASSWORD_LOGIN` only. Never emails or user
+  ids (those change on an ephemeral deploy); dev-login accounts are never reviewers. Matched against the `google_sub`/`apple_sub`
+  columns (Apple first, as `auth_provider`), so same email with another provider or subject never matches. Empty (default) =
+  nobody can review, so nothing ever becomes public.
 - Status per app, `apps.plaza_status`: `null` (not submitted) | `pending` | `approved` | `rejected`. Only `approved` apps that are not
   deleted and still have an owner are public, and only their `name` and `homepage`.
 - `GET /v1/plaza` (public, `Access-Control-Allow-Origin: *`, `no-store`) -> `[{name, homepage}]`, newest approval first, max 200.
 - `GET /v1/me/apps` and `PUT` responses gain `plaza` (`null|"pending"|"approved"|"rejected"`); `GET /v1/me` gains `plaza_enabled`
-  and `plaza_reviewer` (booleans). No other field changes.
+  and `plaza_reviewer` (booleans), and `plaza_review_id` (the caller's own identity string above, or `null` when Plaza is off or the
+  account has none, e.g. dev login). The console shows it with a copy button while Plaza is on. No other field changes.
 - `POST /v1/me/apps/{id}/plaza` -> `{status:"pending"}`. Owner only (else 404). The app needs an https homepage naming a public DNS
   host, as the WHATWG URL parser (`reqwest::Url`) reads it: valid port, no credentials, no IP in any spelling,
   no `localhost`/`.local`-style suffixes, no whitespace, control, backslash or `<>"'` characters, max 300 chars; Unicode paths and

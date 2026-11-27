@@ -5943,31 +5943,21 @@ async fn auth_methods_reports_what_is_configured() {
 
 // ---------- Plaza ----------
 
-/// (owner, reviewer): Plaza on, `rev@b.co` is the only reviewer. The reviewer's user id is only known
-/// after sign-in, so the server is started twice on the same database.
+/// (owner, reviewer): Plaza on; the only reviewer is the Google identity `google:rev-sub`, seeded onto
+/// the `rev@b.co` account the way a verified Google sign-in would store it.
 async fn plaza_server() -> (T, String) {
-    let cfg = Config {
-        plaza_enabled: true,
-        ..test_cfg()
-    };
-    let url = cfg.database_url.clone();
-    let (base, c, state) = serve(cfg).await;
-    let owner = dev_session(&c, &base, "owner@b.co").await;
-    let rev = dev_session(&c, &base, "rev@b.co").await;
-    let probe = T {
-        base,
-        c,
-        sess: String::new(),
-        state,
-    };
-    let rid = user_id(&probe, "rev@b.co").await;
     let (base, c, state) = serve(Config {
-        database_url: url,
         plaza_enabled: true,
-        plaza_reviewers: vec![rid],
+        plaza_reviewers: vec!["google:rev-sub".into()],
         ..test_cfg()
     })
     .await;
+    let owner = dev_session(&c, &base, "owner@b.co").await;
+    let rev = dev_session(&c, &base, "rev@b.co").await;
+    sqlx::query("UPDATE users SET google_sub='rev-sub' WHERE email='rev@b.co'")
+        .execute(&state.db)
+        .await
+        .unwrap();
     (
         T {
             base,
@@ -6058,6 +6048,7 @@ async fn plaza_is_off_by_default_and_needs_listed_reviewers() {
     let me = json_of(call(&t, M::GET, "/v1/me", Some(&t.sess), None).await).await;
     assert_eq!(me["plaza_enabled"], false);
     assert_eq!(me["plaza_reviewer"], false);
+    assert_eq!(me["plaza_review_id"], Value::Null);
     // flag on but reviewer list empty: nobody can review, so nothing can become public
     let (base, c, state) = serve(Config {
         plaza_enabled: true,
@@ -6133,6 +6124,7 @@ async fn plaza_submit_review_and_public_list() {
     let me = json_of(call(&t, M::GET, "/v1/me", Some(&rev), None).await).await;
     assert_eq!(me["plaza_enabled"], true);
     assert_eq!(me["plaza_reviewer"], true);
+    assert_eq!(me["plaza_review_id"], "google:rev-sub");
     let q = json_of(call(&t, M::GET, "/v1/plaza/review", Some(&rev), None).await).await;
     assert_eq!(q.as_array().unwrap().len(), 1);
     let mut keys: Vec<_> = q[0].as_object().unwrap().keys().cloned().collect();
@@ -6381,4 +6373,144 @@ async fn plaza_page_is_served_with_strict_csp() {
     let r = call(&t, M::GET, "/examples/plaza.js", None, None).await;
     assert_eq!(r.status(), 200);
     assert!(r.text().await.unwrap().contains("/v1/plaza"));
+}
+
+async fn me_of(t: &T, s: &str) -> Value {
+    json_of(call(t, M::GET, "/v1/me", Some(s), None).await).await
+}
+
+#[tokio::test]
+async fn plaza_reviewers_are_stable_verified_identities() {
+    use sha2::{Digest, Sha256};
+    let pw = "pw-long-random";
+    let cfg = |url: Option<String>, list: &[&str]| Config {
+        plaza_enabled: true,
+        dev_login: true,
+        password_login: Some(("ops".into(), Sha256::digest(pw).into())),
+        plaza_reviewers: list.iter().map(|x| x.to_string()).collect(),
+        database_url: url.unwrap_or_else(|| test_cfg().database_url),
+        ..test_cfg()
+    };
+    let list = ["google:g1", "apple:a1", "password:ops", "g1", "x@y.co"];
+    // the same verified subject is a reviewer on two fresh databases, under different user ids
+    let mut uids = vec![];
+    for _ in 0..2 {
+        let (base, c, state) = serve(cfg(None, &list)).await;
+        let t = T {
+            base: base.clone(),
+            c: c.clone(),
+            sess: String::new(),
+            state,
+        };
+        let g = dev_session(&c, &base, "g@b.co").await;
+        sqlx::query("UPDATE users SET google_sub='g1' WHERE email='g@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        let me = me_of(&t, &g).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(true), json!("google:g1"))
+        );
+        uids.push(me["id"].clone());
+        // Apple, and the operator password identity
+        let a = dev_session(&c, &base, "a@b.co").await;
+        sqlx::query("UPDATE users SET apple_sub='a1' WHERE email='a@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        assert_eq!(me_of(&t, &a).await["plaza_review_id"], "apple:a1");
+        let r = c
+            .post(format!("{base}/v1/auth/password"))
+            .json(&json!({"username": "ops", "password": pw}))
+            .send()
+            .await
+            .unwrap();
+        let ops = json_of(r).await["session_token"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let me = me_of(&t, &ops).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(true), json!("password:ops"))
+        );
+        // dev login: no identity, never a reviewer, cannot reach the password identity by email
+        let d = dev_session(&c, &base, "x@y.co").await;
+        let me = me_of(&t, &d).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(false), Value::Null)
+        );
+        let r = c
+            .post(format!("{base}/v1/auth/dev"))
+            .json(&json!({"email": "ops@password.invalid"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(r.status(), 400);
+        // same email, different provider subject: identity is the subject, not the email
+        let e = dev_session(&c, &base, "same@b.co").await;
+        sqlx::query("UPDATE users SET google_sub='g2' WHERE email='same@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        let me = me_of(&t, &e).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(false), json!("google:g2"))
+        );
+        assert_eq!(
+            call(&t, M::GET, "/v1/plaza/review", Some(&e), None)
+                .await
+                .status(),
+            404
+        );
+    }
+    assert_ne!(uids[0], uids[1], "user ids differ per database");
+    // a former random user id in the list is no longer enough
+    let (base, c, state) = serve(cfg(None, &[])).await;
+    let s = dev_session(&c, &base, "u@b.co").await;
+    let t = T {
+        base: base.clone(),
+        c: c.clone(),
+        sess: s.clone(),
+        state,
+    };
+    let uid = me_of(&t, &s).await["id"].as_str().unwrap().to_string();
+    let (base, c, state) = serve(Config {
+        database_url: t.state.cfg.database_url.clone(),
+        ..cfg(None, &[&uid])
+    })
+    .await;
+    let t = T {
+        base,
+        c,
+        sess: s.clone(),
+        state,
+    };
+    let me = me_of(&t, &s).await;
+    assert_eq!(me["plaza_reviewer"], false);
+    // flag off hides the id
+    let (base, c, state) = serve(Config {
+        plaza_enabled: false,
+        ..cfg(None, &list)
+    })
+    .await;
+    let g = dev_session(&c, &base, "g@b.co").await;
+    sqlx::query("UPDATE users SET google_sub='g1' WHERE email='g@b.co'")
+        .execute(&state.db)
+        .await
+        .unwrap();
+    let t = T {
+        base,
+        c,
+        sess: g.clone(),
+        state,
+    };
+    let me = me_of(&t, &g).await;
+    assert_eq!(
+        (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+        (json!(false), Value::Null)
+    );
 }

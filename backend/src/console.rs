@@ -92,8 +92,10 @@ pub async fn me(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     .bind(&u)
     .fetch_one(&s.db)
     .await?;
+    let rid = crate::plaza::review_id(&s, &u).await?;
+    let rev = crate::plaza::is_reviewer(&s, &u).await?;
     Ok(Json(
-        json!({"id": u, "auth_provider": provider, "email": email, "has_password": pw, "has_passkey": pk, "plaza_enabled": s.cfg.plaza_enabled, "plaza_reviewer": crate::plaza::is_reviewer(&s, &u)}),
+        json!({"id": u, "auth_provider": provider, "email": email, "has_password": pw, "has_passkey": pk, "plaza_enabled": s.cfg.plaza_enabled, "plaza_reviewer": rev, "plaza_review_id": rid}),
     ))
 }
 
