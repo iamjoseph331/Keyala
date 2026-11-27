@@ -1618,6 +1618,12 @@ async fn report_has_aggregates_only() {
     assert_eq!(rep["coupons"]["claimed"], 1);
     assert_eq!(rep["requests"]["completed"], 1);
     assert!(rep["money"]["spent_usd"].as_f64().unwrap() > 0.0);
+    // the batch list carries the same claim count and spend, so the console needs no report per row
+    let (_, list) = e
+        .get(&e.owner, &format!("/v1/me/apps/{}/coupons", e.app_id))
+        .await;
+    assert_eq!(list[0]["claimed"], 1);
+    assert_eq!(list[0]["spent_usd"], rep["money"]["spent_usd"]);
     let text = rep.to_string();
     let uid: String = e.q("SELECT id FROM users WHERE email=?", "r@x.co").await;
     for leak in [
