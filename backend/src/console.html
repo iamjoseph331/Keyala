@@ -17,15 +17,15 @@ header h1{font-size:clamp(1.8rem,4vw,2.6rem);flex:1;min-width:12em}
 h2{font-size:1.15rem;margin:28px 0 10px}h3{font-size:1.05rem;margin:16px 0 8px}
 .card{background:var(--card);border:0;border-radius:22px;padding:22px 24px;margin:10px 0}
 .muted{color:var(--muted);font-size:.92rem}.bad{color:var(--bad)}
-button,input{font:inherit;color:inherit}
+button,input,select{font:inherit;color:inherit}
 button{border:1.5px solid #D3DDD0;background:var(--card);border-radius:999px;padding:8px 18px;cursor:pointer;min-height:44px;font-weight:600}
 button:hover{border-color:var(--green)}
 button.primary{background:var(--green);color:var(--green-ink);border-color:var(--green);font-weight:700;padding:10px 24px}
 button.danger{color:var(--bad);border-color:#E7C3B6}
 button:disabled{opacity:.5;cursor:default}
 :focus-visible{outline:3px solid var(--green);outline-offset:2px}
-input{width:100%;border:1.5px solid #D3DDD0;background:#fff;border-radius:14px;padding:12px 14px;min-height:46px}
-input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 4px rgba(36,94,62,.15)}
+input,select{width:100%;border:1.5px solid #D3DDD0;background:#fff;border-radius:14px;padding:12px 14px;min-height:46px}
+input:focus,select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 4px rgba(36,94,62,.15)}
 input::placeholder{color:#7A887E}
 label{display:block;margin:16px 0 6px;font-weight:600}
 label input{margin-top:6px;font-size:1rem;font-weight:400;color:var(--ink)}
@@ -49,7 +49,7 @@ label input{margin-top:6px;font-size:1rem;font-weight:400;color:var(--ink)}
 .row>div{min-width:0;overflow-wrap:anywhere}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .stat{padding:16px 18px;background:var(--card);border-radius:18px}.stat b{display:block;font-family:ui-serif,"New York",Georgia,serif;font-size:1.6rem;color:var(--green)}
-.qr{display:block;margin:12px auto;width:220px;height:220px;background:#fff;border-radius:14px;padding:8px;border:1.5px solid var(--line)}
+.qr{display:block;margin:12px auto;width:220px;max-width:100%;height:auto;aspect-ratio:1;background:#fff;border-radius:14px;padding:8px;border:1.5px solid var(--line)}
 .secret{font-family:ui-monospace,monospace;font-size:.85rem;word-break:break-all;background:var(--soft);border-radius:12px;padding:12px;margin:10px 0}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-radius:12px;padding:12px;max-height:260px;overflow:auto;font-size:.82rem}
 .bars{display:flex;align-items:flex-end;gap:3px;height:90px;margin-top:8px;background:var(--card);border-radius:18px;padding:14px}

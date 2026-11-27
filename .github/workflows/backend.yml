@@ -24,6 +24,10 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/coupon_ui.test.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
