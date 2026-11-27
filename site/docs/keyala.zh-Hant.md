@@ -4,6 +4,40 @@ Keyala 讓你的應用使用個人自己的 OpenAI、Anthropic 或 OpenRouter AP
 
 代管服務：正式環境 `https://app.keyala.io`，測試環境 `https://staging.keyala.io`。以下操作皆適用兩者；註冊、配對、呼叫與報表務必使用同一伺服器。Keyala 是免費的實驗性 beta，限制請見最後一節。
 
+## 贊助 Coupon（staging 驗證）
+
+Coupon 正在 staging 驗證，這不代表正式環境已開放。手機、Console 與 SDK 必須使用同一伺服器。
+
+登入 Console 後選擇 App，設定一批 Coupon 的**專用服務商 Key**、單一服務商、允許模型、每張額度、整批預算與領券截止日。每張效期從領券時計算，預設七天。開發者直接向服務商付費，Keyala 不販售額度，也不經手資金。贊助 Key 加密儲存在伺服器，不會回傳給領券者或連接的 App。請使用獨立設限的 Key，確認服務商條款與帳務控制；Keyala 的額度限制不是服務商帳單的保證。
+
+分享批次的 `/coupon/KC-…` 連結或 QR。使用者登入後即可預覽與領券，不必新增個人 Key。每帳號每批只能領一次，到期也不能重新領取。領券時才從整批預算保留完整單張額度，分享連結不占用預算。剩餘可分配預算不足一張時停止新領券，已領券者保留自己的額度。到期或撤銷只回補尚未使用的部分一次；執行中及結果不明的預留繼續保留。
+
+在 `POST /v1/connect` 傳入 `coupon_code`，或使用網頁 SDK 的 Coupon 選項，明確選擇贊助來源。Coupon 必須屬於正在連接的 App 與服務商。領券本身不等於授權 App。使用者仍需批准連接與**每一次呼叫**，可查看完整 prompt 與已記錄回應、付款方、剩餘額度及效期。贊助授權不能擴大為次數、預算或信任的自動批准；伺服器強制檢查模型清單。服務商請求格式與輪詢方式不變。
+
+Coupon 到期、撤銷或不足以涵蓋請求預估費用時，回傳明確的 Coupon 錯誤，**不會自動改用個人 Key**。若要自行付費，必須另行明確建立 BYOK 連接。
+
+批次報表只提供領取數、首次成功人數與請求／模型支出彙總，不揭露領券者身份、prompt 或回應。服務商回報實際費用、估算及結果不明預留分開呈現。額度通知讓發行者知道無法再分配完整單張額度或整批支出額度耗盡；通知不負責限制支出。伺服器營運者未設定服務時 Email 不啟用。本次以 mock 模型與通知驗證，尚非付費服務商呼叫或真實收件證明。
+
+| 方法 | 路徑 | 用途 |
+|---|---|---|
+| GET / POST | `/v1/me/apps/{app_id}/coupons` | 建立／列出批次 |
+| DELETE | `/v1/me/apps/{app_id}/coupons/{batch_id}` | 撤銷批次 |
+| GET | `/v1/me/apps/{app_id}/coupons/{batch_id}/report` | 彙總報表 |
+| GET / POST | `/v1/me/coupons/{code} / /v1/me/coupons/{code}/claim` | 預覽／領券 |
+| GET | `/v1/me/coupons` | 列出自己的 Coupon |
+
+發行端路由要求已登入的 App 擁有者，領券路由要求使用者登入。建立批次的內容為：
+
+```json
+{"vendor":"openai","models":["gpt-4o-mini"],"api_key":"REPLACE_WITH_DEDICATED_PROVIDER_KEY","per_coupon_usd":1,"total_usd":20,"validity_days":7,"claim_deadline":"2026-12-31T23:59:59.000Z"}
+```
+
+```js
+const { grant_token } = await Keyala.connect({
+  app: "app_your_app", vendor: "openai", coupon: "KC-REPLACE_WITH_BATCH_CODE"
+});
+```
+
 ## 1. Keyala 與呼叫流程
 
 你的應用要求 Keyala 連結使用者。使用者在 Keyala iOS App 批准後，應用取得綁定該使用者、應用與單一服務商的 `grant_token`。應用以此權杖送出一般的服務商請求。Keyala 檢查政策、預留預估費用，必要時要求手機批准，再以使用者儲存的金鑰轉送請求，並原樣回傳服務商的回應。
