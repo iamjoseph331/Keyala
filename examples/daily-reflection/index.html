@@ -6,6 +6,34 @@
 <title>Daily Reflection</title>
 <meta name="description" content="A few lines about your day and a short, gentle reflection back. Runs on your own OpenRouter account through Keyala.">
 <link rel="icon" href="keyala-icon.svg">
+<script id="theme-script">
+(() => {
+  const root = document.documentElement, system = matchMedia('(prefers-color-scheme: dark)');
+  let chosen;
+  try { chosen = localStorage.getItem('keyala-example-theme'); } catch {}
+  if (!['light', 'dark'].includes(chosen)) chosen = null;
+  const apply = () => { root.dataset.theme = chosen || (system.matches ? 'dark' : 'light'); };
+  apply();
+  system.addEventListener('change', apply);
+  document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('theme-toggle');
+    const label = () => {
+      const dark = root.dataset.theme === 'dark';
+      const labels = { en: ['Switch to dark mode', 'Switch to light mode'], 'zh-Hant': ['切換深色模式', '切換淺色模式'], ja: ['ダークモードに切り替える', 'ライトモードに切り替える'] };
+      button.title = (labels[root.lang] || labels.en)[Number(dark)];
+      button.setAttribute('aria-label', button.title);
+    };
+    button.addEventListener('click', () => {
+      chosen = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('keyala-example-theme', chosen); } catch {}
+      apply(); label();
+    });
+    system.addEventListener('change', label);
+    document.getElementById('ui-lang').addEventListener('change', label);
+    label();
+  });
+})();
+</script>
 <style>
   :root {
     --bg:#f8f6f1; --card:#fff; --ink:#1f1d1a; --ink2:#46423b; --muted:#77716a; --line:#e7e2d8; --soft:#f2eee6;
@@ -14,13 +42,19 @@
     --ky:#3d7a57; --ky-paper:#faf7f2; --ky-ink:#1f1b16; --ky-muted:#7a7268; --ky-line:#ece6dc;
     --radius:16px; --shadow:0 1px 2px rgba(31,29,26,.04), 0 8px 24px -12px rgba(31,29,26,.12);
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#131211; --card:#1c1b19; --ink:#ece9e3; --ink2:#c9c4bb; --muted:#958f85; --line:#2d2b27; --soft:#22201d;
+  :root[data-theme="dark"] { --bg:#131211; --card:#1c1b19; --ink:#ece9e3; --ink2:#c9c4bb; --muted:#958f85; --line:#2d2b27; --soft:#22201d;
       --accent:#a99cf5; --accent-ink:#151225; --accent-soft:#24203a;
       --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
       --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
-  }
+  :root { color-scheme:light }
+  :root[data-theme="dark"] { color-scheme:dark }
+  #theme-toggle { flex:none; width:44px; height:44px; padding:12px; display:grid; place-items:center }
+  #theme-toggle svg { grid-area:1 / 1 }
+  .theme-sun, [data-theme="dark"] .theme-moon { display:none }
+  [data-theme="dark"] .theme-sun { display:block }
+  @media (max-width:520px) { nav .right { gap:8px } nav .right a { display:none } .brand { gap:8px; font-size:.95rem } }
+
   * { box-sizing:border-box }
   body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
   a { color:var(--accent) }
@@ -90,6 +124,10 @@
     <div class="right">
       <button type="button" class="linkbtn" id="open-privacy" data-i18n="nav.privacy"></button>
       <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
+      <button type="button" id="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
+        <svg class="theme-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="theme-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+      </button>
       <select id="ui-lang" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select>
     </div>
   </nav>

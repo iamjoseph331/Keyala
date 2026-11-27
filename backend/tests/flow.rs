@@ -5185,7 +5185,11 @@ async fn console_page_is_served_with_strict_csp() {
     assert!(r.text().await.unwrap().contains("/console.js"));
     let r = call(&t, M::GET, "/console.js", None, None).await;
     assert_eq!(r.status(), 200);
-    assert!(r.text().await.unwrap().contains("textContent"));
+    let js = r.text().await.unwrap();
+    assert!(js.contains("textContent"));
+    // the sign-in QR page shows the QR and polls, but never prints the raw login URL
+    assert!(js.contains("s.qr_url") && js.contains("s.login_secret"));
+    assert!(!js.contains("s.url"));
 }
 
 #[tokio::test]
