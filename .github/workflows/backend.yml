@@ -4,10 +4,10 @@ name: Backend CI
 on:
   push:
     branches: [dev, staging, main]
-    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml", "site/examples/**", "site/base.css", "site/i18n.js", "tools/plaza.test.mjs", "tools/site/build-plaza.mjs"]
   pull_request:
     branches: [dev, staging, main]
-    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "render.yaml", ".github/workflows/backend.yml", "site/examples/**", "site/base.css", "site/i18n.js", "tools/plaza.test.mjs", "tools/site/build-plaza.mjs"]
 
 permissions:
   contents: read
