@@ -92,6 +92,7 @@ struct Batch {
     available_micro: i64,
     spent_micro: i64,
     overshoot_micro: i64,
+    claimed: i64,
     validity_days: i64,
     claim_deadline: String,
     revoked_at: Option<String>,
@@ -101,7 +102,7 @@ struct Batch {
     app_icon_url: Option<String>,
     app_deleted: bool,
 }
-const BATCH_SELECT: &str = "SELECT b.id, b.code, b.app_id, b.vendor, b.models, b.key_last4, b.per_coupon_micro, b.total_micro, b.available_micro, b.spent_micro, b.overshoot_micro, b.validity_days, b.claim_deadline, b.revoked_at, b.stopped_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url, a.deleted_at IS NOT NULL AS app_deleted FROM coupon_batches b JOIN apps a ON a.id=b.app_id";
+const BATCH_SELECT: &str = "SELECT b.id, b.code, b.app_id, b.vendor, b.models, b.key_last4, b.per_coupon_micro, b.total_micro, b.available_micro, b.spent_micro, b.overshoot_micro, (SELECT COUNT(*) FROM coupon_ledger l WHERE l.batch_id=b.id AND l.kind='claim') AS claimed, b.validity_days, b.claim_deadline, b.revoked_at, b.stopped_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url, a.deleted_at IS NOT NULL AS app_deleted FROM coupon_batches b JOIN apps a ON a.id=b.app_id";
 
 impl Batch {
     fn models(&self) -> Vec<String> {
@@ -126,7 +127,8 @@ impl Batch {
         json!({"id": self.id, "coupon_code": self.code, "claim_url": format!("{}/coupon/{}", s.cfg.public_url, self.code),
                "app": self.app(), "vendor": self.vendor, "models": self.models(),
                "per_coupon_usd": usd(self.per_coupon_micro), "total_usd": usd(self.total_micro),
-               "available_usd": usd(self.available_micro), "validity_days": self.validity_days,
+               "available_usd": usd(self.available_micro), "spent_usd": usd(self.spent_micro), "claimed": self.claimed,
+               "validity_days": self.validity_days,
                "claim_deadline": self.claim_deadline, "revoked_at": self.revoked_at, "stopped_at": self.stopped_at,
                "key_last4": self.key_last4, "email_enabled": email_enabled})
     }
