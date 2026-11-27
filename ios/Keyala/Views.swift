@@ -55,7 +55,7 @@ struct InboxView: View {
             if !showHistory {
                 Section {
                     Button { NotificationCenter.default.post(name: .keyalaConnectApp, object: nil) } label: {
-                        Label("Scan to connect", systemImage: "qrcode.viewfinder").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+                        Label("Scan Keyala QR", systemImage: "qrcode.viewfinder").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
                     }.foregroundStyle(KeyalaStyle.buttonText).listRowBackground(KeyalaStyle.teal)
                 }
             }
@@ -211,7 +211,7 @@ struct RequestDetailView: View {
                             .frame(width: 60, height: 60).background(KeyalaStyle.teal.opacity(0.10), in: RoundedRectangle(cornerRadius: 17))
                         Text(current.appName).font(.title2.bold()).multilineTextAlignment(.center)
                         Text("\(current.provider.title) / \(current.model)").font(.subheadline).foregroundStyle(KeyalaStyle.muted).multilineTextAlignment(.center)
-                        if current.billingVendor == .openRouter && current.provider != .openRouter {
+                        if current.coupon == nil, current.billingVendor == .openRouter && current.provider != .openRouter {
                             Label("Billed through OpenRouter credits", systemImage: "arrow.triangle.branch").font(.subheadline).foregroundStyle(KeyalaStyle.teal)
                             if let model = current.upstreamModel { Text(model).font(.caption).textSelection(.enabled) }
                         }
@@ -222,6 +222,9 @@ struct RequestDetailView: View {
                             .font(.subheadline).foregroundStyle(KeyalaStyle.muted)
                     }.frame(maxWidth: .infinity).padding(.top, 12)
                     if current.isDemo { ModeBanner() }
+                    if let coupon = current.coupon {
+                        Card { CouponDetails(coupon: coupon) }
+                    }
                     if current.status == "uncertain" {
                         Label("The provider may have processed and charged for this request. It will not be retried automatically.", systemImage: "exclamationmark.triangle")
                             .font(.footnote).foregroundStyle(KeyalaStyle.warning)
@@ -240,7 +243,14 @@ struct RequestDetailView: View {
                                         Text(message.text).font(.body).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                                     }
                                 }
-                                DisclosureGroup("Full request") { json(current.payload!) }
+                                if let payload = current.payload {
+                                    if current.coupon != nil {
+                                        Text("Full request").font(.headline)
+                                        json(payload)
+                                    } else {
+                                        DisclosureGroup("Full request") { json(payload) }
+                                    }
+                                }
                             }
                         }
                     }
@@ -248,16 +258,20 @@ struct RequestDetailView: View {
                         .font(.footnote).foregroundStyle(KeyalaStyle.muted)
                     if current.status == "pending" {
                         Card {
-                            Button { showPolicy = true } label: {
-                                HStack { Text("Allow").foregroundStyle(KeyalaStyle.muted); Spacer(); Text(LocalizedStringKey(accessTitle)); Image(systemName: "chevron.down").font(.caption) }
-                            }.buttonStyle(.plain).disabled(deciding)
+                            if current.coupon != nil {
+                                Label("This call only", systemImage: "hand.raised")
+                            } else {
+                                Button { showPolicy = true } label: {
+                                    HStack { Text("Allow").foregroundStyle(KeyalaStyle.muted); Spacer(); Text(LocalizedStringKey(accessTitle)); Image(systemName: "chevron.down").font(.caption) }
+                                }.buttonStyle(.plain).disabled(deciding)
+                            }
                         }
 
                     } else {
                         if let response = current.response {
                             Card { DisclosureGroup("Provider response", isExpanded: $responseExpanded) { json(response) } }
                         } else if !loadingDetail {
-                            Text(current.error ?? "No provider response was recorded.").font(.subheadline).foregroundStyle(KeyalaStyle.muted)
+                            Text(LocalizedStringKey(APIError.couponMessage(for: current.error) ?? current.error ?? "No provider response was recorded.")).font(.subheadline).foregroundStyle(KeyalaStyle.muted)
                         }
                     }
                 }.padding(20)
@@ -269,7 +283,7 @@ struct RequestDetailView: View {
                             Button { decide(approve: true) } label: {
                                 HStack { if deciding { ProgressView() }; Text("Allow").lineLimit(1); if requireDeviceAuthentication { Image(systemName: "lock.shield") } }.frame(maxWidth: .infinity)
                             }.buttonStyle(.borderedProminent).tint(KeyalaStyle.teal).foregroundStyle(KeyalaStyle.buttonText)
-                                .disabled(loadingDetail || current.payload == nil)
+                                .disabled(loadingDetail || current.payload == nil || current.coupon.map { $0.status != .active } == true)
                         }.controlSize(.large).disabled(deciding)
                         if requireDeviceAuthentication { Text("Confirm with Face ID, Touch ID or your device passcode.").font(.footnote).foregroundStyle(KeyalaStyle.muted) }
                     }.padding(.horizontal, 20).padding(.vertical, 12).background(KeyalaStyle.navy)
@@ -279,6 +293,8 @@ struct RequestDetailView: View {
                 .sheet(isPresented: $showPolicy) {
                     ApprovalPolicyView(actionTitle: "Use this access") { policy in access = policy; showPolicy = false }
                 }
+                .onChange(of: current.coupon?.id) { _, id in if id != nil { showPolicy = false } }
+                .onChange(of: store.contextGeneration) { _, _ in dismiss() }
                 .task(id: "\(request.id):\(current.status)") { loadingDetail = true; await store.loadRequestDetails(id: current.id); loadingDetail = false }
                 .refreshable { await store.loadRequestDetails(id: current.id) }
         }.presentationDetents([.large])
@@ -291,7 +307,7 @@ struct RequestDetailView: View {
         deciding = true
         Task {
             defer { deciding = false }
-            await store.decide(current, approve: approve, policy: approve ? access : .once)
+            await store.decide(current, approve: approve, policy: approve ? access : .once, reviewed: true)
             if !approve && current.status == "denied" { dismiss() }
         }
     }
@@ -488,6 +504,9 @@ struct GrantsView: View {
         ScrollView { VStack(alignment: .leading, spacing: 18) {
             PageHeader(eyebrow: "Access under your control", title: "Connected apps", subtitle: "Choose which apps can use your providers.")
             ModeBanner(); InfoBanner()
+            NavigationLink { CouponsView() } label: {
+                Card { Label("Coupons", systemImage: "ticket").frame(maxWidth: .infinity, alignment: .leading) }
+            }.buttonStyle(.plain)
             if store.grants.isEmpty { Card { Text("Connect an app using the QR code on its website. You’ll review the source before allowing access.").foregroundStyle(KeyalaStyle.muted) } }
             ForEach(store.grants) { grant in
                 Button { selected = grant } label: { GrantCard(grant: grant) }.buttonStyle(.plain)
@@ -498,20 +517,180 @@ struct GrantsView: View {
     }
 }
 
+private struct CouponDetails: View {
+    let coupon: Coupon
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Sponsored credit", systemImage: "ticket").font(.headline).foregroundStyle(KeyalaStyle.teal)
+            LabeledContent("Sponsor", value: coupon.app.name)
+            LabeledContent("Remaining credit") {
+                Text(coupon.remainingUSD, format: .currency(code: "USD").precision(.fractionLength(2...6)))
+            }
+            LabeledContent("Expires", value: coupon.expiresAt.asDate)
+            LabeledContent("Status") { Text(LocalizedStringKey(coupon.status.title)) }
+        }.font(.subheadline)
+    }
+}
+
+private struct CouponsView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var coupons: [Coupon] = []
+    @State private var error: String?
+    @State private var loading = true
+
+    var body: some View {
+        List {
+            if let error {
+                Text(error).foregroundStyle(KeyalaStyle.warning)
+                Button("Refresh") { Task { await load() } }
+            } else if loading && coupons.isEmpty {
+                ProgressView("Loading coupons…")
+            } else if coupons.isEmpty {
+                Text("No coupons claimed yet. Scan a coupon QR or enter its code to claim one.")
+                    .foregroundStyle(KeyalaStyle.muted)
+            }
+            ForEach(coupons) { coupon in
+                Section(coupon.app.name) {
+                    CouponDetails(coupon: coupon)
+                    LabeledContent("Provider", value: coupon.vendor.title)
+                    LabeledContent("Eligible models", value: coupon.models.joined(separator: ", "))
+                }
+            }
+        }.localizedNavigationTitle("Coupons")
+            .task(id: store.contextGeneration) { coupons = []; await load() }
+            .refreshable { await load() }
+    }
+
+    private func load() async {
+        let generation = store.contextGeneration
+        loading = true; error = nil
+        defer { if generation == store.contextGeneration { loading = false } }
+        do { coupons = try await store.coupons() }
+        catch is CancellationError { }
+        catch { if generation == store.contextGeneration && !Task.isCancelled { self.error = error.localizedDescription } }
+    }
+}
+
+private struct CouponOfferDetails: View {
+    let preview: CouponPreview
+    var body: some View {
+        LabeledContent("Sponsor", value: preview.app.name)
+        LabeledContent("Provider", value: preview.vendor.title)
+        LabeledContent("Eligible models", value: preview.models.joined(separator: ", "))
+        LabeledContent("Coupon value") {
+            Text(preview.perCouponUSD, format: .currency(code: "USD").precision(.fractionLength(2...6)))
+        }
+        LabeledContent("Claim by", value: preview.claimDeadline.asDate)
+        LabeledContent("Valid after claim") { Text("\(preview.validityDays) days") }
+    }
+}
+
+struct CouponClaimView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    let code: String
+    @State private var preview: CouponPreview?
+    @State private var claimed: Coupon?
+    @State private var error: String?
+    @State private var reload = 0
+    @State private var claimTask: Task<Void, Never>?
+    @State private var claiming = false
+
+    var body: some View {
+        Group {
+            if store.account == nil {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Sign in to review this coupon").font(.headline)
+                    Text("Your coupon link will stay here while you sign in.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                    AccountView()
+                }.padding(.top)
+            } else {
+                Form {
+                    Section {
+                        LabeledContent("Keyala server", value: store.serverHost)
+                        Text("The coupon covers eligible calls from its app. You review each call and approve it once. Connect to the app separately to let it request calls.")
+                            .font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                    }
+                    if let coupon = claimed ?? preview?.coupon {
+                        Section {
+                            Label("Coupon claimed", systemImage: "checkmark.circle.fill").foregroundStyle(KeyalaStyle.teal)
+                            CouponDetails(coupon: coupon)
+                            LabeledContent("Provider", value: coupon.vendor.title)
+                            LabeledContent("Eligible models", value: coupon.models.joined(separator: ", "))
+                        }
+                    } else if let preview {
+                        Section("Review coupon") {
+                            CouponOfferDetails(preview: preview)
+                            if preview.claimable {
+                                Button("Claim coupon") { claim(preview) }.fontWeight(.semibold).disabled(claiming)
+                            } else {
+                                Text("This coupon is no longer available to claim.").foregroundStyle(KeyalaStyle.warning)
+                            }
+                        }
+                    } else if error == nil {
+                        ProgressView("Loading coupon…")
+                    }
+                    if claiming { ProgressView() }
+                    if let error {
+                        Section {
+                            Text(error).foregroundStyle(KeyalaStyle.warning)
+                            Button("Refresh") { reload += 1 }.disabled(claiming)
+                        }
+                    }
+                }.scrollContentBackground(.hidden)
+            }
+        }.background(KeyalaStyle.navy).localizedNavigationTitle("Coupon")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        if store.pendingCouponCode == code { store.pendingCouponCode = nil }
+                        dismiss()
+                    }.disabled(claiming)
+                }
+            }
+            .interactiveDismissDisabled(claiming)
+            .task(id: "\(store.contextGeneration):\(store.linkGeneration):\(store.account?.id ?? ""):\(reload)") { await load() }
+            .onDisappear { claimTask?.cancel() }
+    }
+
+    private func load() async {
+        claimTask?.cancel(); claiming = false; preview = nil; claimed = nil; error = nil
+        guard store.account != nil else { return }
+        do { preview = try await store.couponPreview(code: code) }
+        catch is CancellationError { }
+        catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+    }
+
+    private func claim(_ preview: CouponPreview) {
+        guard !claiming else { return }
+        claiming = true; error = nil
+        claimTask = Task {
+            defer { if !Task.isCancelled { claiming = false } }
+            do { claimed = try await store.claimCoupon(code: code, preview: preview) }
+            catch is CancellationError { }
+            catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        }
+    }
+}
+
 struct GrantCard: View {
     let grant: GrantRecord
     var body: some View {
         Card { VStack(alignment: .leading, spacing: 14) {
             HStack { VStack(alignment: .leading, spacing: 4) { Text(grant.appName).font(.headline).foregroundStyle(KeyalaStyle.cream); Text(grant.model.isEmpty ? grant.provider.title : "\(grant.provider.title)  /  \(grant.model)").font(.caption).foregroundStyle(KeyalaStyle.muted) }; Spacer(); Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(KeyalaStyle.muted) }
-            HStack(spacing: 14) {
-                metric("REQUESTS", value: grant.maxRequests.map { "\($0) left" } ?? "\(grant.usedRequests) used")
-                Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
-                metric("SPENT", value: grant.spentUSD)
-                Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
-                metric("POLICY", value: grant.trust ? "Trusted" : (grant.budgetMicrousd != nil ? "Budget" : (grant.maxRequests != nil ? "Count" : "Ask each time")))
+            if let coupon = grant.coupon {
+                CouponDetails(coupon: coupon)
+            } else {
+                HStack(spacing: 14) {
+                    metric("REQUESTS", value: grant.maxRequests.map { "\($0) left" } ?? "\(grant.usedRequests) used")
+                    Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
+                    metric("SPENT", value: grant.spentUSD)
+                    Rectangle().fill(.white.opacity(0.1)).frame(width: 1, height: 32)
+                    metric("POLICY", value: grant.trust ? "Trusted" : (grant.budgetMicrousd != nil ? "Budget" : (grant.maxRequests != nil ? "Count" : "Ask each time")))
+                }
+                if let remaining = grant.budgetMicrousd { Text(String(format: "$%.2f remaining", Double(remaining) / 1_000_000)).font(.caption).foregroundStyle(KeyalaStyle.teal) }
+                Text(grant.expiresAt.isEmpty ? "No expiry" : "Expires \(grant.expiresAt.asDate)").font(.caption).foregroundStyle(KeyalaStyle.muted)
             }
-            if let remaining = grant.budgetMicrousd { Text(String(format: "$%.2f remaining", Double(remaining) / 1_000_000)).font(.caption).foregroundStyle(KeyalaStyle.teal) }
-            Text(grant.expiresAt.isEmpty ? "No expiry" : "Expires \(grant.expiresAt.asDate)").font(.caption).foregroundStyle(KeyalaStyle.muted)
         } }
     }
     func metric(_ name: String, value: String) -> some View { VStack(alignment: .leading, spacing: 4) { Text(name).font(.system(size: 9, weight: .bold)).tracking(0.8).foregroundStyle(KeyalaStyle.muted); Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(KeyalaStyle.cream) }.frame(maxWidth: .infinity, alignment: .leading) }
@@ -527,24 +706,29 @@ struct GrantDetailView: View {
     private var current: GrantRecord { store.grants.first(where: { $0.id == grant.id }) ?? grant }
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
+            ScrollView { VStack(alignment: .leading, spacing: 18) {
                 GrantCard(grant: current)
-                if current.billingVendor == .openRouter && current.provider != .openRouter {
+                if current.coupon == nil, current.billingVendor == .openRouter && current.provider != .openRouter {
                     Label("Billed through OpenRouter credits", systemImage: "arrow.triangle.branch").foregroundStyle(KeyalaStyle.teal)
                 }
                 InfoBanner()
-                Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }.disabled(updating)
+                if current.coupon == nil {
+                    Button { showPolicy = true } label: { Label("Change policy", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity).padding(14).background(.white.opacity(0.08), in: Capsule()) }.disabled(updating)
+                } else {
+                    Text("Coupon calls must be approved one at a time.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                }
                 Button(role: .destructive) { confirmDisconnect = true } label: { Label("Disconnect app", systemImage: "hand.raised.slash").frame(maxWidth: .infinity).padding(14).background(Color.red.opacity(0.16), in: Capsule()) }.disabled(updating)
                 if updating { ProgressView() }
-                Spacer()
-            }.padding(20).background(KeyalaStyle.navy.ignoresSafeArea()).localizedNavigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline)
+            }.padding(20) }.background(KeyalaStyle.navy.ignoresSafeArea()).localizedNavigationTitle(grant.appName).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
                 .confirmationDialog("Disconnect this app?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
                     Button("Disconnect app", role: .destructive) {
                         updating = true
                         Task { defer { updating = false }; if await store.revoke(grant) { dismiss() } }
                     }
-                } message: { Text("This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish.") }
+                } message: {
+                    Text(current.coupon == nil ? "This app loses permission to use this provider. Your stored key and past history stay. Requests already sent may still finish." : "This app loses access. Your coupon and past requests remain in Keyala.")
+                }
                 .sheet(isPresented: $showPolicy) {
                     ApprovalPolicyView(isApplying: updating) { policy in
                         guard !updating else { return }
@@ -934,6 +1118,7 @@ struct ConnectAppView: View {
     @State private var deciding = false
     @State private var loading = false
     private var enteredCode: String? { PairingLink.code(from: code) }
+    private var couponCode: String? { CouponLink.code(from: code) }
     private var previewTaskID: String { "\(store.contextGeneration):\(store.account?.id ?? ""):\(code)" }
 
     var body: some View {
@@ -948,7 +1133,7 @@ struct ConnectAppView: View {
                 Form {
                     Section {
                         Button { Task { await openScanner() } } label: { Label("Scan QR code", systemImage: "qrcode.viewfinder").font(.headline).frame(maxWidth: .infinity).padding(8) }.disabled(deciding)
-                        Text(addingKey ? "Scan the key setup QR on your computer. You’ll approve this computer before it can send a key." : "On the app’s website, choose Connect with Keyala. Scan its QR code here, or tap its link on this phone.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                        Text(addingKey ? "Scan the key setup QR on your computer. You’ll approve this computer before it can send a key." : "Scan the app’s connection QR or a coupon QR. You can also open its link on this phone.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
                         if let scannerError { Text(scannerError).font(.footnote).foregroundStyle(KeyalaStyle.warning) }
                     }
                     if addingKey {
@@ -960,12 +1145,15 @@ struct ConnectAppView: View {
                             Button("Review setup link") { _ = store.acceptEnrollment(setupLink) }.disabled(EnrollmentLink.id(from: setupLink) == nil)
                         }
                     } else { Section("Can’t scan? Enter the code") {
-                        TextField("KY-4F7Q", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled().disabled(deciding)
+                        TextField("KY-… or KC-…", text: $code).textInputAutocapitalization(.never).autocorrectionDisabled().disabled(deciding)
                         if loading { ProgressView("Loading connection…") }
+                        else if couponCode != nil {
+                            Button("Review coupon") { _ = store.acceptCoupon(code) }.disabled(deciding)
+                        }
                         else if enteredCode != nil && !PairingLink.matchesServer(code, activeServer: store.serverURL) {
                             Text("This connection belongs to a different Keyala server. Choose the matching server in Settings > Developer options, then scan again. Your server has not changed.").font(.footnote).foregroundStyle(KeyalaStyle.warning)
                         }
-                        else if !code.isEmpty && enteredCode == nil { Text("Enter the KY- code shown by the app.").font(.footnote).foregroundStyle(KeyalaStyle.muted) }
+                        else if !code.isEmpty && enteredCode == nil { Text("Enter the KY- connection code or KC- coupon code.").font(.footnote).foregroundStyle(KeyalaStyle.muted) }
                     } }
                     if let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration {
                         let preview = pairing.preview
@@ -977,19 +1165,32 @@ struct ConnectAppView: View {
                             } else {
                                 Label("Unverified app: name chosen by the developer", systemImage: "exclamationmark.triangle").foregroundStyle(KeyalaStyle.warning)
                             }
-                            if preview.keyProvider == preview.vendor { Text("Requests access to your \(preview.vendor.title) key.") }
-                            else { Text("Requests the \(preview.vendor.title) API through OpenRouter.") }
-                            if preview.keyProvider == .openRouter && preview.vendor != .openRouter {
-                                Label("Billed through OpenRouter credits", systemImage: "arrow.triangle.branch").foregroundStyle(KeyalaStyle.teal)
-                                Text("This connection uses supported models through OpenRouter, including its downstream providers, instead of a direct provider key.").font(.footnote)
+                            if let coupon = preview.coupon {
+                                if let claimed = coupon.coupon { CouponDetails(coupon: claimed) }
+                                else { CouponOfferDetails(preview: coupon) }
+                                Text("This connection uses sponsored credit for eligible calls. Your own keys stay unused. Every call needs your approval.")
+                                    .font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                                if coupon.canConnect {
+                                    Button(coupon.coupon == nil ? "Claim coupon and connect" : "Connect with coupon") { decide(approve: true) }.disabled(deciding)
+                                } else {
+                                    Text("This coupon is unavailable for this connection.").foregroundStyle(KeyalaStyle.warning)
+                                }
+                            } else {
+                                if preview.keyProvider == preview.vendor { Text("Requests access to your \(preview.vendor.title) key.") }
+                                else { Text("Requests the \(preview.vendor.title) API through OpenRouter.") }
+                                if preview.keyProvider == .openRouter && preview.vendor != .openRouter {
+                                    Label("Billed through OpenRouter credits", systemImage: "arrow.triangle.branch").foregroundStyle(KeyalaStyle.teal)
+                                    Text("This connection uses supported models through OpenRouter, including its downstream providers, instead of a direct provider key.").font(.footnote)
+                                }
+                                let hasKey = store.keys.contains(where: { $0.provider == preview.keyProvider })
+                                if !hasKey {
+                                    NavigationLink("Add your \(preview.keyProvider.title) key first") { VaultView(returnConnectCode: pairing.code, suggestedProvider: preview.keyProvider) }
+                                }
+                                Text("Each call needs your approval at first. Change access later in Connected apps.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                                Button(preview.requiresAsk == false ? "Choose access" : "Connect and ask each time") {
+                                    if preview.requiresAsk == false { showPairPolicy = true } else { decide(approve: true) }
+                                }.disabled(deciding || !hasKey)
                             }
-                            if !store.keys.contains(where: { $0.provider == preview.keyProvider }) {
-                                NavigationLink("Add your \(preview.keyProvider.title) key first") { VaultView(returnConnectCode: pairing.code, suggestedProvider: preview.keyProvider) }
-                            }
-                            Text("Each call needs your approval at first. Change access later in Connected apps.").font(.footnote).foregroundStyle(KeyalaStyle.muted)
-                            Button(preview.requiresAsk == false ? "Choose access" : "Connect and ask each time") {
-                                if preview.requiresAsk == false { showPairPolicy = true } else { decide(approve: true) }
-                            }.disabled(deciding || !store.keys.contains(where: { $0.provider == preview.keyProvider }))
                             Button("Deny connection", role: .destructive) { decide(approve: false) }.disabled(deciding)
                         }
                     }
@@ -1031,11 +1232,11 @@ struct ConnectAppView: View {
         pairing = (value, generation, preview)
     }
     private func decide(approve: Bool, policy: Policy = .once) {
-        guard let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration else { return }
+        guard !deciding, let pairing, pairing.code == enteredCode, pairing.generation == store.contextGeneration else { return }
         deciding = true
         Task {
             defer { deciding = false }
-            if await store.connectDecision(code: pairing.code, approve: approve, policy: policy, billingVendor: pairing.preview.keyProvider),
+            if await store.connectDecision(code: pairing.code, approve: approve, policy: policy, preview: pairing.preview),
                enteredCode == pairing.code, pairing.generation == store.contextGeneration {
                 if store.pendingConnectCode == pairing.code { store.pendingConnectCode = nil }
                 dismiss()
@@ -1048,11 +1249,12 @@ struct ConnectAppView: View {
         guard let value = scannedValue, scannerGeneration == store.contextGeneration, scannerLinkGeneration == store.linkGeneration else { return }
         scannedValue = nil
         code = ""; pairing = nil
-        if WebLoginLink.id(from: value) != nil { _ = store.acceptWebLogin(value) }
+        if CouponLink.code(from: value) != nil { _ = store.acceptCoupon(value) }
+        else if WebLoginLink.id(from: value) != nil { _ = store.acceptWebLogin(value) }
         else if EnrollmentLink.id(from: value) != nil { _ = store.acceptEnrollment(value) }
         else if PairingLink.code(from: value) != nil {
             if store.acceptPairing(value), let scanned = store.pendingConnectCode { code = scanned }
-        } else { scannerError = "This isn’t a Keyala QR. Scan the connection, web sign-in or key setup QR shown by Keyala." }
+        } else { scannerError = "Scan a Keyala connection, coupon, web sign-in or key setup QR." }
     }
 
     private func openScanner() async {
@@ -1291,8 +1493,10 @@ private struct QRScannerView: UIViewControllerRepresentable {
 private extension String {
     var asDate: String {
         let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: self) else { return self }
-        let output = DateFormatter(); output.dateStyle = .medium; output.timeStyle = .short
+        let plain = formatter.date(from: self)
+        formatter.formatOptions.insert(.withFractionalSeconds)
+        guard let date = plain ?? formatter.date(from: self) else { return self }
+        let output = DateFormatter(); output.locale = AppLanguage.selected.locale; output.dateStyle = .medium; output.timeStyle = .short
         return output.string(from: date)
     }
 }

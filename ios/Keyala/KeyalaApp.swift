@@ -96,7 +96,7 @@ struct RootView: View {
     @State private var activeSheet: RootSheet?
     private enum RootSheet: Identifiable {
         case settings, connect, computer
-        case enroll(String), webLogin(String)
+        case enroll(String), webLogin(String), coupon(String)
         var id: String {
             switch self {
             case .settings: "settings"
@@ -104,6 +104,7 @@ struct RootView: View {
             case .computer: "computer"
             case .enroll(let id): "enroll:" + id
             case .webLogin(let id): "login:" + id
+            case .coupon(let code): "coupon:" + code
             }
         }
     }
@@ -142,6 +143,7 @@ struct RootView: View {
                 case .computer: ComputerKeySetupView()
                 case .enroll(let id): EnrollmentView(id: id).id(id)
                 case .webLogin(let id): WebLoginApprovalView(id: id).id(id)
+                case .coupon(let code): CouponClaimView(code: code).id(code)
                 }
             }
         }
@@ -152,6 +154,9 @@ struct RootView: View {
             if let url = activity.webpageURL, store.handleOpenURL(url) { presentPendingLink() }
         }
         .onChange(of: store.linkGeneration) { _, _ in presentPendingLink() }
+        .onChange(of: store.pendingCouponCode) { _, code in
+            if code == nil, case .coupon = activeSheet { activeSheet = nil }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .keyalaAddFromComputer)) { note in
             store.beginComputerKeySetup(returnTo: note.object as? String)
             activeSheet = .computer
@@ -164,6 +169,7 @@ struct RootView: View {
     private func presentPendingLink() {
         if let id = store.pendingWebLoginID { activeSheet = .webLogin(id) }
         else if let id = store.pendingEnrollmentID { activeSheet = .enroll(id) }
+        else if let code = store.pendingCouponCode { activeSheet = .coupon(code) }
         else if store.pendingConnectCode != nil { activeSheet = .connect }
     }
 

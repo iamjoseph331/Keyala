@@ -33,6 +33,7 @@ import Security
     @Published var pendingWebLoginID: String?
     private var pendingWebLoginOrigin: String?
     @Published var pendingEnrollmentID: String?
+    @Published var pendingCouponCode: String?
     @Published private(set) var keySetupReturnCode: String?
     @Published private(set) var linkGeneration = 0
     @Published var pendingRequestID: String?
@@ -230,7 +231,7 @@ import Security
     }
     private func signIn(using authenticate: (APIClient) async throws -> AuthenticatedSession) async {
         guard !demoMode, !busy else { return }
-        signOut()
+        signOut(preservePendingCoupon: session == nil)
         let generation = contextGeneration
         let loginOrigin = origin
         busy = true
@@ -244,7 +245,7 @@ import Security
         }
         catch { if generation == contextGeneration { reportAuthenticationError(error) } }
     }
-    func signOut() {
+    func signOut(preservePendingCoupon: Bool = false) {
         providerBrowser.cancel()
         passkeyAuthorization.cancel()
         passkeys = []
@@ -254,6 +255,7 @@ import Security
         contextGeneration += 1
         try? vault.write(nil, origin: origin)
         session = nil
+        if !preservePendingCoupon { pendingCouponCode = nil }
         routingRevision += 1
         routingPreferences = RoutingPreferences()
         routingPreferencesLoaded = false
@@ -357,7 +359,7 @@ import Security
             connected = true
         } catch {
             guard generation == contextGeneration, !Task.isCancelled else { return }
-            if case APIError.unauthorized = error { signOut() }
+            if case APIError.unauthorized = error { signOut(preservePendingCoupon: true) }
             report(error)
         }
     }
@@ -404,7 +406,7 @@ import Security
             if generation == contextGeneration { olderRequestsError = error.localizedDescription }
         }
     }
-    func decide(_ request: RequestRecord, approve: Bool, policy: Policy = .once) async {
+    func decide(_ request: RequestRecord, approve: Bool, policy: Policy = .once, reviewed: Bool = false) async {
         if demoMode {
             guard let index = requests.firstIndex(where: { $0.id == request.id }) else { return }
             requests[index].status = approve ? "completed" : "denied"
@@ -412,7 +414,11 @@ import Security
             if approve { requests[index].response = .object(["demo_note": .string("Simulated approval. No provider was contacted."), "choices": .array([.object(["message": .object(["role": .string("assistant"), "content": .string("This is a clearly labeled Keyala demo response.")])])])]) }
             return
         }
-        guard !approve || request.payload != nil else { report(APIError.http(0, "The full request payload has not loaded. Open the request details and refresh before deciding.")); return }
+        guard let current = requests.first(where: { $0.id == request.id }), current.status == "pending" else { return }
+        let coupon = current.coupon ?? request.coupon
+        guard !approve || (request.payload != nil && (coupon == nil || reviewed)) else {
+            report(APIError.http(0, localized("Open the complete request and review it before approving."))); return
+        }
         let generation = contextGeneration; let api = client
         do {
             if approve && UserDefaults.standard.bool(forKey: "requireDeviceAuthentication") {
@@ -425,12 +431,18 @@ import Security
                     if let authenticationError { throw authenticationError }
                     throw APIError.http(0, "Device authentication is unavailable. Check the approval setting in Settings.")
                 }
-                let allowed = try await context.evaluatePolicy(.deviceOwnerAuthentication,
-                    localizedReason: "Confirm this request from \(request.appName) to use your \(request.provider.title) account.")
+                let reason = coupon == nil ? "Confirm this request from \(request.appName) to use your \(request.provider.title) account."
+                    : localized("Confirm this sponsored request.")
+                let allowed = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
                 guard allowed, generation == contextGeneration, !Task.isCancelled,
                       requests.first(where: { $0.id == request.id })?.status == "pending" else { return }
             }
-            let detail = try await api.decide(id: request.id, approve: approve, policy: policy)
+            let funding = requests.first(where: { $0.id == request.id })?.coupon ?? coupon
+            guard !approve || funding == nil || reviewed else { return }
+            if approve, let funding, funding.status != .active {
+                throw APIError.coupon(APIError.couponMessage(for: "coupon_" + funding.status.rawValue) ?? "This coupon is unavailable for this connection.")
+            }
+            let detail = try await api.decide(id: request.id, approve: approve, policy: funding == nil ? policy : .once)
             guard generation == contextGeneration else { return }
             requests = RequestHistory.merging(existing: requests, incoming: [detail])
             infoMessage = approve ? "Request approved." : "Request denied."
@@ -525,6 +537,7 @@ import Security
         } catch { if generation == contextGeneration { report(error) }; return false }
     }
     func update(_ grant: GrantRecord, policy: Policy) async -> Bool {
+        guard grant.coupon == nil, grants.first(where: { $0.id == grant.id })?.coupon == nil else { return false }
         if demoMode { infoMessage = "Demo policy changes are not sent to a server."; return false }
         let generation = contextGeneration; let api = client
         do {
@@ -548,6 +561,7 @@ import Security
         }
         pendingWebLoginID = nil
         pendingEnrollmentID = nil
+        pendingCouponCode = nil
         keySetupReturnCode = nil
         pendingConnectCode = code
         linkGeneration += 1
@@ -566,12 +580,14 @@ import Security
             return false
         }
         pendingWebLoginID = nil
+        pendingCouponCode = nil
         if keySetupReturnCode == nil { pendingConnectCode = nil }
         pendingEnrollmentID = id
         linkGeneration += 1
         return true
     }
     @discardableResult func handleOpenURL(_ url: URL) -> Bool {
+        if CouponLink.code(from: url.absoluteString) != nil { return acceptCoupon(url.absoluteString) }
         if WebLoginLink.id(from: url.absoluteString) != nil { return acceptWebLogin(url.absoluteString) }
         if EnrollmentLink.id(from: url.absoluteString) != nil { return acceptEnrollment(url.absoluteString) }
         if PairingLink.code(from: url.absoluteString) != nil { return acceptPairing(url.absoluteString) }
@@ -591,11 +607,53 @@ import Security
             report(APIError.http(0, "Use the matching Keyala server with sample data turned off before reviewing a web sign-in."))
             return false
         }
-        pendingConnectCode = nil; pendingEnrollmentID = nil; keySetupReturnCode = nil
+        pendingConnectCode = nil; pendingEnrollmentID = nil; pendingCouponCode = nil; keySetupReturnCode = nil
         pendingWebLoginID = id
         pendingWebLoginOrigin = origin
         linkGeneration += 1
         return true
+    }
+
+    @discardableResult func acceptCoupon(_ value: String) -> Bool {
+        guard let code = CouponLink.code(from: value) else { return false }
+        guard !demoMode else {
+            report(APIError.coupon("Turn off sample data before opening a coupon."))
+            return false
+        }
+        guard CouponLink.matchesServer(value, activeServer: origin) else {
+            report(APIError.coupon("This coupon belongs to a different Keyala server. Choose its server in Settings > Developer options, then open it again."))
+            return false
+        }
+        pendingConnectCode = nil; pendingEnrollmentID = nil; pendingWebLoginID = nil; keySetupReturnCode = nil
+        pendingCouponCode = code
+        linkGeneration += 1
+        return true
+    }
+
+    func coupons() async throws -> [Coupon] {
+        if demoMode { return [DemoFixtures.coupon] }
+        let generation = contextGeneration
+        let result = try await client.coupons()
+        guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
+        return result
+    }
+
+    func couponPreview(code: String) async throws -> CouponPreview {
+        guard pendingCouponCode == code, !demoMode, account != nil else { throw APIError.missingSession }
+        let generation = contextGeneration; let link = linkGeneration
+        let result = try await client.couponPreview(code: code)
+        guard generation == contextGeneration, link == linkGeneration, pendingCouponCode == code, !Task.isCancelled else { throw CancellationError() }
+        return result
+    }
+
+    func claimCoupon(code: String, preview: CouponPreview) async throws -> Coupon {
+        guard pendingCouponCode == code, !demoMode, account != nil else { throw APIError.missingSession }
+        guard preview.coupon == nil, preview.claimable else { throw APIError.invalidResponse }
+        let generation = contextGeneration; let link = linkGeneration
+        let result = try await client.claimCoupon(code: code)
+        guard generation == contextGeneration, link == linkGeneration, pendingCouponCode == code, !Task.isCancelled else { throw CancellationError() }
+        guard result.batchID == preview.batchID, result.app.id == preview.app.id else { throw APIError.invalidResponse }
+        return result
     }
     func webLoginPreview(id: String) async throws -> WebLoginPreview {
         guard pendingWebLoginID == id, pendingWebLoginOrigin == origin, !demoMode, account != nil else { throw APIError.missingSession }
@@ -699,14 +757,15 @@ import Security
         guard generation == contextGeneration, !Task.isCancelled else { throw CancellationError() }
         if pendingEnrollmentID == id { pendingEnrollmentID = nil }
     }
-    func connectDecision(code: String, approve: Bool, policy: Policy, billingVendor: Provider? = nil) async -> Bool {
+    func connectDecision(code: String, approve: Bool, policy: Policy, preview: ConnectPreview) async -> Bool {
+        guard !approve || preview.coupon?.canConnect != false else { return false }
         if demoMode {
             infoMessage = "Demo pairing action is local only. No grant token or connection was created."
             return true
         }
         let generation = contextGeneration; let api = client
         do {
-            try await api.connectDecision(code: code, approve: approve, policy: policy, billingVendor: billingVendor)
+            try await api.connectDecision(code: code, approve: approve, policy: preview.coupon == nil ? policy : .once, billingVendor: preview.keyProvider)
             guard generation == contextGeneration else { return false }
             infoMessage = approve ? "App connected." : "Connection denied."
             await refresh()
@@ -747,11 +806,16 @@ import Security
         requests = DemoFixtures.requests
         keys = [KeyRecord(id: "demo-key-1", provider: .openAI, label: "Personal", lastFour: "•••• 7K2P"), KeyRecord(id: "demo-key-2", provider: .anthropic, label: "Research", lastFour: "•••• 4M8Q")]
         grants = [GrantRecord(id: "demo-grant-1", appID: "demo-app-1", appName: "Sketchpad AI", provider: .openAI, model: "gpt-4.1-mini", maxRequests: 10, usedRequests: 3, budgetMicrousd: 2_000_000, spentMicrousd: 420_000, reservedMicrousd: 0, expiresAt: "2026-12-01T00:00:00Z", trust: false, alertThresholdMicrousd: nil), GrantRecord(id: "demo-grant-2", appID: "demo-app-2", appName: "Quiet Research", provider: .anthropic, model: "claude-sonnet-4", maxRequests: nil, usedRequests: 18, budgetMicrousd: nil, spentMicrousd: 1_340_000, reservedMicrousd: 0, expiresAt: "2026-12-14T00:00:00Z", trust: true, alertThresholdMicrousd: 500_000)]
+        let coupon = DemoFixtures.coupon
+        grants.append(GrantRecord(id: "demo-grant-3", appID: coupon.app.id, appName: coupon.app.name, provider: coupon.vendor, model: coupon.models[0], maxRequests: nil, usedRequests: 0, budgetMicrousd: nil, spentMicrousd: 0, reservedMicrousd: 0, expiresAt: "", trust: false, alertThresholdMicrousd: nil, coupon: coupon))
     }
 }
 
 enum DemoFixtures {
+    static let coupon = Coupon(id: "demo-coupon", batchID: "demo-batch", app: .init(id: "demo-app-3", name: "Flashcard Studio", homepage: nil, iconURL: nil), vendor: .openAI, models: ["gpt-4o-mini"], remainingUSD: 0.8587, expiresAt: "2099-12-01T00:00:00.000Z", status: .active)
+
     static let requests: [RequestRecord] = [
+        RequestRecord(id: "demo-req-4822", appID: coupon.app.id, appName: coupon.app.name, provider: coupon.vendor, model: coupon.models[0], status: "pending", createdAt: "2026-11-14T08:23:00Z", expiresAt: nil, payload: .object(["messages": .array([.object(["role": .string("system"), "content": .string("Create one practice flashcard.")]), .object(["role": .string("user"), "content": .string("What is a prime number?")])])]), estimatedCostMicrousd: 28, actualCostMicrousd: nil, response: nil, error: nil, isDemo: true, coupon: coupon),
         RequestRecord(id: "demo-req-4821", appID: "demo-app-1", appName: "Sketchpad AI", provider: .openAI, model: "gpt-4.1-mini", status: "pending", createdAt: "2026-11-14T08:22:00Z", expiresAt: "2026-11-14T08:23:00Z", payload: .object(["model": .string("gpt-4.1-mini"), "messages": .array([.object(["role": .string("system"), "content": .string("You are a concise design assistant.")]), .object(["role": .string("user"), "content": .string("Suggest three calmer colors for this dashboard: #F05A28, #192B47. Keep the palette accessible and explain your choices.")])]), "max_tokens": .number(240)]), payloadSHA256: nil, estimatedCostMicrousd: 28, reservedCostMicrousd: 28, actualCostMicrousd: nil, response: nil, error: nil, isDemo: true),
         RequestRecord(id: "demo-req-4817", appID: "demo-app-2", appName: "Quiet Research", provider: .anthropic, model: "claude-sonnet-4", status: "completed", createdAt: "2026-11-14T07:58:00Z", expiresAt: nil, payload: .object(["model": .string("claude-sonnet-4"), "max_tokens": .number(160), "messages": .array([.object(["role": .string("user"), "content": .string("Summarize the key tradeoffs in this paragraph in two bullets.")])])]), payloadSHA256: nil, estimatedCostMicrousd: 61, reservedCostMicrousd: 61, actualCostMicrousd: 54, response: .object(["content": .array([.object(["type": .string("text"), "text": .string("• Simplicity improves adoption, while explicit permissions add friction.\n• Smaller models cut cost, while larger models may improve quality.")])]), "demo": .bool(true)]), error: nil, isDemo: true)
     ]
