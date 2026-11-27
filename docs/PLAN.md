@@ -280,6 +280,31 @@ user; -> `{has_password:true}`), `DELETE /v1/me/password` (-> `{has_password:fal
   are `403 origin_not_allowed`, and `/v1/me/apps*` answers `404`. Users keep their history. Calls already `sending` finish.
 - Deleting the account detaches its apps (owner set to null); they keep working with their secret.
 
+**Plaza** (KEYALA-3; opt-in, hand-reviewed public list of community apps; migration 0017; staging first, never auto-published)
+- Off unless `KEYALA_PLAZA_ENABLED=1`: every route in this section, `/examples` and `/examples/plaza.js` answer `404 not_found`.
+  Reviewers are user ids (not emails) in `KEYALA_PLAZA_REVIEWERS` (comma separated). Empty (default) = nobody can review, so
+  nothing ever becomes public.
+- Status per app, `apps.plaza_status`: `null` (not submitted) | `pending` | `approved` | `rejected`. Only `approved` apps that are not
+  deleted and still have an owner are public, and only their `name` and `homepage`.
+- `GET /v1/plaza` (public, `Access-Control-Allow-Origin: *`, `no-store`) -> `[{name, homepage}]`, newest approval first, max 200.
+- `GET /v1/me/apps` and `PUT` responses gain `plaza` (`null|"pending"|"approved"|"rejected"`); `GET /v1/me` gains `plaza_enabled`
+  and `plaza_reviewer` (booleans). No other field changes.
+- `POST /v1/me/apps/{id}/plaza` -> `{status:"pending"}`. Owner only (else 404). The app needs an https homepage naming a public DNS
+  host (no credentials, IP literals, `localhost`/`.local`-style names, non-ASCII; max 300 chars) else `400`. `409 already_listed`
+  if pending or approved; a rejected app may resubmit. 20 per hour per address.
+- `DELETE /v1/me/apps/{id}/plaza` -> `{status:null}` (owner withdraw; idempotent).
+- A `PUT /v1/me/apps/{id}` that changes `name` or `homepage` sets the status to `null` in the same SQL statement; changing only
+  origins keeps it. Deleting the app or the account hides it.
+- Reviewer routes (web or app session; everyone else `404`): `GET /v1/plaza/review?status=pending|approved|rejected` ->
+  `[{app_id, name, homepage, status, submitted_at}]` (no owner, keys or request content). `POST /v1/plaza/review/{app_id}
+  {decision: approve|reject|withdraw, name, homepage}`: `name` and `homepage` are what the reviewer saw and must equal the current
+  values, otherwise `409 stale_submission` and nothing changes. `approve`/`reject` need `pending`, `withdraw` needs `approved`
+  (-> `rejected`); a wrong state is `409 not_pending`. The check and the change are one conditional UPDATE, so an owner edit and
+  a decision cannot both win.
+- The console shows "List in Plaza" / "Withdraw" per app and, for reviewers, a review panel.
+- `GET /examples`, `/examples/` and `/examples/plaza.js` serve `backend/src/plaza.html` and `plaza.js` (copies of `site/examples/`,
+  synchronised by the site owner) with a strict CSP, so staging can show the page before production has it.
+
 ### Account controls and operations (launch readiness)
 | Method | Path | Auth | Notes |
 |---|---|---|---|
