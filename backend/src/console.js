@@ -112,8 +112,7 @@ async function scanTab(body) {
   try {
     const s = await api('POST', '/v1/web/login', undefined, null);
     if (me.dead) return;
-    body.replaceChildren(h('img', { class: 'qr', src: s.qr_url, alt: 'QR' }), status,
-      h('p', { class: 'muted' }, s.url));
+    body.replaceChildren(h('img', { class: 'qr', src: s.qr_url, alt: 'QR' }), status);
     const tick = async () => {
       if (me.dead) return;
       try {
