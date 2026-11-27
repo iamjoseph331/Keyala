@@ -28,6 +28,11 @@ const T = { en: {
   whenNote: 'Shown in your time zone', busiest: 'Busiest hour', weekend: 'Weekend share',
   expired: 'Your session expired. Sign in again.', back: 'Back', error: 'Something went wrong',
   days_: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  plazaList: 'List in Plaza', plazaWithdraw: 'Withdraw from Plaza', plazaNeedHome: 'Add an https:// homepage to list this app in Plaza.',
+  plazaStatus: { pending: 'Plaza: waiting for review', approved: 'Plaza: listed', rejected: 'Plaza: not approved' },
+  plazaAsk: 'Submit this app for Plaza? If approved, only its name and homepage become public. Editing either one removes it from Plaza.',
+  plazaId: 'Your Plaza reviewer ID (add to KEYALA_PLAZA_REVIEWERS)', plazaTitle: 'Plaza review', plazaNone: 'Nothing here.', approve: 'Approve', reject: 'Reject', takeDown: 'Take down', open: 'open',
+  plazaTabs: { pending: 'Pending', approved: 'Listed', rejected: 'Rejected' },
 }};
 const L = T[(navigator.language || 'en').slice(0, 2)] || T.en;
 const root = document.getElementById('app');
@@ -145,8 +150,7 @@ async function scanTab(body) {
   try {
     const s = await api('POST', '/v1/web/login', undefined, null);
     if (me.dead) return;
-    body.replaceChildren(h('img', { class: 'qr', src: s.qr_url, alt: 'QR' }), status,
-      h('p', { class: 'muted' }, s.url));
+    body.replaceChildren(h('img', { class: 'qr', src: s.qr_url, alt: 'QR' }), status);
     const tick = async () => {
       if (me.dead) return;
       try {
@@ -172,7 +176,7 @@ async function account() {
   show(h('header', {}, h('h1', {}, view === 'account' ? L.accountTitle : L.appsTitle), h('span', { class: 'muted' }, who.email),
     h('button', { onclick: async () => { clearCouponKey(); try { await api('POST', '/v1/me/logout'); } catch (e) {} setToken(null); start(); } }, L.signOut)),
     tabs([['account', L.tabAccount], ['apps', L.tabApps]], view, k => { view = k; account(); }), body);
-  view === 'account' ? accountView(body) : appsView(body);
+  view === 'account' ? accountView(body) : appsView(body, who);
 }
 
 async function accountView(body) {
@@ -229,7 +233,33 @@ function requestRow(r, err) {
   return h('div', {}, head, detail);
 }
 
-async function appsView(body) {
+// Reviewers only (who.plaza_reviewer): what the server lists is name + homepage, nothing private.
+// Each decision sends back the name and homepage that were on screen, so a stale row is refused.
+function plazaReview(box) {
+  let st = 'pending'; const err = h('div', { class: 'err' }), list = h('div', { class: 'card' }), bar = h('div');
+  box.append(h('h2', {}, L.plazaTitle), bar, err, list);
+  async function load() {
+    bar.replaceChildren(...Object.keys(L.plazaTabs).map(k => h('button', { class: k === st ? 'primary' : '', onclick: () => { st = k; load(); } }, L.plazaTabs[k])), ' ');
+    try {
+      const rows = await api('GET', '/v1/plaza/review?status=' + st);
+      list.replaceChildren(...(rows.length ? rows.map(r => {
+        const decide = d => async () => {
+          err.textContent = '';
+          try { await api('POST', '/v1/plaza/review/' + encodeURIComponent(r.app_id), { decision: d, name: r.name, homepage: r.homepage }); } catch (e) { fail(err)(e); }
+          load();
+        };
+        const btns = st === 'pending' ? [h('button', { class: 'primary', onclick: decide('approve') }, L.approve), ' ', h('button', { class: 'danger', onclick: decide('reject') }, L.reject)]
+          : st === 'approved' ? [h('button', { class: 'danger', onclick: decide('withdraw') }, L.takeDown)] : [];
+        const hp = r.homepage || '';
+        return h('div', { class: 'row' }, h('div', {}, h('b', {}, r.name), h('div', { class: 'muted' }, hp, ' ',
+          hp.startsWith('https://') ? h('a', { href: hp, target: '_blank', rel: 'noopener noreferrer nofollow' }, L.open) : null)), h('div', {}, btns));
+      }) : [h('span', { class: 'muted' }, L.plazaNone)]));
+    } catch (e) { fail(err)(e); }
+  }
+  load();
+}
+
+async function appsView(body, who) {
   const err = h('div', { class: 'err' }), list = h('div', { class: 'card' }), notice = h('div'), rep = h('div');
   const replacePanel = (...kids) => { clearCouponKey(rep); rep.replaceChildren(...kids); };
   const name = h('input', { maxlength: 100, placeholder: 'Interview Prepper' }), home = h('input', { type: 'url', placeholder: 'https://your-app.example' }), orig = h('input', { placeholder: 'https://you.github.io, http://localhost:5173' });
@@ -254,12 +284,22 @@ async function appsView(body) {
   });
   const tips = h('div', { class: 'card tip' }, h('h3', {}, L.tipsTitle), h('ul', {}, L.tips.map(t => h('li', {}, t))));
   body.append(err, notice, h('h2', {}, L.myApps), list, h('div', { class: 'cols' }, create, h('div', { class: 'stack' }, claim, tips)), rep);
+  if (who && who.plaza_review_id) body.append(h('p', { class: 'muted' }, L.plazaId + ': ', h('code', {}, who.plaza_review_id), ' ',
+    h('button', { onclick: ev => { navigator.clipboard.writeText(who.plaza_review_id).then(() => { ev.target.textContent = L.copied; }); } }, L.copy)));
+  if (who && who.plaza_reviewer) plazaReview(body);
+  async function plaza(a) {
+    err.textContent = '';
+    if (!a.plaza || a.plaza === 'rejected') { if (!confirm(L.plazaAsk)) return; }
+    try { await api(!a.plaza || a.plaza === 'rejected' ? 'POST' : 'DELETE', '/v1/me/apps/' + encodeURIComponent(a.id) + '/plaza'); load(); } catch (e) { fail(err)(e); }
+  }
   async function load() {
     try {
       const apps = await api('GET', '/v1/me/apps');
       list.replaceChildren(...(apps.length ? apps.map(a => h('div', { class: 'row' },
         h('div', {}, h('b', {}, a.name), h('div', { class: 'muted' }, a.id + ', ' + a.requests_7d + ' ' + L.calls7 + ', ' + money(a.cost_usd_7d)),
-          h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly)),
+          h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly),
+          !who || !who.plaza_enabled ? null : h('div', { class: 'muted' }, a.plaza ? L.plazaStatus[a.plaza] + ' ' : '',
+            a.homepage || a.plaza ? h('button', { onclick: () => plaza(a) }, a.plaza && a.plaza !== 'rejected' ? L.plazaWithdraw : L.plazaList) : L.plazaNeedHome)),
         h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => coupons(a) }, CL.btn), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
           h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('div', { class: 'empty' }, h('div', {}, h('b', {}, L.noApps), h('span', { class: 'muted' }, L.noAppsHelp, ' '), h('a', { href: 'https://keyala.io/docs/' }, L.steps)))]));
     } catch (e) { fail(err)(e); }

@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Example apps - Keyala</title><style>/* Keyala shared base: tokens, type, nav, footer. Light only (sage / white / green, koala-friendly). */
+:root {
+  --paper: #F1F5EE; --card: #FFFFFF; --ink: #1D2B22; --muted: #4F5F54; --line: #E2E9DF;
+  --green: #245E3E; --green-ink: #FFFFFF; --green-soft: #E4EFE0; --warn: #8A5A00; --code: #F4F7F2;
+  --sun: #FBEFD5; --amber: #E8961F; --red: #A8553C;
+  --radius: 22px; --shadow: 0 1px 2px rgb(29 43 34 / .05), 0 18px 40px rgb(29 43 34 / .08);
+  --font: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "PingFang TC", "Noto Sans CJK TC", "Noto Sans JP", sans-serif;
+  --serif: "Fraunces", var(--font);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--font); }
+a { color: var(--green); }
+img, video, svg { max-width: 100%; height: auto; }
+h1, h2, h3 { line-height: 1.2; letter-spacing: -.01em; margin: 0 0 .5em; text-wrap: balance; }
+h1, h2 { font-family: var(--serif); font-weight: 700; letter-spacing: -.02em; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); }
+h2 { font-size: clamp(1.5rem, 3.5vw, 2.2rem); }
+h3 { font-size: 1.15rem; }
+p { margin: 0 0 1em; }
+code, pre { font-family: var(--mono); font-size: .9em; }
+:not(pre) > code { background: var(--code); padding: .1em .35em; border-radius: 6px; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; border-radius: 4px; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 16px; top: 8px; background: var(--card); padding: 8px 12px; z-index: 10; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+.muted { color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 18px; border-radius: 999px; font: 600 16px/1 var(--font); text-decoration: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--green); border-color: var(--green); color: var(--green-ink); }
+.btn:hover { filter: brightness(.97); }
+.tag { display: inline-block; font-size: 13px; font-weight: 600; color: var(--green); background: var(--green-soft); border-radius: 999px; padding: 3px 10px; }
+
+.nav { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.nav .wrap { display: flex; align-items: center; gap: 18px; min-height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 21px; color: var(--ink); text-decoration: none; margin-right: auto; }
+.brand img { width: 32px; height: 32px; border-radius: 8px; }
+.nav a.link { color: var(--ink); text-decoration: none; font-weight: 500; font-size: 15px; }
+.nav a.link[aria-current="page"] { color: var(--green); }
+.nav select { font: 14px var(--font); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+@media (max-width: 640px) { .nav .wrap { gap: 12px; flex-wrap: wrap; padding-block: 8px; } .nav a.link { font-size: 14px; } }
+
+.footer { border-top: 1px solid var(--line); margin-top: 64px; padding: 28px 0 40px; font-size: 14px; color: var(--muted); }
+.footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.footer a { color: var(--muted); }
+
+[data-language][hidden] { display: none !important; }
+
+.demo { margin: 0; text-align: center; }
+.demo video, .demo img { display: block; width: 100%; max-width: 300px; margin: 0 auto; border-radius: 28px; border: 1px solid var(--line); background: var(--card); }
+.demo figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+/* Native disclosure keeps language links usable without scripts. */
+.language-picker { position: relative; margin-left: auto; flex: 0 0 auto; font-size: .88rem; }
+.language-picker summary { cursor: pointer; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.language-picker nav { position: absolute; right: 0; top: calc(100% + 6px); min-width: 140px; padding: 6px; display: grid; gap: 2px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); z-index: 20; }
+.language-picker nav a { padding: 8px 10px; border-radius: 8px; white-space: nowrap; }
+.language-picker nav a[aria-current="true"] { background: var(--green-soft); font-weight: 700; }
+@media (max-width: 600px) { .nav .wrap { flex-wrap: wrap; } .language-picker { margin-left: 0; } }
+</style><style>main.prose{max-width:960px;margin:0 auto;padding:32px 16px 0}main.prose h1{font-size:clamp(2rem,5vw,2.8rem)}.lead{color:var(--muted);font-size:1.15rem;max-width:720px}.apps{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:28px 0}.apps .card{display:flex;flex-direction:column;gap:8px}.apps h2{margin:0;font-size:1.35rem}.apps p{margin:0}.apps .meta{color:var(--muted);font-size:.92rem}.apps .btn{margin-top:auto;align-self:flex-start}@media (max-width:640px){.apps{grid-template-columns:1fr}}</style><link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiPgo8dGl0bGU+S2V5YWxhIGtvYWxhIChwbGFjZWhvbGRlcik8L3RpdGxlPgo8cmVjdCB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiByeD0iMjI0IiBmaWxsPSIjM0Q3QTU3Ii8+CjxjaXJjbGUgY3g9IjI1MCIgY3k9IjM3MCIgcj0iMTcwIiBmaWxsPSIjRDhEMkM2Ii8+CjxjaXJjbGUgY3g9Ijc3NCIgY3k9IjM3MCIgcj0iMTcwIiBmaWxsPSIjRDhEMkM2Ii8+CjxjaXJjbGUgY3g9IjI2MiIgY3k9IjM4MiIgcj0iMTAwIiBmaWxsPSIjRkFGN0YyIi8+CjxjaXJjbGUgY3g9Ijc2MiIgY3k9IjM4MiIgcj0iMTAwIiBmaWxsPSIjRkFGN0YyIi8+CjxlbGxpcHNlIGN4PSI1MTIiIGN5PSI1NjAiIHJ4PSIzMDAiIHJ5PSIyNzAiIGZpbGw9IiNEOEQyQzYiLz4KPGNpcmNsZSBjeD0iMzkyIiBjeT0iNTAwIiByPSIyNiIgZmlsbD0iIzFGMUIxNiIvPgo8Y2lyY2xlIGN4PSI2MzIiIGN5PSI1MDAiIHI9IjI2IiBmaWxsPSIjMUYxQjE2Ii8+CjxjaXJjbGUgY3g9IjQwMCIgY3k9IjQ5MSIgcj0iOCIgZmlsbD0iI0ZBRjdGMiIvPgo8Y2lyY2xlIGN4PSI2NDAiIGN5PSI0OTEiIHI9IjgiIGZpbGw9IiNGQUY3RjIiLz4KPGNpcmNsZSBjeD0iMzQwIiBjeT0iNjEwIiByPSIzNCIgZmlsbD0iI0U5QjhBNiIgb3BhY2l0eT0iLjciLz4KPGNpcmNsZSBjeD0iNjg0IiBjeT0iNjEwIiByPSIzNCIgZmlsbD0iI0U5QjhBNiIgb3BhY2l0eT0iLjciLz4KPHBhdGggZD0iTTUxMiA0NzBhNzIgNzIgMCAwIDEgNDAgMTMybDIyIDExOGgtMTI0bDIyLTExOGE3MiA3MiAwIDAgMSA0MC0xMzJaIiBmaWxsPSIjMUYxQjE2Ii8+Cjwvc3ZnPgo="><script src="/examples/plaza.js" defer=""></script><meta name="robots" content="noindex, nofollow"></head><body><a class="skip" href="#main" data-i18n="skip">Skip to content</a><header class="nav"><div class="wrap"><a class="brand" href="https://keyala.io/"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiPgo8dGl0bGU+S2V5YWxhIGtvYWxhIChwbGFjZWhvbGRlcik8L3RpdGxlPgo8cmVjdCB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiByeD0iMjI0IiBmaWxsPSIjM0Q3QTU3Ii8+CjxjaXJjbGUgY3g9IjI1MCIgY3k9IjM3MCIgcj0iMTcwIiBmaWxsPSIjRDhEMkM2Ii8+CjxjaXJjbGUgY3g9Ijc3NCIgY3k9IjM3MCIgcj0iMTcwIiBmaWxsPSIjRDhEMkM2Ii8+CjxjaXJjbGUgY3g9IjI2MiIgY3k9IjM4MiIgcj0iMTAwIiBmaWxsPSIjRkFGN0YyIi8+CjxjaXJjbGUgY3g9Ijc2MiIgY3k9IjM4MiIgcj0iMTAwIiBmaWxsPSIjRkFGN0YyIi8+CjxlbGxpcHNlIGN4PSI1MTIiIGN5PSI1NjAiIHJ4PSIzMDAiIHJ5PSIyNzAiIGZpbGw9IiNEOEQyQzYiLz4KPGNpcmNsZSBjeD0iMzkyIiBjeT0iNTAwIiByPSIyNiIgZmlsbD0iIzFGMUIxNiIvPgo8Y2lyY2xlIGN4PSI2MzIiIGN5PSI1MDAiIHI9IjI2IiBmaWxsPSIjMUYxQjE2Ii8+CjxjaXJjbGUgY3g9IjQwMCIgY3k9IjQ5MSIgcj0iOCIgZmlsbD0iI0ZBRjdGMiIvPgo8Y2lyY2xlIGN4PSI2NDAiIGN5PSI0OTEiIHI9IjgiIGZpbGw9IiNGQUY3RjIiLz4KPGNpcmNsZSBjeD0iMzQwIiBjeT0iNjEwIiByPSIzNCIgZmlsbD0iI0U5QjhBNiIgb3BhY2l0eT0iLjciLz4KPGNpcmNsZSBjeD0iNjg0IiBjeT0iNjEwIiByPSIzNCIgZmlsbD0iI0U5QjhBNiIgb3BhY2l0eT0iLjciLz4KPHBhdGggZD0iTTUxMiA0NzBhNzIgNzIgMCAwIDEgNDAgMTMybDIyIDExOGgtMTI0bDIyLTExOGE3MiA3MiAwIDAgMSA0MC0xMzJaIiBmaWxsPSIjMUYxQjE2Ii8+Cjwvc3ZnPgo=" alt=""> Keyala</a><a class="link" href="https://keyala.io/docs/" data-i18n="nav.dev">Developers</a><a class="link" href="https://keyala.io/guide/" data-i18n="nav.users">Users</a><a class="link" href="https://keyala.io/news/" data-i18n="nav.news">News</a><a class="link" href="https://staging.keyala.io/console" data-i18n="nav.console">Console</a><select id="language" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select></div></header><main id="main" class="prose">
+<section data-language="en" lang="en"><h1>Example apps</h1><p class="lead">Four AI apps you can try now. Each is a static web page with no API key and no backend: connect it to the Keyala iPhone app, approve each call, and your own provider bills you. New to Keyala? Start with the <a href="https://keyala.io/guide/">user guide</a>.</p>
+<h2>Official examples</h2>
+<div class="apps">
+<article class="card"><h2>Interview Prepper</h2><p>Mock interviews for AI, ML and data science roles. Pick a level and topics, answer the questions and get graded.</p><p class="meta">A graded session makes several calls. Choose any model from your connected provider.</p><a class="btn primary" href="https://iamjoseph331.github.io/interview_prepper/">Open Interview Prepper</a></article>
+<article class="card"><h2>Resume Tailor</h2><p>Tailor your resume to one or more job descriptions, with an optional translation and a tone of your choice.</p><p class="meta">OpenAI, Anthropic or OpenRouter. The page shows the cost ceiling before each job.</p><a class="btn primary" href="https://keyala.io/examples/resume-tailor/">Open Resume Tailor</a></article>
+<article class="card"><h2>Flashcards</h2><p>Pick a language, a level and a topic. The AI makes a deck of flip cards with readings and example sentences.</p><p class="meta">One gpt-4o-mini call per deck. The built-in example deck works without connecting.</p><a class="btn primary" href="https://keyala.io/examples/flashcards/">Open Flashcards</a></article>
+<article class="card"><h2>Daily Reflection</h2><p>Write a few lines about your day and get a short, gentle reflection. Your journal stays in your browser.</p><p class="meta">Claude Haiku through OpenRouter. Every message is a call you approve on your phone.</p><a class="btn primary" href="https://keyala.io/examples/daily-reflection/">Open Daily Reflection</a></article>
+</div><p>Building your own? The <a href="https://keyala.io/docs/">developer docs</a> show how to connect an app to Keyala.</p>
+<section class="community-plaza" hidden=""><h2>Community Plaza</h2><p>Apps submitted by their developers and reviewed by the Keyala team. These apps are made by independent developers.</p><div class="apps plaza-apps" data-open="Open an app"></div><p class="plaza-status" role="status" data-empty="No community apps have been approved yet." data-error="Could not load community apps. Please try again later.">No community apps have been approved yet.</p><p><a href="https://staging.keyala.io/console">Want to be listed? Add a Homepage in My apps, then submit your app for review.</a></p></section>
+</section>
+<section data-language="zh-Hant" lang="zh-Hant"><h1>範例應用</h1><p class="lead">四個現在就能試用的 AI 應用。每個都是靜態網頁，沒有 API 金鑰也沒有後端：連結 Keyala iPhone App，逐筆批准呼叫，費用由你自己的服務商計費。第一次使用 Keyala？請先看<a href="https://keyala.io/guide/">使用指南</a>。</p>
+<h2>官方範例</h2>
+<div class="apps">
+<article class="card"><h2>Interview Prepper</h2><p>AI、機器學習與資料科學職位的模擬面試。選擇等級與主題，回答問題並取得評分。</p><p class="meta">一次評分練習會發出多筆呼叫，可選擇已連結服務商的任一模型。</p><a class="btn primary" href="https://iamjoseph331.github.io/interview_prepper/">開啟 Interview Prepper</a></article>
+<article class="card"><h2>Resume Tailor</h2><p>依一份或多份職缺說明調整履歷，可選擇翻譯與語氣。</p><p class="meta">支援 OpenAI、Anthropic 或 OpenRouter。每次執行前，頁面會顯示費用上限。</p><a class="btn primary" href="https://keyala.io/examples/resume-tailor/">開啟 Resume Tailor</a></article>
+<article class="card"><h2>Flashcards</h2><p>選擇語言、等級與主題，AI 會做出一組含讀音與例句的翻面字卡。</p><p class="meta">每組字卡只呼叫一次 gpt-4o-mini。內建範例字卡不需連結即可使用。</p><a class="btn primary" href="https://keyala.io/examples/flashcards/">開啟 Flashcards</a></article>
+<article class="card"><h2>Daily Reflection</h2><p>寫幾句今天的事，得到一段簡短、溫和的回應。日記只保存在你的瀏覽器。</p><p class="meta">透過 OpenRouter 使用 Claude Haiku。每則訊息都是一筆需在手機上批准的呼叫。</p><a class="btn primary" href="https://keyala.io/examples/daily-reflection/">開啟 Daily Reflection</a></article>
+</div><p>想自己做一個？<a href="https://keyala.io/docs/">開發者文件</a>說明如何把應用連結到 Keyala。</p>
+<section class="community-plaza" hidden=""><h2>広場</h2><p>由開發者主動送審，經 Keyala 團隊確認後上架的獨立開發者應用。</p><div class="apps plaza-apps" data-open="開啟應用"></div><p class="plaza-status" role="status" data-empty="目前還沒有通過審核的社群應用。" data-error="無法載入社群應用，請稍後再試。">目前還沒有通過審核的社群應用。</p><p><a href="https://staging.keyala.io/console">想加入広場？在「我的應用」填寫 Homepage，再送出上架審核。</a></p></section>
+</section>
+<section data-language="ja" lang="ja"><h1>サンプルアプリ</h1><p class="lead">今すぐ試せる 4 つの AI アプリです。どれも API キーもバックエンドもない静的なウェブページです。Keyala の iPhone アプリに接続して呼び出しを 1 件ずつ許可すると、利用料はご自身のプロバイダーから請求されます。Keyala が初めての方は<a href="https://keyala.io/guide/">ユーザーガイド</a>からどうぞ。</p>
+<h2>公式サンプル</h2>
+<div class="apps">
+<article class="card"><h2>Interview Prepper</h2><p>AI・機械学習・データサイエンス職の模擬面接。レベルとテーマを選び、質問に答えると採点されます。</p><p class="meta">採点付きセッションでは複数の呼び出しが発生します。接続したプロバイダーの好きなモデルを選べます。</p><a class="btn primary" href="https://iamjoseph331.github.io/interview_prepper/">Interview Prepper を開く</a></article>
+<article class="card"><h2>Resume Tailor</h2><p>1 件以上の求人情報に合わせて履歴書を調整します。翻訳と文体も選べます。</p><p class="meta">OpenAI、Anthropic、OpenRouter に対応。実行前に費用の上限が表示されます。</p><a class="btn primary" href="https://keyala.io/examples/resume-tailor/">Resume Tailor を開く</a></article>
+<article class="card"><h2>Flashcards</h2><p>言語、レベル、テーマを選ぶと、読みと例文付きのめくれる単語カードを AI が作ります。</p><p class="meta">1 デッキにつき gpt-4o-mini の呼び出しは 1 回。内蔵のサンプルデッキは接続しなくても使えます。</p><a class="btn primary" href="https://keyala.io/examples/flashcards/">Flashcards を開く</a></article>
+<article class="card"><h2>Daily Reflection</h2><p>今日のことを数行書くと、短くやさしい振り返りが返ってきます。日記はブラウザーの中だけに保存されます。</p><p class="meta">OpenRouter 経由の Claude Haiku。メッセージごとに iPhone で許可する呼び出しになります。</p><a class="btn primary" href="https://keyala.io/examples/daily-reflection/">Daily Reflection を開く</a></article>
+</div><p>自分で作りたい方は、<a href="https://keyala.io/docs/">開発者向けドキュメント</a>で Keyala への接続方法を確認できます。</p>
+<section class="community-plaza" hidden=""><h2>広場</h2><p>開発者が掲載を申請し、Keyala チームが確認した個人開発のアプリです。</p><div class="apps plaza-apps" data-open="アプリを開く"></div><p class="plaza-status" role="status" data-empty="掲載済みのコミュニティアプリはまだありません。" data-error="アプリを読み込めませんでした。しばらくしてからお試しください。">掲載済みのコミュニティアプリはまだありません。</p><p><a href="https://staging.keyala.io/console">掲載するには、コンソールの「My apps」で Homepage を入力し、掲載審査を申請してください。</a></p></section>
+</section>
+</main><footer class="footer"><div class="wrap"><a href="https://keyala.io/privacy/" data-i18n="foot.privacy">Privacy</a><a href="https://keyala.io/support/" data-i18n="foot.support">Support</a><a href="https://github.com/iamjoseph331/Keyala">GitHub</a><a href="mailto:support@keyala.io" data-i18n="foot.contact">Contact</a><span>Keyala beta</span></div></footer>
+</body></html>

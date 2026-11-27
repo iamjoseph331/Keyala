@@ -4,7 +4,7 @@
 # The log (written by the server next to the live database, one `deleted <user_id> <time>` line per
 # deletion, opaque ids only) must be the one from BEFORE the restore. Run with the server stopped.
 # Keep the statements below in step with backend/src/ops.rs delete_account and backend/src/coupons.rs detach_user.
-# Works on backups from before and after migration 0017 (coupons) and before 0014/0016: a table or column the
+# Works on backups from before and after migration 0018 (coupons) and before 0014/0016: a table or column the
 # backup does not have is skipped. Each account is replayed in one transaction with foreign keys ON.
 #
 # Coupons, replayed exactly as the server does them:
@@ -60,7 +60,11 @@ SQL
   for tb in api_keys devices sessions enrollments oauth_flows web_logins passkeys passkey_challenges; do
     has_table "$tb" && echo "DELETE FROM $tb WHERE user_id='$id';"
   done
-  has_col apps owner_user_id && echo "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id='$id';"
+  # an app outlives its owner but loses any Plaza listing, as ops.rs delete_account does (Plaza = migration 0017)
+  if has_col apps owner_user_id; then
+    if has_col apps plaza_status; then echo "UPDATE apps SET owner_user_id=NULL, plaza_status=NULL WHERE owner_user_id='$id';"
+    else echo "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id='$id';"; fi
+  fi
   echo "DELETE FROM users WHERE id='$id'; COMMIT;"
   return 0
 }

@@ -41,6 +41,8 @@ fn cfg(email_mock: bool) -> (Config, std::path::PathBuf) {
             resend_api_key: None,
             email_from: None,
             email_mock,
+            plaza_enabled: false,
+            plaza_reviewers: vec![],
         },
         dir,
     )
@@ -2466,7 +2468,7 @@ async fn replay_script_handles_a_backup_from_before_the_coupon_migration() {
     let dir = std::env::temp_dir().join(format!("mk-replay-{}", keyala_server::rand_b64(8)));
     std::fs::create_dir_all(&dir).unwrap();
     let db = dir.join("old.db");
-    // a database exactly as migrations 0001..0016 leave it (the state before coupons existed)
+    // a database exactly as migrations 0001..0017 leave it (the state before coupons existed)
     let mut sql = String::from("PRAGMA foreign_keys=ON;\n");
     let mut files: Vec<_> =
         std::fs::read_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations"))
@@ -2476,7 +2478,7 @@ async fn replay_script_handles_a_backup_from_before_the_coupon_migration() {
     files.sort();
     for f in files
         .iter()
-        .filter(|f| !f.file_name().unwrap().to_str().unwrap().starts_with("0017"))
+        .filter(|f| !f.file_name().unwrap().to_str().unwrap().starts_with("0018"))
     {
         sql.push_str(&std::fs::read_to_string(f).unwrap());
         sql.push('\n');
@@ -2484,7 +2486,7 @@ async fn replay_script_handles_a_backup_from_before_the_coupon_migration() {
     sql.push_str("INSERT INTO users (id,email,created_at) VALUES ('usr_gone','gone@x.co','t'),('usr_stay','stay@x.co','t');
         INSERT INTO sessions (token_hash,user_id,created_at) VALUES ('h1','usr_gone','t'),('h2','usr_stay','t');
         INSERT INTO api_keys (user_id,vendor,ciphertext,nonce,last4,created_at) VALUES ('usr_gone','openai',x'01',x'02','1234','t');
-        INSERT INTO apps (id,name,secret_hash,created_at,owner_user_id) VALUES ('app_1','A','h','t','usr_gone');
+        INSERT INTO apps (id,name,secret_hash,created_at,owner_user_id,plaza_status,plaza_at) VALUES ('app_1','A','h','t','usr_gone','approved','t');
         INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at) VALUES ('grt_1','usr_gone','app_1','openai','ask','t');\n");
     let mut p = std::process::Command::new("sqlite3")
         .arg(&db)
@@ -2521,6 +2523,11 @@ async fn replay_script_handles_a_backup_from_before_the_coupon_migration() {
         q("SELECT owner_user_id IS NULL FROM apps WHERE id='app_1'"),
         "1",
         "apps outlive their owner"
+    );
+    assert_eq!(
+        q("SELECT plaza_status IS NULL FROM apps WHERE id='app_1'"),
+        "1",
+        "a deleted owner's Plaza listing is erased, as in delete_account"
     );
 }
 
@@ -2765,5 +2772,124 @@ async fn a_retry_needs_the_same_verified_address_still_in_place() {
     assert_eq!(
         (st.as_str(), to, why.as_deref()),
         ("skipped", None, Some("no_verified_recipient"))
+    );
+}
+
+/// Staging already runs migrations 0001..0017 (Plaza). Apply exactly those with SQLx's own Migrator
+/// (so `_sqlx_migrations` holds their versions and checksums), add rows, then boot the current build,
+/// which must apply only 0018 on top and keep everything.
+#[tokio::test]
+async fn sqlx_upgrade_from_17_plaza_to_18_coupon_keeps_data_and_adds_coupons() {
+    let (cfg, dir) = cfg(true);
+    let old = dir.join("published-17");
+    std::fs::create_dir_all(&old).unwrap();
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    for f in std::fs::read_dir(&src).unwrap() {
+        let p = f.unwrap().path();
+        if !p.file_name().unwrap().to_str().unwrap().starts_with("0018") {
+            std::fs::copy(&p, old.join(p.file_name().unwrap())).unwrap();
+        }
+    }
+    let opts = cfg
+        .database_url
+        .parse::<sqlx::sqlite::SqliteConnectOptions>()
+        .unwrap()
+        .foreign_keys(true);
+    let db = sqlx::sqlite::SqlitePoolOptions::new()
+        .connect_with(opts)
+        .await
+        .unwrap();
+    let m = sqlx::migrate::Migrator::new(old.as_path()).await.unwrap();
+    assert_eq!(m.iter().map(|x| x.version).max(), Some(17));
+    m.run(&db).await.unwrap();
+    let applied: Vec<(i64, bool)> =
+        sqlx::query_as("SELECT version, success FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(&db)
+            .await
+            .unwrap();
+    assert_eq!(applied.len(), 17);
+    assert!(applied.iter().all(|(_, ok)| *ok));
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'coupon%'")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(n, 0, "really the 17 schema");
+    for q in [
+        "INSERT INTO users (id,email,created_at) VALUES ('usr_old','old@x.co','t')",
+        "INSERT INTO apps (id,name,secret_hash,created_at,owner_user_id,plaza_status,plaza_at) VALUES ('app_old','Old','h','t','usr_old','approved','t')",
+        "INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at) VALUES ('grt_old','usr_old','app_old','openai','ask','t')",
+    ] {
+        sqlx::query(q).execute(&db).await.unwrap();
+    }
+    db.close().await;
+
+    // the current build on the same database file
+    let st = build_state(cfg).await.unwrap();
+    let versions: Vec<(i64, bool)> =
+        sqlx::query_as("SELECT version, success FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(&st.db)
+            .await
+            .unwrap();
+    assert_eq!(versions.len(), 18);
+    assert_eq!(versions.last(), Some(&(18, true)));
+    assert!(versions.iter().all(|(_, ok)| *ok));
+    let row: (String, Option<String>) =
+        sqlx::query_as("SELECT email, notify_email FROM users WHERE id='usr_old'")
+            .fetch_one(&st.db)
+            .await
+            .unwrap();
+    assert_eq!(row, ("old@x.co".to_string(), None));
+    let app: (String, Option<String>) =
+        sqlx::query_as("SELECT owner_user_id, plaza_status FROM apps WHERE id='app_old'")
+            .fetch_one(&st.db)
+            .await
+            .unwrap();
+    assert_eq!(
+        (app.0.as_str(), app.1.as_deref()),
+        ("usr_old", Some("approved"))
+    );
+    let g: Option<String> = sqlx::query_scalar("SELECT coupon_id FROM grants WHERE id='grt_old'")
+        .fetch_one(&st.db)
+        .await
+        .unwrap();
+    assert_eq!(g, None);
+    for t in [
+        "coupon_batches",
+        "coupons",
+        "coupon_ledger",
+        "coupon_outbox",
+    ] {
+        let c: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {t}"))
+            .fetch_one(&st.db)
+            .await
+            .unwrap();
+        assert_eq!(c, 0, "{t} exists and is empty");
+    }
+    // the upgraded database serves the coupon API for the old user and app
+    let app = router(st.clone());
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    tokio::spawn(async move {
+        axum::serve(l, app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap()
+    });
+    let c = Client::new();
+    let tok = sess(&c, &base, "old@x.co").await;
+    let me: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email='old@x.co'")
+        .fetch_one(&st.db)
+        .await
+        .unwrap();
+    assert_eq!(me, 1, "dev login reuses the old user");
+    let r = c
+        .get(format!("{base}/v1/me/apps/app_old/coupons"))
+        .bearer_auth(&tok)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status().as_u16(),
+        200,
+        "coupon list works on the upgraded app"
     );
 }

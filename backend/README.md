@@ -37,6 +37,8 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `KEYALA_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
 | `KEYALA_RESEND_API_KEY`, `KEYALA_EMAIL_FROM` | unset | Coupon alert email via Resend (`https://api.resend.com/emails`, fixed in code; nothing configurable can redirect it). Both needed. `KEYALA_EMAIL_FROM` is a verified sender such as `Keyala <coupons@your-domain>`. Unset = email off: batches report `email_enabled: false` and events are recorded as `skipped` |
 | `KEYALA_EMAIL_MOCK` | off | `1` marks coupon alerts `sent` with provider `mock` and makes no network call (tests, local runs); dev-login issuers count as mailable only in this mode |
+| `KEYALA_PLAZA_ENABLED` | off | `1` turns on Plaza, the reviewed community app list (`GET /v1/plaza`, `/examples`, console submit/review). Enable on staging only until the owner approves production |
+| `KEYALA_PLAZA_REVIEWERS` | empty | comma-separated stable identities allowed to approve/reject: `google:<sub>`, `apple:<sub>` or `password:<operator username>`. Read your own as `plaza_review_id` in GET `/v1/me` (shown in the console while Plaza is on). Empty = nobody, so nothing becomes public. Not emails or user ids |
 | `KEYALA_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `KEYALA_MOCK_FAIL` yields a 500) |
 
 `POST /v1/auth/apple` and `POST /v1/auth/google` verify Apple / Google identity tokens. A Google sign-in is its own

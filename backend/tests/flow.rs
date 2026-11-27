@@ -33,6 +33,8 @@ fn extra() -> Config {
         resend_api_key: None,
         email_from: None,
         email_mock: false,
+        plaza_enabled: false,
+        plaza_reviewers: vec![],
     }
 }
 
@@ -5189,7 +5191,11 @@ async fn console_page_is_served_with_strict_csp() {
     assert!(r.text().await.unwrap().contains("/console.js"));
     let r = call(&t, M::GET, "/console.js", None, None).await;
     assert_eq!(r.status(), 200);
-    assert!(r.text().await.unwrap().contains("textContent"));
+    let js = r.text().await.unwrap();
+    assert!(js.contains("textContent"));
+    // the sign-in QR page shows the QR and polls, but never prints the raw login URL
+    assert!(js.contains("s.qr_url") && js.contains("s.login_secret"));
+    assert!(!js.contains("s.url"));
 }
 
 #[tokio::test]
@@ -6025,4 +6031,578 @@ async fn auth_methods_reports_what_is_configured() {
     })
     .await;
     assert_eq!(v["passkeys"], false);
+}
+
+// ---------- Plaza ----------
+
+/// (owner, reviewer): Plaza on; the only reviewer is the Google identity `google:rev-sub`, seeded onto
+/// the `rev@b.co` account the way a verified Google sign-in would store it.
+async fn plaza_server() -> (T, String) {
+    let (base, c, state) = serve(Config {
+        plaza_enabled: true,
+        plaza_reviewers: vec!["google:rev-sub".into()],
+        ..test_cfg()
+    })
+    .await;
+    let owner = dev_session(&c, &base, "owner@b.co").await;
+    let rev = dev_session(&c, &base, "rev@b.co").await;
+    sqlx::query("UPDATE users SET google_sub='rev-sub' WHERE email='rev@b.co'")
+        .execute(&state.db)
+        .await
+        .unwrap();
+    (
+        T {
+            base,
+            c,
+            sess: owner,
+            state,
+        },
+        rev,
+    )
+}
+
+async fn plaza_app(t: &T, name: &str, homepage: Option<&str>) -> String {
+    let r = call(
+        t,
+        M::POST,
+        "/v1/me/apps",
+        Some(&t.sess),
+        Some(json!({"name": name, "homepage": homepage})),
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    let v = json_of(r).await;
+    // the create response keeps its shape
+    assert_eq!(v.as_object().unwrap().len(), 2);
+    v["app_id"].as_str().unwrap().to_string()
+}
+
+async fn plaza_public(t: &T) -> Value {
+    let r = call(t, M::GET, "/v1/plaza", None, None).await;
+    assert_eq!(r.status(), 200);
+    json_of(r).await
+}
+
+async fn plaza_mine(t: &T, id: &str) -> Value {
+    let v = json_of(call(t, M::GET, "/v1/me/apps", Some(&t.sess), None).await).await;
+    v.as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["id"] == id)
+        .unwrap()["plaza"]
+        .clone()
+}
+
+async fn plaza_decide(t: &T, rev: &str, id: &str, d: &str, name: &str, hp: &str) -> Response {
+    call(
+        t,
+        M::POST,
+        &format!("/v1/plaza/review/{id}"),
+        Some(rev),
+        Some(json!({"decision": d, "name": name, "homepage": hp})),
+    )
+    .await
+}
+
+async fn plaza_post(t: &T, id: &str) -> u16 {
+    call(
+        t,
+        M::POST,
+        &format!("/v1/me/apps/{id}/plaza"),
+        Some(&t.sess),
+        None,
+    )
+    .await
+    .status()
+    .as_u16()
+}
+
+#[tokio::test]
+async fn plaza_is_off_by_default_and_needs_listed_reviewers() {
+    // flag off: nothing exists
+    let t = T::new().await;
+    let id = plaza_app(&t, "A", Some("https://a.dev/")).await;
+    for (m, p) in [
+        (M::GET, "/v1/plaza".to_string()),
+        (M::GET, "/examples".to_string()),
+        (M::GET, "/examples/".to_string()),
+        (M::GET, "/examples/plaza.js".to_string()),
+        (M::GET, "/v1/plaza/review".to_string()),
+        (M::POST, format!("/v1/me/apps/{id}/plaza")),
+        (M::DELETE, format!("/v1/me/apps/{id}/plaza")),
+    ] {
+        assert_eq!(
+            call(&t, m, &p, Some(&t.sess), None).await.status(),
+            404,
+            "{p}"
+        );
+    }
+    let me = json_of(call(&t, M::GET, "/v1/me", Some(&t.sess), None).await).await;
+    assert_eq!(me["plaza_enabled"], false);
+    assert_eq!(me["plaza_reviewer"], false);
+    assert_eq!(me["plaza_review_id"], Value::Null);
+    // flag on but reviewer list empty: nobody can review, so nothing can become public
+    let (base, c, state) = serve(Config {
+        plaza_enabled: true,
+        ..test_cfg()
+    })
+    .await;
+    let sess = dev_session(&c, &base, "x@b.co").await;
+    let t2 = T {
+        base,
+        c,
+        sess: sess.clone(),
+        state,
+    };
+    assert_eq!(
+        call(&t2, M::GET, "/v1/plaza/review", Some(&sess), None)
+            .await
+            .status(),
+        404
+    );
+    assert_eq!(plaza_public(&t2).await, json!([]));
+}
+
+#[tokio::test]
+async fn plaza_submit_review_and_public_list() {
+    let (t, rev) = plaza_server().await;
+    let other = dev_session(&t.c, &t.base, "other@b.co").await;
+    let hp = "https://cool-app.dev/";
+    let id = plaza_app(&t, "Cool", Some(hp)).await;
+    let path = format!("/v1/me/apps/{id}/plaza");
+    assert_eq!(plaza_mine(&t, &id).await, Value::Null);
+    assert_eq!(plaza_public(&t).await, json!([]));
+
+    // CORS: any origin may read the list; reviewer routes are not opened
+    let r = call(&t, M::GET, "/v1/plaza", None, None).await;
+    assert_eq!(r.headers()["access-control-allow-origin"], "*");
+    let r = call(&t, M::OPTIONS, "/v1/plaza", None, None).await;
+    assert_eq!(r.status(), 204);
+    assert_eq!(r.headers()["access-control-allow-origin"], "*");
+    let r = call(&t, M::GET, "/v1/plaza/review", None, None).await;
+    assert!(r.headers().get("access-control-allow-origin").is_none());
+
+    // only the owner submits
+    assert_eq!(
+        call(&t, M::POST, &path, Some(&other), None).await.status(),
+        404
+    );
+    assert_eq!(call(&t, M::POST, &path, None, None).await.status(), 401);
+    let r = call(&t, M::POST, &path, Some(&t.sess), None).await;
+    assert_eq!(json_of(r).await, json!({"status": "pending"}));
+    assert_eq!(plaza_mine(&t, &id).await, "pending");
+    assert_eq!(plaza_post(&t, &id).await, 409);
+    assert_eq!(plaza_public(&t).await, json!([]), "pending is not public");
+
+    // the owner is not a reviewer and sees 404; the reviewer sees public fields only
+    assert_eq!(
+        call(&t, M::GET, "/v1/plaza/review", Some(&t.sess), None)
+            .await
+            .status(),
+        404
+    );
+    assert_eq!(
+        plaza_decide(&t, &t.sess, &id, "approve", "Cool", hp)
+            .await
+            .status(),
+        404
+    );
+    assert_eq!(
+        call(&t, M::GET, "/v1/plaza/review", None, None)
+            .await
+            .status(),
+        401
+    );
+    let me = json_of(call(&t, M::GET, "/v1/me", Some(&rev), None).await).await;
+    assert_eq!(me["plaza_enabled"], true);
+    assert_eq!(me["plaza_reviewer"], true);
+    assert_eq!(me["plaza_review_id"], "google:rev-sub");
+    let q = json_of(call(&t, M::GET, "/v1/plaza/review", Some(&rev), None).await).await;
+    assert_eq!(q.as_array().unwrap().len(), 1);
+    let mut keys: Vec<_> = q[0].as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        ["app_id", "homepage", "name", "status", "submitted_at"]
+    );
+    assert_eq!(
+        call(
+            &t,
+            M::GET,
+            "/v1/plaza/review?status=bogus",
+            Some(&rev),
+            None
+        )
+        .await
+        .status(),
+        400
+    );
+
+    // a decision on text the reviewer did not see is refused and changes nothing
+    for (n, h) in [("Other", hp), ("Cool", "https://evil.dev/")] {
+        let r = plaza_decide(&t, &rev, &id, "approve", n, h).await;
+        assert_eq!(r.status(), 409);
+        assert_eq!(json_of(r).await["error"]["type"], "stale_submission");
+    }
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "bogus", "Cool", hp)
+            .await
+            .status(),
+        400
+    );
+    assert_eq!(plaza_mine(&t, &id).await, "pending");
+
+    // the owner edits between the review screen and the click: approval is refused
+    let put = |n: &'static str, h: &'static str| {
+        let (t, id) = (&t, id.clone());
+        async move {
+            call(
+                t,
+                M::PUT,
+                &format!("/v1/me/apps/{id}"),
+                Some(&t.sess),
+                Some(json!({"name": n, "homepage": h, "allowed_origins": null})),
+            )
+            .await
+        }
+    };
+    assert_eq!(put("Cool", "https://cool-app.dev/new").await.status(), 200);
+    assert_eq!(plaza_mine(&t, &id).await, Value::Null);
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "approve", "Cool", hp)
+            .await
+            .status(),
+        409
+    );
+    assert_eq!(plaza_public(&t).await, json!([]));
+
+    // resubmit the new text, approve it
+    let hp = "https://cool-app.dev/new";
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    let r = plaza_decide(&t, &rev, &id, "approve", "Cool", hp).await;
+    assert_eq!(json_of(r).await["status"], "approved");
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "approve", "Cool", hp)
+            .await
+            .status(),
+        409
+    );
+    assert_eq!(
+        plaza_public(&t).await,
+        json!([{"name": "Cool", "homepage": hp}])
+    );
+    assert_eq!(plaza_mine(&t, &id).await, "approved");
+    assert_eq!(plaza_post(&t, &id).await, 409);
+
+    // origins alone keep the listing; a new name or homepage drops it at once
+    let r = call(
+        &t,
+        M::PUT,
+        &format!("/v1/me/apps/{id}"),
+        Some(&t.sess),
+        Some(
+            json!({"name": " Cool ", "homepage": hp, "allowed_origins": ["https://cool-app.dev"]}),
+        ),
+    )
+    .await;
+    assert_eq!(json_of(r).await["plaza"], "approved");
+    assert_eq!(plaza_public(&t).await.as_array().unwrap().len(), 1);
+    assert_eq!(put("Cooler", hp).await.status(), 200);
+    assert_eq!(plaza_public(&t).await, json!([]));
+    assert_eq!(plaza_mine(&t, &id).await, Value::Null);
+
+    // reviewer reject / take-down; a rejected app may resubmit; the owner may withdraw
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "withdraw", "Cooler", hp)
+            .await
+            .status(),
+        409,
+        "withdraw needs approved"
+    );
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "reject", "Cooler", hp)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(plaza_mine(&t, &id).await, "rejected");
+    let rej = json_of(
+        call(
+            &t,
+            M::GET,
+            "/v1/plaza/review?status=rejected",
+            Some(&rev),
+            None,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(rej.as_array().unwrap().len(), 1);
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "approve", "Cooler", hp)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "withdraw", "Cooler", hp)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(plaza_public(&t).await, json!([]));
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    assert_eq!(
+        call(&t, M::DELETE, &path, Some(&other), None)
+            .await
+            .status(),
+        404
+    );
+    let r = call(&t, M::DELETE, &path, Some(&t.sess), None).await;
+    assert_eq!(json_of(r).await, json!({"status": null}));
+    assert_eq!(plaza_mine(&t, &id).await, Value::Null);
+
+    // deleting an approved app hides it and removes it from review
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "approve", "Cooler", hp)
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(plaza_public(&t).await.as_array().unwrap().len(), 1);
+    let r = call(
+        &t,
+        M::DELETE,
+        &format!("/v1/me/apps/{id}"),
+        Some(&t.sess),
+        None,
+    )
+    .await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(plaza_public(&t).await, json!([]));
+    assert_eq!(
+        plaza_decide(&t, &rev, &id, "withdraw", "Cooler", hp)
+            .await
+            .status(),
+        404
+    );
+}
+
+#[tokio::test]
+async fn plaza_rejects_unsafe_homepages() {
+    let (t, rev) = plaza_server().await;
+    let none = plaza_app(&t, "NoHome", None).await;
+    assert_eq!(plaza_post(&t, &none).await, 400);
+    for bad in [
+        "http://a.dev/",
+        "https://localhost/",
+        "https://127.0.0.1/",
+        "https://a.dev@evil.dev/",
+        "https://user:pw@a.dev/",
+        "https://printer.local/",
+        "https://[::1]/",
+        "javascript:alert(1)",
+        "https://a.dev/<script>",
+        "https://0x7f.0x1/",
+        "https://nodots/",
+        "https://a.dev:abc/",
+        "https://example.com:999999/",
+        "https://a.dev:/<x",
+        "https://127.1/",
+        "https://a.dev/ x",
+    ] {
+        let id = plaza_app(&t, "Bad", Some(bad)).await;
+        assert_eq!(plaza_post(&t, &id).await, 400, "{bad}");
+    }
+    // valid Unicode path and IDN host are accepted, and the raw string is kept as typed
+    for ok in ["https://good.dev/日本語/ページ?q=é", "https://例え.jp/"] {
+        let id = plaza_app(&t, "Uni", Some(ok)).await;
+        assert_eq!(plaza_post(&t, &id).await, 200, "{ok}");
+        let q = json_of(call(&t, M::GET, "/v1/plaza/review", Some(&rev), None).await).await;
+        let row = q
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["app_id"] == id)
+            .unwrap()
+            .clone();
+        assert_eq!(row["homepage"], ok);
+        let r = plaza_decide(&t, &rev, &id, "approve", "Uni", ok).await;
+        assert_eq!(r.status(), 200, "{ok}");
+    }
+    // even a pending row cannot be approved if its homepage is somehow not valid
+    let id = plaza_app(&t, "Good", Some("https://good.dev:8443/p?q=1")).await;
+    assert_eq!(plaza_post(&t, &id).await, 200);
+    sqlx_query(
+        &t.state,
+        &format!("UPDATE apps SET homepage='http://good.dev/' WHERE id='{id}'"),
+    )
+    .await;
+    let r = plaza_decide(&t, &rev, &id, "approve", "Good", "http://good.dev/").await;
+    assert_eq!(r.status(), 400);
+}
+
+#[tokio::test]
+async fn plaza_page_is_served_with_strict_csp() {
+    let (t, _) = plaza_server().await;
+    for p in ["/examples", "/examples/"] {
+        let r = call(&t, M::GET, p, None, None).await;
+        assert_eq!(r.status(), 200);
+        let csp = r.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            csp.contains("script-src 'self'")
+                && csp.contains("frame-ancestors 'none'")
+                && !csp.contains("script-src 'unsafe")
+        );
+        assert!(r.text().await.unwrap().contains("community-plaza"));
+    }
+    let r = call(&t, M::GET, "/examples/plaza.js", None, None).await;
+    assert_eq!(r.status(), 200);
+    assert!(r.text().await.unwrap().contains("/v1/plaza"));
+}
+
+async fn me_of(t: &T, s: &str) -> Value {
+    json_of(call(t, M::GET, "/v1/me", Some(s), None).await).await
+}
+
+#[tokio::test]
+async fn plaza_reviewers_are_stable_verified_identities() {
+    use sha2::{Digest, Sha256};
+    let pw = "pw-long-random";
+    let cfg = |url: Option<String>, list: &[&str]| Config {
+        plaza_enabled: true,
+        dev_login: true,
+        password_login: Some(("ops".into(), Sha256::digest(pw).into())),
+        plaza_reviewers: list.iter().map(|x| x.to_string()).collect(),
+        database_url: url.unwrap_or_else(|| test_cfg().database_url),
+        ..test_cfg()
+    };
+    let list = ["google:g1", "apple:a1", "password:ops", "g1", "x@y.co"];
+    // the same verified subject is a reviewer on two fresh databases, under different user ids
+    let mut uids = vec![];
+    for _ in 0..2 {
+        let (base, c, state) = serve(cfg(None, &list)).await;
+        let t = T {
+            base: base.clone(),
+            c: c.clone(),
+            sess: String::new(),
+            state,
+        };
+        let g = dev_session(&c, &base, "g@b.co").await;
+        sqlx::query("UPDATE users SET google_sub='g1' WHERE email='g@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        let me = me_of(&t, &g).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(true), json!("google:g1"))
+        );
+        uids.push(me["id"].clone());
+        // Apple, and the operator password identity
+        let a = dev_session(&c, &base, "a@b.co").await;
+        sqlx::query("UPDATE users SET apple_sub='a1' WHERE email='a@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        assert_eq!(me_of(&t, &a).await["plaza_review_id"], "apple:a1");
+        let r = c
+            .post(format!("{base}/v1/auth/password"))
+            .json(&json!({"username": "ops", "password": pw}))
+            .send()
+            .await
+            .unwrap();
+        let ops = json_of(r).await["session_token"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let me = me_of(&t, &ops).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(true), json!("password:ops"))
+        );
+        // dev login: no identity, never a reviewer, cannot reach the password identity by email
+        let d = dev_session(&c, &base, "x@y.co").await;
+        let me = me_of(&t, &d).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(false), Value::Null)
+        );
+        let r = c
+            .post(format!("{base}/v1/auth/dev"))
+            .json(&json!({"email": "ops@password.invalid"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(r.status(), 400);
+        // same email, different provider subject: identity is the subject, not the email
+        let e = dev_session(&c, &base, "same@b.co").await;
+        sqlx::query("UPDATE users SET google_sub='g2' WHERE email='same@b.co'")
+            .execute(&t.state.db)
+            .await
+            .unwrap();
+        let me = me_of(&t, &e).await;
+        assert_eq!(
+            (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+            (json!(false), json!("google:g2"))
+        );
+        assert_eq!(
+            call(&t, M::GET, "/v1/plaza/review", Some(&e), None)
+                .await
+                .status(),
+            404
+        );
+    }
+    assert_ne!(uids[0], uids[1], "user ids differ per database");
+    // a former random user id in the list is no longer enough
+    let (base, c, state) = serve(cfg(None, &[])).await;
+    let s = dev_session(&c, &base, "u@b.co").await;
+    let t = T {
+        base: base.clone(),
+        c: c.clone(),
+        sess: s.clone(),
+        state,
+    };
+    let uid = me_of(&t, &s).await["id"].as_str().unwrap().to_string();
+    let (base, c, state) = serve(Config {
+        database_url: t.state.cfg.database_url.clone(),
+        ..cfg(None, &[&uid])
+    })
+    .await;
+    let t = T {
+        base,
+        c,
+        sess: s.clone(),
+        state,
+    };
+    let me = me_of(&t, &s).await;
+    assert_eq!(me["plaza_reviewer"], false);
+    // flag off hides the id
+    let (base, c, state) = serve(Config {
+        plaza_enabled: false,
+        ..cfg(None, &list)
+    })
+    .await;
+    let g = dev_session(&c, &base, "g@b.co").await;
+    sqlx::query("UPDATE users SET google_sub='g1' WHERE email='g@b.co'")
+        .execute(&state.db)
+        .await
+        .unwrap();
+    let t = T {
+        base,
+        c,
+        sess: g.clone(),
+        state,
+    };
+    let me = me_of(&t, &g).await;
+    assert_eq!(
+        (me["plaza_reviewer"].clone(), me["plaza_review_id"].clone()),
+        (json!(false), Value::Null)
+    );
 }

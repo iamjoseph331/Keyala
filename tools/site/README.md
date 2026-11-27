@@ -53,3 +53,9 @@ Search favicon assets are rasterized from `site/brand/koala.svg`: a 96px PNG,
 browsers and declares all raster URLs. Only the domain homepage emits `WebSite`
 JSON-LD with name `Keyala` and URL `https://keyala.io/`; locale subdirectories do
 not declare separate sites. Google controls whether and when these appear.
+
+The staging-only Plaza reuses `site/examples/index.html`. After changing that page,
+`site/base.css`, `site/i18n.js` or `site/examples/plaza.js`, run
+`node tools/site/build-plaza.mjs` to refresh the backend's embedded HTML and JS.
+`node tools/site/build-plaza.mjs --check` detects stale copies in backend CI.
+The generated page embeds its styling and logo so the backend's strict CSP stays intact.

@@ -360,7 +360,7 @@ pub async fn delete_account(
         "DELETE FROM passkeys WHERE user_id=?1",
         "DELETE FROM passkey_challenges WHERE user_id=?1",
         // apps outlive their owner: they keep working with their secret
-        "UPDATE apps SET owner_user_id=NULL WHERE owner_user_id=?1",
+        "UPDATE apps SET owner_user_id=NULL, plaza_status=NULL WHERE owner_user_id=?1",
         "DELETE FROM users WHERE id=?1",
     ] {
         sqlx::query(q).bind(&u).execute(&mut *tx).await?;
