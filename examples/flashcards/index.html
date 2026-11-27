@@ -6,6 +6,34 @@
 <title>Flashcards</title>
 <meta name="description" content="Vocabulary flashcards for any language and level, made by AI on your own OpenAI account through Keyala.">
 <link rel="icon" href="keyala-icon.svg">
+<script id="theme-script">
+(() => {
+  const root = document.documentElement, system = matchMedia('(prefers-color-scheme: dark)');
+  let chosen;
+  try { chosen = localStorage.getItem('keyala-example-theme'); } catch {}
+  if (!['light', 'dark'].includes(chosen)) chosen = null;
+  const apply = () => { root.dataset.theme = chosen || (system.matches ? 'dark' : 'light'); };
+  apply();
+  system.addEventListener('change', apply);
+  document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('theme-toggle');
+    const label = () => {
+      const dark = root.dataset.theme === 'dark';
+      const labels = { en: ['Switch to dark mode', 'Switch to light mode'], 'zh-Hant': ['切換深色模式', '切換淺色模式'], ja: ['ダークモードに切り替える', 'ライトモードに切り替える'] };
+      button.title = (labels[root.lang] || labels.en)[Number(dark)];
+      button.setAttribute('aria-label', button.title);
+    };
+    button.addEventListener('click', () => {
+      chosen = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('keyala-example-theme', chosen); } catch {}
+      apply(); label();
+    });
+    system.addEventListener('change', label);
+    document.getElementById('ui-lang').addEventListener('change', label);
+    label();
+  });
+})();
+</script>
 <style>
   :root {
     --bg:#f7f7f4; --card:#fff; --ink:#15171c; --ink2:#3d424d; --muted:#6c717c; --line:#e4e4de; --soft:#f1f1ec;
@@ -14,13 +42,18 @@
     --ky:#3d7a57; --ky-paper:#faf7f2; --ky-ink:#1f1b16; --ky-muted:#7a7268; --ky-line:#ece6dc;
     --radius:16px; --shadow:0 1px 2px rgba(21,23,28,.04), 0 8px 24px -12px rgba(21,23,28,.12);
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
+  :root[data-theme="dark"] { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
       --accent:#8aa8ff; --accent-ink:#0d1020; --accent-soft:#1c2440;
       --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
       --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
-  }
+  :root { color-scheme:light }
+  :root[data-theme="dark"] { color-scheme:dark }
+  #theme-toggle { flex:none; width:44px; height:44px; padding:12px; display:grid; place-items:center }
+  #theme-toggle svg { grid-area:1 / 1 }
+  .theme-sun, [data-theme="dark"] .theme-moon { display:none }
+  [data-theme="dark"] .theme-sun { display:block }
+
   * { box-sizing:border-box }
   body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
   a { color:var(--accent) }
@@ -111,6 +144,10 @@
     <a class="brand" href="#"><span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></svg></span>Flashcards</a>
     <div class="right">
       <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
+      <button type="button" id="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
+        <svg class="theme-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="theme-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+      </button>
       <select id="ui-lang" aria-label="Language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option></select>
     </div>
   </nav>

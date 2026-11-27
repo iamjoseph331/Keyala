@@ -9,6 +9,34 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script id="theme-script">
+(() => {
+  const root = document.documentElement, system = matchMedia('(prefers-color-scheme: dark)');
+  let chosen;
+  try { chosen = localStorage.getItem('keyala-example-theme'); } catch {}
+  if (!['light', 'dark'].includes(chosen)) chosen = null;
+  const apply = () => { root.dataset.theme = chosen || (system.matches ? 'dark' : 'light'); };
+  apply();
+  system.addEventListener('change', apply);
+  document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('theme-toggle');
+    const label = () => {
+      const dark = root.dataset.theme === 'dark';
+      const labels = { en: ['Switch to dark mode', 'Switch to light mode'], 'zh-Hant': ['切換深色模式', '切換淺色模式'], ja: ['ダークモードに切り替える', 'ライトモードに切り替える'] };
+      button.title = (labels[root.lang] || labels.en)[Number(dark)];
+      button.setAttribute('aria-label', button.title);
+    };
+    button.addEventListener('click', () => {
+      chosen = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('keyala-example-theme', chosen); } catch {}
+      apply(); label();
+    });
+    system.addEventListener('change', label);
+    document.getElementById('ui-lang').addEventListener('change', label);
+    label();
+  });
+})();
+</script>
 <style>
   :root {
     --bg:#f7f7f4; --card:#fff; --ink:#15171c; --ink2:#3d424d; --muted:#6c717c; --line:#e4e4de; --soft:#f1f1ec;
@@ -20,14 +48,19 @@
     --radius:16px;
     --shadow:0 1px 2px rgba(21,23,28,.04), 0 8px 24px -12px rgba(21,23,28,.12);
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
+  :root[data-theme="dark"] { --bg:#111214; --card:#1a1c20; --ink:#ecece8; --ink2:#c6c8cc; --muted:#8d9098; --line:#2a2d33; --soft:#202328;
       --accent:#8aa8ff; --accent-ink:#0d1020; --accent-soft:#1c2440;
       --ok:#7fc29b; --okbg:#173024; --warn:#f3c969; --warnbg:#332a12; --bad:#f19a92; --badbg:#3a1a17;
       --mark:#5c4b12; --mark-ink:#ffe58f;
       --ky-paper:#1d211e; --ky-ink:#eae6dd; --ky-muted:#a39d92; --ky-line:#2f352f;
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.5); }
-  }
+  :root { color-scheme:light }
+  :root[data-theme="dark"] { color-scheme:dark }
+  #theme-toggle { flex:none; width:44px; height:44px; padding:12px; display:grid; place-items:center }
+  #theme-toggle svg { grid-area:1 / 1 }
+  .theme-sun, [data-theme="dark"] .theme-moon { display:none }
+  [data-theme="dark"] .theme-sun { display:block }
+
   * { box-sizing:border-box }
   html { scroll-behavior:smooth }
   body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
@@ -192,6 +225,10 @@
     <div class="right">
       <a href="#how" data-i18n="nav.how"></a>
       <a href="https://keyala.io/" target="_blank" rel="noopener">Keyala</a>
+      <button type="button" id="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
+        <svg class="theme-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="theme-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+      </button>
       <select id="ui-lang" aria-label="Language">
         <option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="ja">日本語</option>
       </select>
