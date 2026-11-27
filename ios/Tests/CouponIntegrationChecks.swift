@@ -82,7 +82,7 @@ import Foundation
 
     private static func testAccount(_ base: String) async throws -> APIClient {
         let api = APIClient(baseURL: base, allowLocalHTTP: true, token: nil)
-        api.token = try await api.devLogin(email: "coupon-" + UUID().uuidString + "@example.invalid").sessionToken
+        api.token = try await api.devLogin(email: "coupon-" + UUID().uuidString + "@example.test").sessionToken
         return api
     }
 

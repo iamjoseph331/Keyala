@@ -244,6 +244,8 @@ flow is shared with the existing Google sign-in implementation.
 
 ## Sponsored coupons
 
+This change is delivered to staging only. Select the staging server in Settings → Developer options before opening its coupon links. Production availability and TestFlight distribution are separate release steps.
+
 Open `keyala://coupon/<code>`, open the selected server’s HTTPS `/coupon/<code>`
 link, or use the Inbox scanner. The code field also accepts a case-sensitive
 `KC-` code. If signed out, sign in to continue reviewing the same coupon. Confirm
