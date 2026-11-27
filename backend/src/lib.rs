@@ -6,6 +6,7 @@ mod enroll;
 mod oauth;
 mod ops;
 mod passkey;
+mod plaza;
 pub mod pricing;
 mod proxy;
 mod routes;
@@ -88,6 +89,11 @@ pub struct Config {
     pub backup_dir: Option<std::path::PathBuf>,
     pub backup_keep: usize,
     pub backup_interval: Duration,
+    /// Plaza, the reviewed public app list (KEYALA_PLAZA_ENABLED=1; off = its routes are 404)
+    pub plaza_enabled: bool,
+    /// User ids (not emails) allowed to review Plaza submissions (KEYALA_PLAZA_REVIEWERS, comma
+    /// separated). Empty = nobody can review, so nothing ever becomes public.
+    pub plaza_reviewers: Vec<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -256,6 +262,8 @@ impl Config {
                     apps
                 }
             },
+            plaza_enabled: env("KEYALA_PLAZA_ENABLED").as_deref() == Some("1"),
+            plaza_reviewers: list("KEYALA_PLAZA_REVIEWERS"),
             public_url,
         })
     }
@@ -384,6 +392,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/app/secret", post(rotate_secret))
         .route("/v1/app/report", get(app_report))
         .route("/connect/{code}/qr.svg", get(enroll::connect_qr))
+        .route("/v1/plaza", get(plaza::list))
         .layer(middleware::from_fn(cors));
     Router::new()
         .merge(developer)
@@ -466,6 +475,15 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/v1/me/apps/{id}/report", get(console::apps_report))
         .route("/v1/me/apps/{id}/secret", post(console::apps_rotate))
+        .route(
+            "/v1/me/apps/{id}/plaza",
+            post(plaza::submit).delete(plaza::withdraw),
+        )
+        .route("/v1/plaza/review", get(plaza::review_list))
+        .route("/v1/plaza/review/{id}", post(plaza::review_decide))
+        .route("/examples", get(plaza::page))
+        .route("/examples/", get(plaza::page))
+        .route("/examples/plaza.js", get(plaza::script))
         .route("/v1/me/preferences", get(get_prefs).patch(patch_prefs))
         .route("/v1/me/keys", get(list_keys))
         .route("/v1/me/keys/{vendor}", put(put_key).delete(delete_key))

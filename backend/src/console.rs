@@ -93,7 +93,7 @@ pub async fn me(State(s): State<AppState>, h: HeaderMap) -> R<Json<Value>> {
     .fetch_one(&s.db)
     .await?;
     Ok(Json(
-        json!({"id": u, "auth_provider": provider, "email": email, "has_password": pw, "has_passkey": pk}),
+        json!({"id": u, "auth_provider": provider, "email": email, "has_password": pw, "has_passkey": pk, "plaza_enabled": s.cfg.plaza_enabled, "plaza_reviewer": crate::plaza::is_reviewer(&s, &u)}),
     ))
 }
 
@@ -325,14 +325,16 @@ type AppRowT = (
     String,
     i64,
     i64,
+    Option<String>,
 );
 fn app_summary(r: AppRowT) -> Value {
     let origins: Option<Value> = r.3.and_then(|o| serde_json::from_str(&o).ok());
-    json!({"id": r.0, "name": r.1, "homepage": r.2, "allowed_origins": origins, "created_at": r.4, "requests_7d": r.5, "cost_usd_7d": usd(r.6)})
+    json!({"id": r.0, "name": r.1, "homepage": r.2, "allowed_origins": origins, "created_at": r.4, "requests_7d": r.5, "cost_usd_7d": usd(r.6), "plaza": r.7})
 }
 const APP_SUMMARY: &str = "SELECT a.id, a.name, a.homepage, a.allowed_origins, a.created_at, \
     (SELECT COUNT(*) FROM requests r WHERE r.app_id=a.id AND r.created_at>=?1), \
-    (SELECT COALESCE(SUM(r.actual_micro),0) FROM requests r WHERE r.app_id=a.id AND r.created_at>=?1 AND r.status='completed') \
+    (SELECT COALESCE(SUM(r.actual_micro),0) FROM requests r WHERE r.app_id=a.id AND r.created_at>=?1 AND r.status='completed'), \
+    a.plaza_status \
     FROM apps a WHERE a.owner_user_id=?2 AND a.deleted_at IS NULL";
 fn since_7d() -> String {
     format!(
@@ -439,7 +441,9 @@ pub async fn apps_update(
         .allowed_origins
         .as_ref()
         .map(|o| serde_json::to_string(o).unwrap_or_default());
-    sqlx::query("UPDATE apps SET name=?, homepage=?, allowed_origins=? WHERE id=? AND owner_user_id=? AND deleted_at IS NULL")
+    // A changed name or homepage drops any Plaza submission/approval in this same statement (SQLite
+    // reads the old values on the right of SET), so a reviewer never approves text that has moved on.
+    sqlx::query("UPDATE apps SET plaza_status=CASE WHEN name IS NOT ?1 OR homepage IS NOT ?2 THEN NULL ELSE plaza_status END, name=?1, homepage=?2, allowed_origins=?3 WHERE id=?4 AND owner_user_id=?5 AND deleted_at IS NULL")
         .bind(b.name.trim())
         .bind(&b.homepage)
         .bind(&origins)

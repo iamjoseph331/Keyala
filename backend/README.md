@@ -35,6 +35,8 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `KEYALA_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
 | `KEYALA_PUBLIC_APPS` | unset | JSON array of browser apps `[{"id":"app_x","name":"X","homepage":null,"allowed_origins":["https://x.github.io"]}]`, upserted on every start (survives the free-plan DB reset) so a static page can ship a fixed `app_id` |
 | `KEYALA_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
+| `KEYALA_PLAZA_ENABLED` | off | `1` turns on Plaza, the reviewed community app list (`GET /v1/plaza`, `/examples`, console submit/review). Enable on staging only until the owner approves production |
+| `KEYALA_PLAZA_REVIEWERS` | empty | comma-separated **user ids** (GET `/v1/me` as the reviewer shows `id`) allowed to approve/reject. Empty = nobody, so nothing becomes public. Not emails |
 | `KEYALA_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `KEYALA_MOCK_FAIL` yields a 500) |
 
 `POST /v1/auth/apple` and `POST /v1/auth/google` verify Apple / Google identity tokens. A Google sign-in is its own
