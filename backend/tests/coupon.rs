@@ -1982,8 +1982,11 @@ async fn restart_resends_only_inside_the_attempt_budget_and_the_24h_window() {
     let put = |id: &'static str, attempts: i64, first: String| {
         let (db, bid) = (e.st.db.clone(), bid.clone());
         async move {
-            sqlx::query("INSERT INTO coupon_outbox (id,batch_id,kind,dedup_key,status,attempts,first_attempt_at,next_attempt_at,created_at,recipient,from_addr,subject,body) VALUES (?1,?2,'capacity',?1,'sending',?3,?4,'2000-01-01T00:00:00.000Z','t','o@x.co','f@x.co','s','b')")
-                .bind(id).bind(bid).bind(attempts).bind(first).execute(&db).await.unwrap();
+            // Keep delivery in the future: this test observes restart recovery, not a race with its worker.
+            let next = (chrono::Utc::now() + chrono::Duration::hours(1))
+                .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            sqlx::query("INSERT INTO coupon_outbox (id,batch_id,kind,dedup_key,status,attempts,first_attempt_at,next_attempt_at,created_at,recipient,from_addr,subject,body,provider) VALUES (?1,?2,'capacity',?1,'sending',?3,?4,?5,'t','owner@x.co','f@x.co','s','b','mock')")
+                .bind(id).bind(bid).bind(attempts).bind(first).bind(next).execute(&db).await.unwrap();
         }
     };
     let ago = |h: i64| {
@@ -2011,8 +2014,8 @@ async fn restart_resends_only_inside_the_attempt_budget_and_the_24h_window() {
     };
     assert_eq!(
         status("fresh").await,
-        ("pending".into(), Some("o@x.co".into())),
-        "same message, same key, retried"
+        ("pending".into(), Some("owner@x.co".into())),
+        "same verified recipient and message recovered for its scheduled retry"
     );
     assert_eq!(
         status("old").await,
