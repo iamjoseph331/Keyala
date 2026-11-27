@@ -31,7 +31,7 @@ const T = { en: {
   plazaList: 'List in Plaza', plazaWithdraw: 'Withdraw from Plaza', plazaNeedHome: 'Add an https:// homepage to list this app in Plaza.',
   plazaStatus: { pending: 'Plaza: waiting for review', approved: 'Plaza: listed', rejected: 'Plaza: not approved' },
   plazaAsk: 'Submit this app for Plaza? If approved, only its name and homepage become public. Editing either one removes it from Plaza.',
-  plazaTitle: 'Plaza review', plazaNone: 'Nothing here.', approve: 'Approve', reject: 'Reject', takeDown: 'Take down', open: 'open',
+  plazaId: 'Your Plaza reviewer ID (add to KEYALA_PLAZA_REVIEWERS)', plazaTitle: 'Plaza review', plazaNone: 'Nothing here.', approve: 'Approve', reject: 'Reject', takeDown: 'Take down', open: 'open',
   plazaTabs: { pending: 'Pending', approved: 'Listed', rejected: 'Rejected' },
 }};
 const L = T[(navigator.language || 'en').slice(0, 2)] || T.en;
@@ -250,6 +250,8 @@ async function appsView(body, who) {
   });
   const tips = h('div', { class: 'card tip' }, h('h3', {}, L.tipsTitle), h('ul', {}, L.tips.map(t => h('li', {}, t))));
   body.append(err, notice, h('h2', {}, L.myApps), list, h('div', { class: 'cols' }, create, h('div', { class: 'stack' }, claim, tips)), rep);
+  if (who && who.plaza_review_id) body.append(h('p', { class: 'muted' }, L.plazaId + ': ', h('code', {}, who.plaza_review_id), ' ',
+    h('button', { onclick: ev => { navigator.clipboard.writeText(who.plaza_review_id).then(() => { ev.target.textContent = L.copied; }); } }, L.copy)));
   if (who && who.plaza_reviewer) plazaReview(body);
   async function plaza(a) {
     err.textContent = '';

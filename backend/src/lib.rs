@@ -91,8 +91,8 @@ pub struct Config {
     pub backup_interval: Duration,
     /// Plaza, the reviewed public app list (KEYALA_PLAZA_ENABLED=1; off = its routes are 404)
     pub plaza_enabled: bool,
-    /// User ids (not emails) allowed to review Plaza submissions (KEYALA_PLAZA_REVIEWERS, comma
-    /// separated). Empty = nobody can review, so nothing ever becomes public.
+    /// Stable identities allowed to review Plaza submissions (KEYALA_PLAZA_REVIEWERS, comma separated):
+    /// `google:<sub>`, `apple:<sub>` or `password:<operator username>`; never emails or user ids. Empty = nobody can review, so nothing ever becomes public.
     pub plaza_reviewers: Vec<String>,
 }
 
