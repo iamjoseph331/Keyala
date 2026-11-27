@@ -290,7 +290,9 @@ user; -> `{has_password:true}`), `DELETE /v1/me/password` (-> `{has_password:fal
 - `GET /v1/me/apps` and `PUT` responses gain `plaza` (`null|"pending"|"approved"|"rejected"`); `GET /v1/me` gains `plaza_enabled`
   and `plaza_reviewer` (booleans). No other field changes.
 - `POST /v1/me/apps/{id}/plaza` -> `{status:"pending"}`. Owner only (else 404). The app needs an https homepage naming a public DNS
-  host (no credentials, IP literals, `localhost`/`.local`-style names, non-ASCII; max 300 chars) else `400`. `409 already_listed`
+  host, as the WHATWG URL parser (`reqwest::Url`) reads it: valid port, no credentials, no IP in any spelling,
+  no `localhost`/`.local`-style suffixes, no whitespace, control, backslash or `<>"'` characters, max 300 chars; Unicode paths and
+  IDN hosts are allowed, else `400`. The raw string is stored and compared as typed; nothing is fetched. `409 already_listed`
   if pending or approved; a rejected app may resubmit. 20 per hour per address.
 - `DELETE /v1/me/apps/{id}/plaza` -> `{status:null}` (owner withdraw; idempotent).
 - A `PUT /v1/me/apps/{id}` that changes `name` or `homepage` sets the status to `null` in the same SQL statement; changing only

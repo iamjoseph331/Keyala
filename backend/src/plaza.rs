@@ -28,38 +28,41 @@ pub fn is_reviewer(s: &AppState, uid: &str) -> bool {
     s.cfg.plaza_enabled && s.cfg.plaza_reviewers.iter().any(|r| r == uid)
 }
 
-/// An https URL naming a public DNS host: no credentials, no IP literals, no local names, only
-/// plain ASCII (internationalised hosts go in as punycode).
+/// An https URL, as the browser's WHATWG parser reads it, naming a public DNS host: no
+/// credentials, no IP (any spelling the parser normalizes to one), no local suffixes. Unicode paths
+/// and internationalised hosts are fine; the raw string is what gets stored and compared.
 pub fn homepage_ok(u: &str) -> bool {
-    let Some(rest) = u.strip_prefix("https://") else {
-        return false;
-    };
+    // the parser silently trims/strips whitespace, controls and treats `\` as `/`: refuse them
     if u.len() > 300
-        || !u.bytes().all(|b| b.is_ascii_graphic())
+        || u.chars().any(|c| c.is_whitespace() || c.is_control())
         || u.contains(['\\', '<', '>', '"', '\'', '`'])
     {
         return false;
     }
-    let auth = rest.split(['/', '?', '#']).next().unwrap_or("");
-    let host = match auth.rsplit_once(':') {
-        Some((h, p)) if !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()) => h,
-        Some(_) => return false,
-        None => auth,
+    let Ok(url) = reqwest::Url::parse(u) else {
+        return false;
+    };
+    // domain() is None for IPv4/IPv6 hosts, including 127.1 and 0x7f.0x1 spellings
+    let Some(host) = url.domain() else {
+        return false;
     };
     let labels: Vec<&str> = host.split('.').collect();
-    let tld = labels.last().copied().unwrap_or("");
-    labels.len() >= 2
-        && labels.iter().all(|l| {
-            (1..=63).contains(&l.len())
-                && !l.starts_with('-')
-                && !l.ends_with('-')
-                && l.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-        })
-        // a TLD starts with a letter: rules out 127.0.0.1, 127.1 and 0x7f.0x1 style IP spellings
-        && tld.as_bytes()[0].is_ascii_alphabetic()
+    url.scheme() == "https"
+        && url.username().is_empty()
+        && url.password().is_none()
+        && labels.len() >= 2
+        && labels.iter().all(|l| !l.is_empty())
         && !matches!(
-            tld.to_ascii_lowercase().as_str(),
-            "local" | "localhost" | "internal" | "test" | "invalid" | "example" | "lan" | "home" | "corp"
+            labels[labels.len() - 1],
+            "local"
+                | "localhost"
+                | "internal"
+                | "test"
+                | "invalid"
+                | "example"
+                | "lan"
+                | "home"
+                | "corp"
         )
 }
 

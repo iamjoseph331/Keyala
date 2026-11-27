@@ -6325,9 +6325,29 @@ async fn plaza_rejects_unsafe_homepages() {
         "https://0x7f.0x1/",
         "https://nodots/",
         "https://a.dev:abc/",
+        "https://example.com:999999/",
+        "https://a.dev:/<x",
+        "https://127.1/",
+        "https://a.dev/ x",
     ] {
         let id = plaza_app(&t, "Bad", Some(bad)).await;
         assert_eq!(plaza_post(&t, &id).await, 400, "{bad}");
+    }
+    // valid Unicode path and IDN host are accepted, and the raw string is kept as typed
+    for ok in ["https://good.dev/日本語/ページ?q=é", "https://例え.jp/"] {
+        let id = plaza_app(&t, "Uni", Some(ok)).await;
+        assert_eq!(plaza_post(&t, &id).await, 200, "{ok}");
+        let q = json_of(call(&t, M::GET, "/v1/plaza/review", Some(&rev), None).await).await;
+        let row = q
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["app_id"] == id)
+            .unwrap()
+            .clone();
+        assert_eq!(row["homepage"], ok);
+        let r = plaza_decide(&t, &rev, &id, "approve", "Uni", ok).await;
+        assert_eq!(r.status(), 200, "{ok}");
     }
     // even a pending row cannot be approved if its homepage is somehow not valid
     let id = plaza_app(&t, "Good", Some("https://good.dev:8443/p?q=1")).await;
