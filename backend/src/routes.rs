@@ -10,7 +10,7 @@ use axum::{
 use std::{net::SocketAddr, time::Instant};
 use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 
-const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+pub const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 pub fn vendor_ok(v: &str) -> R<()> {
     if matches!(v, "openai" | "anthropic" | "openrouter") {
         Ok(())
@@ -121,6 +121,8 @@ pub struct NewConnect {
     suggested_policy: Option<PolicyIn>,
     /// browser clients only: identifies the app instead of the app secret
     app_id: Option<String>,
+    /// sponsored connect: a coupon batch code of this app and vendor (the user needs no key of their own)
+    coupon_code: Option<String>,
 }
 
 pub async fn create_connect(
@@ -172,6 +174,37 @@ pub async fn create_connect(
         )
     };
     vendor_ok(&b.vendor)?;
+    // the code is matched exactly as sent (case-sensitive). A code of another app or vendor is "not found":
+    // nothing is revealed about batches that are not this app's
+    let coupon_batch: Option<String> = match b.coupon_code.as_deref() {
+        None => None,
+        Some(code) => {
+            let row: Option<(String, String, String, Option<String>)> = if crate::coupons::code_ok(
+                code,
+            ) {
+                sqlx::query_as(
+                        "SELECT b.id, b.app_id, b.vendor, b.revoked_at FROM coupon_batches b JOIN apps a ON a.id=b.app_id WHERE b.code=? AND a.deleted_at IS NULL",
+                    )
+                    .bind(code)
+                    .fetch_optional(&s.db)
+                    .await?
+            } else {
+                None
+            };
+            let (id, bapp, bvendor, revoked) = row.ok_or_else(crate::coupons::e_not_found)?;
+            if bapp != app_id || bvendor != b.vendor {
+                return Err(crate::coupons::e_not_found());
+            }
+            if revoked.is_some() {
+                return Err(api(
+                    410,
+                    "coupon_revoked",
+                    "this coupon was revoked by its issuer",
+                ));
+            }
+            Some(id)
+        }
+    };
     let p = b
         .suggested_policy
         .unwrap_or(PolicyIn {
@@ -179,6 +212,9 @@ pub async fn create_connect(
             ..Default::default()
         })
         .parse()?;
+    if coupon_batch.is_some() && p.mode != "ask" {
+        return Err(sponsored_ask_only());
+    }
     let sp = policy_json(&p.mode, p.count, p.micro, p.alert, &p.expires_at).to_string();
     let expires = after(600);
     for _ in 0..5 {
@@ -190,8 +226,8 @@ pub async fn create_connect(
                     as char)
                 .collect::<String>()
         );
-        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at,secret_hash,origin) VALUES (?,?,?,?,?,?,?,?)")
-            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires).bind(connect_secret.as_deref().map(hash_token)).bind(&origin)
+        let r = sqlx::query("INSERT OR IGNORE INTO connect_codes (code,app_id,vendor,suggested_policy,created_at,expires_at,secret_hash,origin,coupon_batch_id) VALUES (?,?,?,?,?,?,?,?,?)")
+            .bind(&code).bind(&app_id).bind(&b.vendor).bind(&sp).bind(now()).bind(&expires).bind(connect_secret.as_deref().map(hash_token)).bind(&origin).bind(&coupon_batch)
             .execute(&s.db).await?;
         if r.rows_affected() == 1 {
             let url = format!("{}/connect/{code}", s.cfg.public_url);
@@ -239,6 +275,11 @@ pub async fn poll_connect(
         }
     }
     Ok(Json(json!({"status": status})))
+}
+
+/// Sponsored calls are approved one at a time, always: no standing policy may be set on them.
+pub fn sponsored_ask_only() -> ApiError {
+    crate::coupons::e_policy()
 }
 
 pub fn connect_code_ok(code: &str) -> bool {
@@ -420,7 +461,9 @@ pub async fn apple_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<Js
         .await
         .inspect_err(|e| tracing::warn!("apple sign-in rejected: {} ({})", e.1, e.2))?;
     tracing::info!("apple sign-in verified");
-    idp_login(&s, "apple", &c.sub, c.email).await
+    // the account address is kept as before; only a VERIFIED address ever becomes a notification address
+    let verified = c.email.clone().filter(|_| c.email_verified());
+    idp_login(&s, "apple", &c.sub, c.email, verified).await
 }
 
 /// Which sign-in methods this server offers, so clients can hide buttons that would 404/fail.
@@ -450,7 +493,7 @@ pub async fn google_login(State(s): State<AppState>, J(b): J<AppleLogin>) -> R<J
         .inspect_err(|e| tracing::warn!("google sign-in rejected: {} ({})", e.1, e.2))?;
     tracing::info!("google sign-in verified");
     let email = c.email.clone().filter(|_| c.email_verified());
-    idp_login(&s, "google", &c.sub, email).await
+    idp_login(&s, "google", &c.sub, email.clone(), email).await
 }
 
 /// Find or create the account for a verified provider subject. `provider` is "apple" | "google"
@@ -460,13 +503,24 @@ async fn idp_login(
     provider: &'static str,
     sub: &str,
     email: Option<String>,
+    verified: Option<String>,
 ) -> R<Json<Value>> {
+    // the address of a valid, verified identity token: the only source of coupon notification mail. Existing
+    // accounts have none until their next sign-in refreshes it.
+    let verified = verified
+        .map(|e| e.trim().to_lowercase())
+        .filter(|e| e.contains('@') && e.len() <= 200);
     let by_sub = format!("SELECT id, email FROM users WHERE {provider}_sub=?");
     let existing: Option<(String, String)> = sqlx::query_as(&by_sub)
         .bind(sub)
         .fetch_optional(&s.db)
         .await?;
     if let Some((uid, email)) = existing {
+        sqlx::query("UPDATE users SET notify_email=? WHERE id=?")
+            .bind(&verified)
+            .bind(&uid)
+            .execute(&s.db)
+            .await?;
         return new_session(s, &uid, &email, provider).await;
     }
     // never attach to an existing account by email: if it is taken, use a placeholder.
@@ -496,6 +550,11 @@ async fn idp_login(
     .await?;
     // a concurrent first login may have won the insert: always read back by sub
     let (uid, email): (String, String) = sqlx::query_as(&by_sub).bind(sub).fetch_one(&s.db).await?;
+    sqlx::query("UPDATE users SET notify_email=? WHERE id=?")
+        .bind(&verified)
+        .bind(&uid)
+        .execute(&s.db)
+        .await?;
     new_session(s, &uid, &email, provider).await
 }
 
@@ -667,13 +726,14 @@ struct ConnectRow {
     suggested_policy: String,
     expires_at: String,
     origin: Option<String>,
+    coupon_batch_id: Option<String>,
     app_name: String,
     app_homepage: Option<String>,
     app_icon_url: Option<String>,
 }
 
 async fn pending_connect(s: &AppState, code: &str) -> R<ConnectRow> {
-    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, c.origin, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
+    let c: ConnectRow = sqlx::query_as("SELECT c.app_id, c.vendor, c.suggested_policy, c.expires_at, c.origin, c.coupon_batch_id, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM connect_codes c JOIN apps a ON a.id=c.app_id WHERE c.code=? AND c.status='pending'")
         .bind(code).fetch_optional(&s.db).await?.ok_or_else(|| not_found("connect code"))?;
     if c.expires_at.as_str() <= now().as_str() {
         return Err(api(410, "expired", "connect code expired"));
@@ -737,7 +797,16 @@ pub async fn preview_connect(
 ) -> R<Json<Value>> {
     let u = auth_session(&s, &h).await?;
     let c = pending_connect(&s, &code).await?;
-    let billing = billing_for(&s, &u, &c.vendor).await?;
+    let sponsored = c.coupon_batch_id.is_some();
+    let billing = if sponsored {
+        c.vendor.clone()
+    } else {
+        billing_for(&s, &u, &c.vendor).await?
+    };
+    let coupon = match &c.coupon_batch_id {
+        Some(b) => crate::coupons::preview_for(&s, &u, b).await?,
+        None => Value::Null,
+    };
     let sp: Value = serde_json::from_str(&c.suggested_policy).unwrap_or(Value::Null);
     let has_prior_grant: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM grants WHERE user_id=? AND app_id=?)")
@@ -750,7 +819,7 @@ pub async fn preview_connect(
         .execute(&s.db)
         .await?;
     Ok(Json(
-        json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "billing_vendor": billing, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin, "requires_ask": !has_prior_grant}),
+        json!({"app": app_json(&c.app_id, &c.app_name, &c.app_homepage, &c.app_icon_url), "vendor": c.vendor, "billing_vendor": billing, "suggested_policy": sp, "expires_at": c.expires_at, "origin": c.origin, "requires_ask": sponsored || !has_prior_grant, "coupon": coupon}),
     ))
 }
 
@@ -775,7 +844,16 @@ pub async fn approve_connect(
             .map_err(|_| bad("bad suggested policy"))?
             .parse()?,
     };
-    let billing = billing_for(&s, &u, &c.vendor).await?;
+    let sponsored = c.coupon_batch_id.clone();
+    if sponsored.is_some() && p.mode != "ask" {
+        return Err(sponsored_ask_only());
+    }
+    // a coupon is its own funding: never the user's key, never OpenRouter routing
+    let billing = if sponsored.is_some() {
+        c.vendor.clone()
+    } else {
+        billing_for(&s, &u, &c.vendor).await?
+    };
     if b.billing_vendor.as_deref().is_some_and(|x| x != billing) {
         return Err(api(
             409,
@@ -789,7 +867,7 @@ pub async fn approve_connect(
             .bind(&billing)
             .fetch_optional(&s.db)
             .await?;
-    if has_key.is_none() {
+    if has_key.is_none() && sponsored.is_none() {
         return Err(api(
             409,
             "no_key",
@@ -822,11 +900,24 @@ pub async fn approve_connect(
             "approve calls one at a time first; widen the policy later from Grants",
         ));
     }
+    // claims the batch (or finds the coupon this account already holds) in the same transaction as the approval
+    let coupon_id = match &sponsored {
+        Some(batch) => {
+            let id = crate::coupons::claim_in_tx(&mut tx, &u, batch).await?;
+            // same checks as a call: this account's coupon, this app and vendor, open and with some balance left
+            crate::coupons::check_use(&mut tx, &id, &u, &c.app_id, &c.vendor, None, 1).await?;
+            Some(id)
+        }
+        None => None,
+    };
     // billing vendor is frozen here: later changes of the setting never switch this grant
     let frozen = (billing != c.vendor).then_some(billing.as_str());
-    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at,country,billing_vendor) VALUES (?,?,?,?,'ask',?,?,?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).bind(country(&s, &h)).bind(frozen).execute(&mut *tx).await?;
+    sqlx::query("INSERT INTO grants (id,user_id,app_id,vendor,mode,created_at,country,billing_vendor,coupon_id) VALUES (?,?,?,?,'ask',?,?,?,?)").bind(&gid).bind(&u).bind(&c.app_id).bind(&c.vendor).bind(now()).bind(country(&s, &h)).bind(frozen).bind(&coupon_id).execute(&mut *tx).await?;
     set_policy(&mut tx, &gid, &p).await?;
     tx.commit().await?;
+    if coupon_id.is_some() {
+        crate::coupons::kick(&s);
+    }
     let g = grant_for_user(&s, &u, &gid).await?;
     emit(&s, &u, "grant.updated", &g.json());
     Ok(Json(g.json()))
@@ -1043,8 +1134,11 @@ pub async fn patch_grant(
     J(b): J<PatchGrant>,
 ) -> R<Json<Value>> {
     let u = auth_level(&s, &h, ACT).await?;
-    grant_for_user(&s, &u, &id).await?;
+    let g = grant_for_user(&s, &u, &id).await?;
     let p = b.policy.parse()?;
+    if g.coupon_id.is_some() && p.mode != "ask" {
+        return Err(sponsored_ask_only());
+    }
     set_policy(&mut *s.db.acquire().await?, &id, &p).await?;
     let g = grant_for_user(&s, &u, &id).await?;
     emit(&s, &u, "grant.updated", &g.json());

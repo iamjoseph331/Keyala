@@ -35,6 +35,8 @@ cargo test && cargo clippy --all-targets -- -D warnings
 | `KEYALA_APNS_DETAILED` | off | `1` puts app/vendor/model/estimate in the push text; default is a generic lock-screen message (never prompt text either way) |
 | `KEYALA_PUBLIC_APPS` | unset | JSON array of browser apps `[{"id":"app_x","name":"X","homepage":null,"allowed_origins":["https://x.github.io"]}]`, upserted on every start (survives the free-plan DB reset) so a static page can ship a fixed `app_id` |
 | `KEYALA_COUNTRY_HEADER` | unset | header your trusted edge sets to the client country (`cf-ipcountry` behind Cloudflare). The country of the phone approving a connect is stored as a 2-letter code (never the IP) for developer reports. Leave unset if nothing in front of the server sets it, or clients could forge it |
+| `KEYALA_RESEND_API_KEY`, `KEYALA_EMAIL_FROM` | unset | Coupon alert email via Resend (`https://api.resend.com/emails`, fixed in code; nothing configurable can redirect it). Both needed. `KEYALA_EMAIL_FROM` is a verified sender such as `Keyala <coupons@your-domain>`. Unset = email off: batches report `email_enabled: false` and events are recorded as `skipped` |
+| `KEYALA_EMAIL_MOCK` | off | `1` marks coupon alerts `sent` with provider `mock` and makes no network call (tests, local runs); dev-login issuers count as mailable only in this mode |
 | `KEYALA_VENDOR_MOCK` | off | `1` fakes vendor responses (a message containing `KEYALA_MOCK_FAIL` yields a 500) |
 
 `POST /v1/auth/apple` and `POST /v1/auth/google` verify Apple / Google identity tokens. A Google sign-in is its own
@@ -86,6 +88,17 @@ header (<= 128 chars, unique per logical call, scoped to the grant). A repeated 
 and body returns the original request's outcome and sends nothing new; the same key with a different
 body is `409 idempotency_conflict`. After a `202` (held) or `504` (uncertain), poll
 `GET /v1/requests/{id}`: never resubmit.
+
+## Coupons (operations)
+
+App owners create batches in the console (Apps -> Coupons) or via `POST /v1/me/apps/{app}/coupons`; see `docs/PLAN.md` ("Keyala Coupon") for the contract.
+
+- Each batch has its own provider key, stored AES-GCM under the master key with AAD `batch|{id}|{vendor}` and wiped on revoke. It is never mixed with a user's personal keys. Use a key created only for the batch and also set a spend limit at the provider: Keyala's budget is its own accounting, not a provider-enforced cap. If a call ever costs more than the estimate Keyala held for it, the overshoot is recorded and the batch stops.
+- Every sponsored call waits for approval on the recipient's phone; sponsored grants cannot be widened.
+- Money is reserved per coupon at claim time and per call at approval; the sweep (every 30 s and at start) returns expired/revoked balances once. Inspect with `coupon_batches`, `coupons` and the append-only `coupon_ledger` (`total = available + sum(remaining + held) + spent` per batch).
+- Alert email goes only to the address of the issuer's last **verified** Apple/Google sign-in token (`users.notify_email`; accounts that have not signed in since the upgrade have none until they do). Placeholder `.invalid` addresses and password/dev accounts are never mailed (dev only under `KEYALA_EMAIL_MOCK=1`). The message is bound once and every retry is the same message with the outbox id as Resend `Idempotency-Key`; at most 5 attempts, none later than 23 h after the first (Resend de-duplicates for 24 h), also across restarts. `GET /v1/status` shows `coupon_email: off|mock|resend`. Mail never blocks claims or calls.
+- Deleting an account keeps unknown-outcome (`uncertain`) coupon holds as anonymous money (`coupons.user_id` NULL): they are not counted as spent. After restoring a backup run `docs/ops/replay-deletions.sh` (it handles coupons and works on backups from before and after migration 0017).
+- Tests and local runs: `KEYALA_VENDOR_MOCK=1 KEYALA_EMAIL_MOCK=1 KEYALA_DEV_LOGIN=1`; no provider or mail provider is contacted.
 
 ## Notes
 
