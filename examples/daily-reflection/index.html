@@ -53,6 +53,7 @@
   #theme-toggle svg { grid-area:1 / 1 }
   .theme-sun, [data-theme="dark"] .theme-moon { display:none }
   [data-theme="dark"] .theme-sun { display:block }
+  @media (max-width:520px) { nav .right { gap:8px } nav .right a { display:none } .brand { gap:8px; font-size:.95rem } }
 
   * { box-sizing:border-box }
   body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 system-ui,-apple-system,"Segoe UI","Hiragino Sans","PingFang TC","Noto Sans CJK TC",sans-serif; -webkit-font-smoothing:antialiased }
