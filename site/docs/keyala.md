@@ -2,7 +2,7 @@
 
 Keyala lets your app use a person's own OpenAI, Anthropic or OpenRouter API key without ever receiving it. The user pairs your app once, gets a scoped grant token to you, and approves calls on their phone (or sets a limit). You keep the official SDK and change one line, the base URL. This one file is the whole developer documentation, so you can also paste it into an AI coding assistant as context.
 
-Hosted servers: production `https://app.keyala.io`, staging `https://staging.keyala.io`. Everything below works on either; use the same server for registration, pairing, calls and reports. Keyala is an experimental beta and free (see the last section for what that means).
+Hosted servers: production `https://app.keyala.io`, staging `https://staging.keyala.io`. Core API examples work on either; Coupon APIs in this change are staging-only. Use the same server for registration, pairing, calls and reports. Keyala is an experimental beta and free (see the last section for what that means).
 
 ## Sponsored coupons (staging validation)
 

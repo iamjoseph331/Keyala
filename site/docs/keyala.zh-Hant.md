@@ -2,7 +2,7 @@
 
 Keyala 讓你的應用使用個人自己的 OpenAI、Anthropic 或 OpenRouter API 金鑰，卻不會收到該金鑰。使用者配對一次後，應用取得限定範圍的授權權杖；使用者在手機批准呼叫，或設定用量上限。保留官方 SDK，只需修改 base URL。這份 Markdown 包含完整開發文件，也可直接提供給 AI 程式助理作為整合參考。
 
-代管服務：正式環境 `https://app.keyala.io`，測試環境 `https://staging.keyala.io`。以下操作皆適用兩者；註冊、配對、呼叫與報表務必使用同一伺服器。Keyala 是免費的實驗性 beta，限制請見最後一節。
+代管服務：正式環境 `https://app.keyala.io`，測試環境 `https://staging.keyala.io`。既有核心 API 可用於兩者；這次新增的 Coupon API 僅於 staging 驗證。註冊、配對、呼叫與報表務必使用同一伺服器。Keyala 是免費的實驗性 beta，限制請見最後一節。
 
 ## 贊助 Coupon（staging 驗證）
 
