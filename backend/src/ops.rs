@@ -37,7 +37,8 @@ pub async fn status(State(s): State<AppState>) -> (StatusCode, Json<Value>) {
     (
         code,
         Json(
-            json!({"ok": db, "paused": paused(&s), "db": db, "version": env!("CARGO_PKG_VERSION")}),
+            json!({"ok": db, "paused": paused(&s), "db": db, "version": env!("CARGO_PKG_VERSION"),
+                   "coupon_email": if s.cfg.email_mock { "mock" } else if s.cfg.resend_api_key.is_some() && s.cfg.email_from.is_some() { "resend" } else { "off" }}),
         ),
     )
 }
@@ -342,11 +343,15 @@ pub async fn delete_account(
     if sending_count(&mut *tx, &u).await? > 0 {
         return Err(in_flight()); // tx drops: sessions stay
     }
+    // coupons first: waiting calls are denied, unknown-outcome holds are charged, unused balances return, an
+    // issuer's batches are revoked. Their rows stay as aggregates in the batch/ledger tables (no identity).
+    let other_denied = crate::coupons::detach_user(&mut tx, &u).await?;
     // FK-safe order. Every table with a user_id column is listed (a test fails if a new one appears).
     for q in [
         "DELETE FROM connect_codes WHERE grant_id IN (SELECT id FROM grants WHERE user_id=?1)",
         "DELETE FROM requests WHERE user_id=?1",
         "DELETE FROM grants WHERE user_id=?1",
+        "DELETE FROM coupons WHERE user_id=?1",
         "DELETE FROM api_keys WHERE user_id=?1",
         "DELETE FROM devices WHERE user_id=?1",
         "DELETE FROM enrollments WHERE user_id=?1",
@@ -374,6 +379,9 @@ pub async fn delete_account(
     if let Err(e) = tx.commit().await {
         let _ = tombstone(&s, "undeleted", &u);
         return Err(e.into());
+    }
+    for id in &other_denied {
+        emit_request(&s, "request.updated", id).await;
     }
     // after the commit, so a refused deletion (409, tombstone failure) never revokes Apple access
     let apple_revoked = match (is_apple, b.authorization_code.as_deref()) {

@@ -33,6 +33,56 @@ struct RoutingPreferences: Codable {
     enum CodingKeys: String, CodingKey { case openRouterForDirectAPIs = "openrouter_for_direct_apis" }
 }
 
+struct Coupon: Codable, Identifiable {
+    struct App: Codable {
+        let id: String
+        let name: String
+        let homepage: String?
+        let iconURL: String?
+
+        enum CodingKeys: String, CodingKey { case id, name, homepage; case iconURL = "icon_url" }
+    }
+
+    enum Status: String, Codable {
+        case active, expired, revoked, exhausted
+
+        var title: String { rawValue.capitalized }
+    }
+
+    let id: String
+    let batchID: String
+    let app: App
+    let vendor: Provider
+    let models: [String]
+    let remainingUSD: Double
+    let expiresAt: String
+    let status: Status
+
+    enum CodingKeys: String, CodingKey {
+        case id, app, vendor, models, status
+        case batchID = "batch_id", remainingUSD = "remaining_usd", expiresAt = "expires_at"
+    }
+}
+
+struct CouponPreview: Decodable {
+    let batchID: String
+    let app: Coupon.App
+    let vendor: Provider
+    let models: [String]
+    let perCouponUSD: Double
+    let validityDays: Int
+    let claimDeadline: String
+    let claimable: Bool
+    let coupon: Coupon?
+
+    var canConnect: Bool { coupon.map { $0.status == .active } ?? claimable }
+
+    enum CodingKeys: String, CodingKey {
+        case app, vendor, models, claimable, coupon
+        case batchID = "batch_id", perCouponUSD = "per_coupon_usd", validityDays = "validity_days", claimDeadline = "claim_deadline"
+    }
+}
+
 struct RequestRecord: Codable, Identifiable {
     var id: String
     var appID: String
@@ -40,6 +90,7 @@ struct RequestRecord: Codable, Identifiable {
     var provider: Provider
     var billingVendor: Provider? = nil
     var upstreamModel: String? = nil
+    var coupon: Coupon? = nil
     var model: String
     var status: String
     var createdAt: String
@@ -53,9 +104,9 @@ struct RequestRecord: Codable, Identifiable {
     var actualUSD: String { actualCostMicrousd.map { String(format: "$%.6f", Double($0) / 1_000_000) } ?? "Not reported" }
     var estimatedUSD: String { String(format: "$%.6f", Double(estimatedCostMicrousd) / 1_000_000) }
 
-    enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
-    init(id: String, appID: String, appName: String, provider: Provider, model: String, status: String, createdAt: String, expiresAt: String?, payload: JSONValue?, payloadSHA256: String? = nil, estimatedCostMicrousd: Int64, reservedCostMicrousd: Int64 = 0, actualCostMicrousd: Int64?, response: JSONValue?, error: String?, isDemo: Bool = false) {
-        self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.status = status; self.createdAt = createdAt; self.expiresAt = expiresAt; self.payload = payload; self.estimatedCostMicrousd = estimatedCostMicrousd; self.actualCostMicrousd = actualCostMicrousd; self.response = response; self.error = error; self.isDemo = isDemo
+    enum CodingKeys: String, CodingKey { case id, status, model, payload, response, error, coupon; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", grantID = "grant_id", app, vendor, provider, createdAt = "created_at", expiresAt = "expires_at", actualUSD = "actual_usd", estimatedUSD = "estimated_usd" }
+    init(id: String, appID: String, appName: String, provider: Provider, model: String, status: String, createdAt: String, expiresAt: String?, payload: JSONValue?, payloadSHA256: String? = nil, estimatedCostMicrousd: Int64, reservedCostMicrousd: Int64 = 0, actualCostMicrousd: Int64?, response: JSONValue?, error: String?, isDemo: Bool = false, coupon: Coupon? = nil) {
+        self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.status = status; self.createdAt = createdAt; self.expiresAt = expiresAt; self.payload = payload; self.estimatedCostMicrousd = estimatedCostMicrousd; self.actualCostMicrousd = actualCostMicrousd; self.response = response; self.error = error; self.isDemo = isDemo; self.coupon = coupon
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -63,6 +114,7 @@ struct RequestRecord: Codable, Identifiable {
         id = try c.decode(String.self, forKey: .id); appID = try app?.id ?? c.decodeIfPresent(String.self, forKey: .grantID) ?? ""
         appName = app?.name ?? "App"; provider = try c.decodeIfPresent(Provider.self, forKey: .vendor) ?? c.decode(Provider.self, forKey: .provider)
         billingVendor = try c.decodeIfPresent(Provider.self, forKey: .billingVendor); upstreamModel = try c.decodeIfPresent(String.self, forKey: .upstreamModel)
+        coupon = try c.decodeIfPresent(Coupon.self, forKey: .coupon)
         model = try c.decode(String.self, forKey: .model); status = try c.decode(String.self, forKey: .status); createdAt = try c.decode(String.self, forKey: .createdAt)
         expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt); payload = try c.decodeIfPresent(JSONValue.self, forKey: .payload)
         estimatedCostMicrousd = try microUSD(c.decodeIfPresent(Double.self, forKey: .estimatedUSD), decoder: decoder) ?? 0
@@ -73,6 +125,7 @@ struct RequestRecord: Codable, Identifiable {
         var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(id, forKey: .id); try c.encode(appID, forKey: .grantID); try c.encode(provider, forKey: .vendor)
         try c.encode(model, forKey: .model); try c.encode(status, forKey: .status); try c.encode(createdAt, forKey: .createdAt); try c.encodeIfPresent(expiresAt, forKey: .expiresAt)
         try c.encodeIfPresent(payload, forKey: .payload); try c.encodeIfPresent(response, forKey: .response); try c.encodeIfPresent(error, forKey: .error)
+        try c.encodeIfPresent(coupon, forKey: .coupon)
         try c.encode(Double(estimatedCostMicrousd) / 1_000_000, forKey: .estimatedUSD); try c.encodeIfPresent(actualCostMicrousd.map { Double($0) / 1_000_000 }, forKey: .actualUSD)
     }
 }
@@ -85,6 +138,7 @@ enum RequestHistory {
             if let old = byID[received.id] {
                 if current.payload == nil { current.payload = old.payload }
                 if current.response == nil { current.response = old.response }
+                if current.coupon == nil { current.coupon = old.coupon }
             }
             byID[received.id] = current
         }
@@ -139,6 +193,7 @@ struct GrantRecord: Codable, Identifiable {
     var provider: Provider
     var billingVendor: Provider? = nil
     var upstreamModel: String? = nil
+    var coupon: Coupon? = nil
     var model: String
     var maxRequests: Int?
     var usedRequests: Int
@@ -149,20 +204,22 @@ struct GrantRecord: Codable, Identifiable {
     var trust: Bool
     var alertThresholdMicrousd: Int64?
     var spentUSD: String { String(format: "$%.2f", Double(spentMicrousd) / 1_000_000) }
-    enum CodingKeys: String, CodingKey { case id, app, vendor, policy; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", createdAt = "created_at", lastUsedAt = "last_used_at", spentUSD = "spent_usd", requestCount = "request_count" }
-    init(id: String, appID: String, appName: String, provider: Provider, model: String, maxRequests: Int?, usedRequests: Int, budgetMicrousd: Int64?, spentMicrousd: Int64, reservedMicrousd: Int64, expiresAt: String, trust: Bool, alertThresholdMicrousd: Int64?) {
-        self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.maxRequests = maxRequests; self.usedRequests = usedRequests; self.budgetMicrousd = budgetMicrousd; self.spentMicrousd = spentMicrousd; self.reservedMicrousd = reservedMicrousd; self.expiresAt = expiresAt; self.trust = trust; self.alertThresholdMicrousd = alertThresholdMicrousd
+    enum CodingKeys: String, CodingKey { case id, app, vendor, policy, coupon; case billingVendor = "billing_vendor", upstreamModel = "upstream_model", createdAt = "created_at", lastUsedAt = "last_used_at", spentUSD = "spent_usd", requestCount = "request_count" }
+    init(id: String, appID: String, appName: String, provider: Provider, model: String, maxRequests: Int?, usedRequests: Int, budgetMicrousd: Int64?, spentMicrousd: Int64, reservedMicrousd: Int64, expiresAt: String, trust: Bool, alertThresholdMicrousd: Int64?, coupon: Coupon? = nil) {
+        self.id = id; self.appID = appID; self.appName = appName; self.provider = provider; self.model = model; self.maxRequests = maxRequests; self.usedRequests = usedRequests; self.budgetMicrousd = budgetMicrousd; self.spentMicrousd = spentMicrousd; self.reservedMicrousd = reservedMicrousd; self.expiresAt = expiresAt; self.trust = trust; self.alertThresholdMicrousd = alertThresholdMicrousd; self.coupon = coupon
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self); let app = try c.decode(WireApp.self, forKey: .app); let policy = try c.decode(WirePolicy.self, forKey: .policy)
         id = try c.decode(String.self, forKey: .id); appID = app.id ?? ""; appName = app.name; provider = try c.decode(Provider.self, forKey: .vendor); model = ""
         billingVendor = try c.decodeIfPresent(Provider.self, forKey: .billingVendor)
+        coupon = try c.decodeIfPresent(Coupon.self, forKey: .coupon)
         trust = policy.mode == "trust"; maxRequests = policy.remainingCount; usedRequests = try c.decodeIfPresent(Int.self, forKey: .requestCount) ?? 0
         budgetMicrousd = try microUSD(policy.remainingUSD, decoder: decoder); spentMicrousd = try microUSD(c.decodeIfPresent(Double.self, forKey: .spentUSD), decoder: decoder) ?? 0
         reservedMicrousd = 0; expiresAt = policy.expiresAt ?? ""; alertThresholdMicrousd = try microUSD(policy.alertUSDPerDay, decoder: decoder)
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self); try c.encode(id, forKey: .id); try c.encode(provider, forKey: .vendor); try c.encode(appName, forKey: .app); try c.encode(spentUSD, forKey: .spentUSD); try c.encode(usedRequests, forKey: .requestCount)
+        try c.encodeIfPresent(coupon, forKey: .coupon)
     }
 }
 
@@ -332,6 +389,32 @@ enum PairingLink {
     }
 }
 
+enum CouponLink {
+    static func isCode(_ text: String) -> Bool {
+        text.range(of: #"\AKC-[A-Za-z0-9_-]{22}\z"#, options: .regularExpression) != nil
+    }
+
+    static func code(from text: String) -> String? {
+        let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isCode(input) { return input }
+        guard let url = URLComponents(string: input), url.user == nil, url.password == nil,
+              url.query == nil, url.fragment == nil, url.percentEncodedPath == url.path else { return nil }
+        let code: String
+        if url.scheme?.lowercased() == "keyala", url.host?.lowercased() == "coupon", url.port == nil {
+            code = String(url.path.dropFirst())
+        } else if url.scheme?.lowercased() == "https", let host = url.host, !host.isEmpty, url.path.hasPrefix("/coupon/") {
+            code = String(url.path.dropFirst("/coupon/".count))
+        } else { return nil }
+        return isCode(code) ? code : nil
+    }
+
+    static func matchesServer(_ text: String, activeServer: String) -> Bool {
+        guard let link = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)), link.scheme?.lowercased() == "https" else { return true }
+        guard let server = URLComponents(string: activeServer), server.scheme?.lowercased() == "https" else { return false }
+        return link.host?.lowercased() == server.host?.lowercased() && (link.port ?? 443) == (server.port ?? 443)
+    }
+}
+
 
 struct KeyEnrollment: Decodable {
     let id: String
@@ -440,7 +523,7 @@ struct RequestMessage: Identifiable {
 
 extension RequestRecord {
     var canApproveWithSwipe: Bool {
-        status == "pending" && payload != nil && (0...50_000).contains(estimatedCostMicrousd)
+        coupon == nil && status == "pending" && payload != nil && (0...50_000).contains(estimatedCostMicrousd)
     }
     var readableMessages: [RequestMessage] {
         guard case .object(let body)? = payload else { return [] }

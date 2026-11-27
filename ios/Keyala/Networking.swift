@@ -8,7 +8,7 @@ private final class RedirectBlocker: NSObject, URLSessionTaskDelegate {
 }
 
 enum APIError: LocalizedError {
-    case reauthenticationFailed, invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession
+    case reauthenticationFailed, invalidURL, insecureServer, unauthorized, invalidCredentials, passwordLoginUnavailable, http(Int, String), invalidResponse, missingSession, coupon(String)
     var errorDescription: String? {
         switch self {
         case .reauthenticationFailed: localized("Identity verification failed. Verify the same account again; your account was not deleted.")
@@ -20,6 +20,21 @@ enum APIError: LocalizedError {
         case .http(let code, let message): "Server error (\(code)): \(message)"
         case .invalidResponse: "The server returned data this app could not read."
         case .missingSession: "Sign in to connect to your Keyala server."
+        case .coupon(let message): localized(message)
+        }
+    }
+
+    static func couponMessage(for type: String?) -> String? {
+        switch type {
+        case "coupon_expired": "This coupon has expired."
+        case "coupon_revoked": "The sponsor revoked this coupon."
+        case "coupon_exhausted": "This coupon has insufficient credit."
+        case "coupon_claim_limit": "This account has already claimed this coupon."
+        case "coupon_model_not_allowed": "This model is outside the coupon’s allowance."
+        case "coupon_policy_required": "Coupon calls must be approved one at a time."
+        case "coupon_not_found": "This coupon could not be found. Check the code and server."
+        case "coupon_unusable", "coupon_unavailable", "coupon_mismatch": "This coupon is unavailable for this connection."
+        default: nil
         }
     }
 }
@@ -92,6 +107,7 @@ final class APIClient {
                 if error?["type"] as? String == "reauth_failed" { throw APIError.reauthenticationFailed }
                 throw APIError.unauthorized
             }
+            if let message = APIError.couponMessage(for: error?["type"] as? String) { throw APIError.coupon(message) }
             let message: String
             switch error?["type"] as? String {
             case "route_changed": message = localized("The billing route changed. Review the refreshed connection before approving again.")
@@ -197,6 +213,15 @@ final class APIClient {
         try await send("/v1/me/preferences", method: "PATCH", body: RoutingPreferences(openRouterForDirectAPIs: enabled))
     }
     func keys() async throws -> [KeyRecord] { try await send("/v1/me/keys") }
+    func coupons() async throws -> [Coupon] { try await send("/v1/me/coupons") }
+    func couponPreview(code: String) async throws -> CouponPreview {
+        guard CouponLink.isCode(code) else { throw APIError.invalidURL }
+        return try await send("/v1/me/coupons/\(code)")
+    }
+    func claimCoupon(code: String) async throws -> Coupon {
+        guard CouponLink.isCode(code) else { throw APIError.invalidURL }
+        return try await send("/v1/me/coupons/\(code)/claim", method: "POST")
+    }
     func startOpenRouter(limitUSD: Double) async throws -> OpenRouterAuthorization {
         struct Body: Encodable { let limitUSD: Double; enum CodingKeys: String, CodingKey { case limitUSD = "limit_usd" } }
         return try await send("/v1/me/oauth/openrouter", method: "POST", body: Body(limitUSD: limitUSD))
@@ -256,6 +281,7 @@ struct ConnectPreview: Decodable {
     var origin: String?
     var requiresAsk: Bool?
     var billingVendor: Provider? = nil
+    var coupon: CouponPreview? = nil
     var keyProvider: Provider { billingVendor ?? vendor }
 
     var sourceHost: String? {
@@ -264,7 +290,7 @@ struct ConnectPreview: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case app, vendor, origin
+        case app, vendor, origin, coupon
         case billingVendor = "billing_vendor", suggestedPolicy = "suggested_policy", requiresAsk = "requires_ask"
     }
 }

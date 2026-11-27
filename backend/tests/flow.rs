@@ -30,6 +30,9 @@ fn extra() -> Config {
         backup_dir: None,
         backup_keep: 7,
         backup_interval: Duration::from_secs(86_400),
+        resend_api_key: None,
+        email_from: None,
+        email_mock: false,
         plaza_enabled: false,
         plaza_reviewers: vec![],
     }
@@ -1403,6 +1406,7 @@ async fn apple_server(
         google_jwks_url: jurl.clone(),
         google_client_ids: vec!["gid.apps.googleusercontent.com".into()],
         apple_jwks_url: jurl,
+        email_mock: true,
         ..extra()
     };
     let state = build_state(cfg).await.unwrap();
@@ -5421,6 +5425,94 @@ fn idp_token(kid: &str, claims: Value) -> String {
         &jsonwebtoken::EncodingKey::from_rsa_pem(RSA_PEM.as_bytes()).unwrap(),
     )
     .unwrap()
+}
+
+/// Coupon notification mail goes only to the address of a VERIFIED identity token. Apple used to store any address
+/// it was given for the account; that stays, but it never becomes a mail recipient unless the token says verified.
+#[tokio::test]
+async fn coupon_mail_address_comes_only_from_a_verified_apple_or_google_token() {
+    let (base, c, _) = apple_server("k1").await;
+    let login = |path: &'static str, claims: Value| {
+        let (c, base) = (c.clone(), base.clone());
+        async move {
+            json_of(
+                c.post(format!("{base}{path}"))
+                    .json(&json!({"id_token": idp_token("k1", claims)}))
+                    .send()
+                    .await
+                    .unwrap(),
+            )
+            .await
+        }
+    };
+    let apple = |sub: &str, email: &str, verified: Option<Value>| {
+        let mut v = json!({"iss": "https://appleid.apple.com", "aud": "app.keyala.ios", "sub": sub, "email": email});
+        if let Some(x) = verified {
+            v["email_verified"] = x;
+        }
+        v
+    };
+    let google = |sub: &str, email: &str, verified: bool| json!({"iss": "https://accounts.google.com", "aud": "gid.apps.googleusercontent.com", "sub": sub, "email": email, "email_verified": verified});
+    // can this session's apps send coupon mail? (a batch reports email_enabled)
+    let mailable = |tok: String| {
+        let (c, base) = (c.clone(), base.clone());
+        async move {
+            let a = json_of(
+                c.post(format!("{base}/v1/me/apps"))
+                    .bearer_auth(&tok)
+                    .json(&json!({"name": "M"}))
+                    .send()
+                    .await
+                    .unwrap(),
+            )
+            .await;
+            let app = a["app_id"].as_str().unwrap().to_string();
+            let b = json_of(
+                c.post(format!("{base}/v1/me/apps/{app}/coupons"))
+                    .bearer_auth(&tok)
+                    .json(&json!({"vendor": "openai", "models": ["gpt-4o-mini"], "api_key": "sk-test-ABCDEFGH1234", "per_coupon_usd": 0.1, "total_usd": 0.2,
+                                  "claim_deadline": (chrono::Utc::now() + chrono::Duration::days(2)).to_rfc3339()}))
+                    .send()
+                    .await
+                    .unwrap(),
+            )
+            .await;
+            b["email_enabled"].clone()
+        }
+    };
+    let tok = |r: &Value| r["session_token"].as_str().unwrap().to_string();
+    // Apple, verified (Apple sends the claim as the string "true"): mailable
+    let r = login(
+        "/v1/auth/apple",
+        apple("a1", "v1@icloud.com", Some(json!("true"))),
+    )
+    .await;
+    assert_eq!(mailable(tok(&r)).await, true);
+    // Apple, no email_verified claim: the account keeps its address as before, but it is never a recipient
+    let r = login("/v1/auth/apple", apple("a2", "u2@icloud.com", None)).await;
+    assert_eq!(r["user"]["email"], "u2@icloud.com");
+    assert_eq!(mailable(tok(&r)).await, false);
+    let r = login(
+        "/v1/auth/apple",
+        apple("a3", "u3@icloud.com", Some(json!(false))),
+    )
+    .await;
+    assert_eq!(mailable(tok(&r)).await, false);
+    // an existing account that signs in again without a verified address loses it (fail closed), and regains it
+    // only from a later verified token
+    let r = login("/v1/auth/apple", apple("a1", "v1@icloud.com", None)).await;
+    assert_eq!(mailable(tok(&r)).await, false);
+    let r = login(
+        "/v1/auth/apple",
+        apple("a1", "v1@icloud.com", Some(json!(true))),
+    )
+    .await;
+    assert_eq!(mailable(tok(&r)).await, true);
+    // Google: verified yes, unverified no
+    let r = login("/v1/auth/google", google("g1", "g1@gmail.com", true)).await;
+    assert_eq!(mailable(tok(&r)).await, true);
+    let r = login("/v1/auth/google", google("g2", "g2@gmail.com", false)).await;
+    assert_eq!(mailable(tok(&r)).await, false);
 }
 
 #[tokio::test]

@@ -503,6 +503,9 @@ pub async fn apps_delete(
         .bind(&id)
         .execute(&mut *tx)
         .await?;
+    // its coupon batches end with it: keys wiped, unused balances returned, held calls stay settled by their results
+    let mut denied = denied;
+    denied.extend(crate::coupons::revoke_app_batches(&mut tx, &id).await?);
     tx.commit().await?;
     for r in &denied {
         emit_request(&s, "request.updated", r).await;

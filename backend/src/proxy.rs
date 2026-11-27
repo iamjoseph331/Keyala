@@ -34,20 +34,24 @@ enum Decision {
 
 /// Runs inside the caller's transaction; the caller has already taken the write lock.
 async fn decide(c: &mut SqliteConnection, gid: &str, est: i64) -> R<(Decision, i64)> {
-    let (mode, exp, alert, revoked, gen): (
+    let (mode, exp, alert, revoked, gen, coupon): (
         String,
         Option<String>,
         Option<i64>,
         Option<String>,
         i64,
+        Option<String>,
     ) = sqlx::query_as(
-        "SELECT mode, expires_at, alert_micro, revoked_at, policy_gen FROM grants WHERE id=?",
+        "SELECT mode, expires_at, alert_micro, revoked_at, policy_gen, coupon_id FROM grants WHERE id=?",
     )
     .bind(gid)
     .fetch_one(&mut *c)
     .await?;
     if revoked.is_some() {
         return Err(api(401, "unauthorized", "grant revoked"));
+    }
+    if coupon.is_some() {
+        return Ok((Decision::Ask, gen)); // sponsored: every call waits for the phone, whatever the stored policy says
     }
     let n = now();
     if exp.is_some_and(|e| e.as_str() <= n.as_str()) {
@@ -175,6 +179,18 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
         }
         (id, created) = (did, false);
     } else {
+        if let Some(cid) = &g.coupon_id {
+            crate::coupons::check_use(
+                &mut tx,
+                cid,
+                &g.user_id,
+                &g.app_id,
+                &g.vendor,
+                Some(chk.model.name),
+                estimate_micro,
+            )
+            .await?;
+        }
         let (d, gen) = decide(&mut tx, &g.id, estimate_micro).await?;
         let (st, micro, count) = match d {
             Decision::Auto { micro, count, .. } => ("approved", micro, count),
@@ -188,11 +204,11 @@ async fn proxy(s: AppState, h: HeaderMap, vendor: &'static str, body: Bytes) -> 
                 ..
             }
         );
-        sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen,idem_key,body_hash,billing_vendor,upstream_model) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        sqlx::query("INSERT INTO requests (id,grant_id,user_id,app_id,vendor,model,endpoint,status,estimated_micro,reserved_micro,reserved_count,payload,created_at,decided_at,expires_at,policy_gen,idem_key,body_hash,billing_vendor,upstream_model,coupon_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             .bind(&id).bind(&g.id).bind(&g.user_id).bind(&g.app_id).bind(vendor).bind(chk.model.name).bind(endpoint).bind(status)
             .bind(estimate_micro).bind(micro).bind(count).bind(seal_text(&dek, &id, "payload", &payload.to_string())).bind(now())
             .bind((status == "approved").then(now)).bind(after(PENDING_TTL_SECS)).bind(gen).bind(&idem).bind(&body_hash)
-            .bind(&g.billing_vendor).bind(upstream_model)
+            .bind(&g.billing_vendor).bind(upstream_model).bind(&g.coupon_id)
             .execute(&mut *tx).await?;
     }
     tx.commit().await?;
@@ -285,6 +301,17 @@ pub async fn approve_request(
 ) -> R<Json<Value>> {
     let u = auth_level(&s, &h, ACT).await?;
     let policy = b.policy.map(PolicyIn::parse).transpose()?;
+    let sponsored: Option<String> =
+        sqlx::query_scalar("SELECT coupon_id FROM requests WHERE id=? AND user_id=?")
+            .bind(&id)
+            .bind(&u)
+            .fetch_optional(&s.db)
+            .await?
+            .flatten();
+    // a sponsored call is approved once; approving it can never widen what later calls may do
+    if sponsored.is_some() && policy.as_ref().is_some_and(|p| p.mode != "ask") {
+        return Err(crate::routes::sponsored_ask_only());
+    }
     let mut tx = s.db.begin().await?;
     // conditional UPDATE first: it's both the single-decision guard and the write lock.
     let r = sqlx::query("UPDATE requests SET status='approved', decided_at=? WHERE id=? AND user_id=? AND status='pending' AND expires_at>?")
@@ -301,6 +328,10 @@ pub async fn approve_request(
                 ),
             },
         );
+    }
+    if sponsored.is_some() {
+        // reserve this call's estimate from the coupon now; expired, revoked, mismatched or short = not approved
+        crate::coupons::hold(&mut tx, &id).await?;
     }
     if let Some(mut p) = policy {
         // Choice: "next N calls" = count policy with N-1 remaining after this one, since this
@@ -394,6 +425,7 @@ pub async fn sweeper(s: AppState) {
     loop {
         tokio::time::sleep(Duration::from_secs(30)).await;
         let _ = purge_expired_content(&s).await;
+        let _ = crate::coupons::sweep_coupons(&s).await;
         // key enrollments never outlive their 10 minutes, and neither does an uploaded key
         let _ = sqlx::query("UPDATE enrollments SET status='expired', ciphertext=NULL, nonce=NULL WHERE expires_at<=? AND status IN ('pending','claimed','submitted')").bind(now()).execute(&s.db).await;
         // flows stay readable for a day after their 10 minutes, then go
@@ -455,7 +487,11 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
     if crate::ops::paused(s) {
         return Ok(()); // stays `approved`; the sweeper sends it once unpaused
     }
-    let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=? AND status='approved' AND EXISTS (SELECT 1 FROM grants WHERE id=requests.grant_id AND revoked_at IS NULL)").bind(id).execute(&s.db).await?.rows_affected() == 1;
+    // a sponsored call is only sent while its coupon is still this user's, open, unexpired and unrevoked, and
+    // still bound to this app and vendor: checked in the very statement that claims the send
+    let won = sqlx::query("UPDATE requests SET status='sending' WHERE id=?1 AND status='approved' AND EXISTS (SELECT 1 FROM grants WHERE id=requests.grant_id AND revoked_at IS NULL) \
+        AND (requests.coupon_id IS NULL OR EXISTS (SELECT 1 FROM coupons c JOIN coupon_batches b ON b.id=c.batch_id WHERE c.id=requests.coupon_id AND c.user_id=requests.user_id AND c.closed_at IS NULL AND c.expires_at>?2 \
+        AND b.revoked_at IS NULL AND b.stopped_at IS NULL AND b.app_id=requests.app_id AND b.vendor=requests.vendor))").bind(id).bind(now()).execute(&s.db).await?.rows_affected() == 1;
     if !won {
         // still approved here means the claim lost to a revoked grant: deny and give the reservation back.
         let mut tx = s.db.begin().await?;
@@ -483,21 +519,38 @@ async fn try_send(s: &AppState, id: &str) -> Result<(), sqlx::Error> {
         .await?;
     emit_request(s, "request.updated", id).await;
 
-    let key_row: Option<(Vec<u8>, Vec<u8>)> =
-        sqlx::query_as("SELECT ciphertext, nonce FROM api_keys WHERE user_id=? AND vendor=?")
-            .bind(&r.user_id)
-            .bind(&r.billing_vendor)
-            .fetch_optional(&s.db)
-            .await?;
-    // the key of whoever is billed: the user's OpenRouter key for a routed request, never the direct vendor key
-    let key = key_row.and_then(|(ct, n)| {
-        decrypt(
-            &s.cfg.master_key,
-            &key_aad(&r.user_id, &r.billing_vendor),
-            &ct,
-            &n,
+    // the key of whoever is billed: the user's OpenRouter key for a routed request, never the direct vendor key.
+    // A sponsored call uses only its batch's dedicated key; there is no fallback to the user's own keys.
+    let key = if let Some(cid) = &r.coupon_id {
+        #[allow(clippy::type_complexity)]
+        let row: Option<(String, String, Option<Vec<u8>>, Option<Vec<u8>>)> = sqlx::query_as(
+            "SELECT b.id, b.vendor, b.key_ct, b.key_nonce FROM coupons c JOIN coupon_batches b ON b.id=c.batch_id WHERE c.id=?",
         )
-    });
+        .bind(cid)
+        .fetch_optional(&s.db)
+        .await?;
+        row.and_then(|(bid, vendor, ct, n)| {
+            if vendor != r.billing_vendor {
+                return None;
+            }
+            decrypt(&s.cfg.master_key, &batch_key_aad(&bid, &vendor), &ct?, &n?)
+        })
+    } else {
+        let key_row: Option<(Vec<u8>, Vec<u8>)> =
+            sqlx::query_as("SELECT ciphertext, nonce FROM api_keys WHERE user_id=? AND vendor=?")
+                .bind(&r.user_id)
+                .bind(&r.billing_vendor)
+                .fetch_optional(&s.db)
+                .await?;
+        key_row.and_then(|(ct, n)| {
+            decrypt(
+                &s.cfg.master_key,
+                &key_aad(&r.user_id, &r.billing_vendor),
+                &ct,
+                &n,
+            )
+        })
+    };
     let (status, http, body, actual) = match key {
         None => (
             "failed",
@@ -549,6 +602,10 @@ pub(crate) async fn refund(tx: &mut SqliteConnection, r: &RequestRow) -> Result<
     if r.reserved_count > 0 {
         sqlx::query("UPDATE grants SET remaining_count=remaining_count+? WHERE id=? AND mode='count' AND policy_gen=?").bind(r.reserved_count).bind(&r.grant_id).bind(r.policy_gen).execute(&mut *tx).await?;
     }
+    if r.coupon_id.is_some() {
+        // sponsored calls hold coupon balance, never the user's own budget; released at most once
+        crate::coupons::release(tx, &r.id).await?;
+    }
     Ok(())
 }
 
@@ -571,10 +628,10 @@ async fn finish(
     };
     let sealed_body = seal_text(&user_dek(s, &r.user_id).await?, &r.id, "response", body);
     let mut tx = s.db.begin().await?;
-    sqlx::query("UPDATE requests SET status=?, http_status=?, response=?, actual_micro=?, completed_at=?, input_tokens=?, output_tokens=? WHERE id=? AND status='sending'")
+    let finished = sqlx::query("UPDATE requests SET status=?, http_status=?, response=?, actual_micro=?, completed_at=?, input_tokens=?, output_tokens=? WHERE id=? AND status='sending'")
         .bind(status).bind(http as i64).bind(sealed_body).bind(actual).bind(now())
         .bind(tokens("prompt_tokens", "input_tokens")).bind(tokens("completion_tokens", "output_tokens"))
-        .bind(&r.id).execute(&mut *tx).await?;
+        .bind(&r.id).execute(&mut *tx).await?.rows_affected() == 1;
     match status {
         "completed" => {
             // no usage: charge the estimate and keep the reservation as is.
@@ -583,6 +640,10 @@ async fn finish(
                 .bind(&r.grant_id)
                 .execute(&mut *tx)
                 .await?;
+            if r.coupon_id.is_some() && finished {
+                // real cost when the provider reported usage, otherwise the held estimate is charged
+                crate::coupons::settle(&mut tx, &r.id, actual).await?;
+            }
             if let (Some(a), true) = (actual, r.reserved_micro > 0) {
                 // settle reservation to actual cost (refund difference; extra is deducted, floor 0);
                 // only if the policy hasn't been replaced since.
@@ -590,10 +651,14 @@ async fn finish(
             }
         }
         // vendor never did (billable) work: give the reservation back.
-        "failed" => refund(&mut tx, r).await?,
+        "failed" if finished => refund(&mut tx, r).await?,
         _ => {} // uncertain: keep the reservation, never retry
     }
-    tx.commit().await
+    tx.commit().await?;
+    if r.coupon_id.is_some() {
+        crate::coupons::kick(s);
+    }
+    Ok(())
 }
 
 /// `r.vendor` is the protocol the app spoke (and the response shape); `r.billing_vendor` decides the host and key.

@@ -323,7 +323,7 @@ pub async fn trust_page() -> Response {
 /// and create/use passkeys for this server's host (`webcredentials`).
 pub async fn aasa(State(s): State<AppState>) -> Response {
     let app = format!("{}.{}", s.cfg.apple_team_id, s.cfg.apple_bundle_id);
-    let v = json!({"applinks": {"details": [{"appIDs": [app], "components": [{"/": "/connect/*", "comment": "pairing"}, {"/": "/enroll/*", "comment": "add a key from a computer"}, {"/": "/login/*", "comment": "sign in to the web console"}]}]}, "webcredentials": {"apps": [app]}});
+    let v = json!({"applinks": {"details": [{"appIDs": [app], "components": [{"/": "/connect/*", "comment": "pairing"}, {"/": "/enroll/*", "comment": "add a key from a computer"}, {"/": "/login/*", "comment": "sign in to the web console"}, {"/": "/coupon/*", "comment": "claim a coupon"}]}]}, "webcredentials": {"apps": [app]}});
     ([(header::CONTENT_TYPE, "application/json")], v.to_string()).into_response()
 }
 

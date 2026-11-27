@@ -2,6 +2,7 @@
 mod apns;
 mod apple;
 mod console;
+mod coupons;
 mod enroll;
 mod oauth;
 mod ops;
@@ -89,6 +90,12 @@ pub struct Config {
     pub backup_dir: Option<std::path::PathBuf>,
     pub backup_keep: usize,
     pub backup_interval: Duration,
+    /// Coupon notification email (KEYALA_RESEND_API_KEY + KEYALA_EMAIL_FROM). The endpoint is fixed to
+    /// https://api.resend.com/emails; nothing configurable can point it elsewhere. Unset = email off.
+    pub resend_api_key: Option<String>,
+    pub email_from: Option<String>,
+    /// KEYALA_EMAIL_MOCK=1: "send" by recording the message as sent/mock in the outbox. No network.
+    pub email_mock: bool,
     /// Plaza, the reviewed public app list (KEYALA_PLAZA_ENABLED=1; off = its routes are 404)
     pub plaza_enabled: bool,
     /// Stable identities allowed to review Plaza submissions (KEYALA_PLAZA_REVIEWERS, comma separated):
@@ -223,6 +230,10 @@ impl Config {
                     .filter(|s| *s >= 1)
                     .unwrap_or(86_400),
             ),
+            resend_api_key: env("KEYALA_RESEND_API_KEY"),
+            email_from: env("KEYALA_EMAIL_FROM")
+                .filter(|f| f.len() <= 200 && !f.contains(['\r', '\n'])),
+            email_mock: env("KEYALA_EMAIL_MOCK").as_deref() == Some("1"),
             country_header: env("KEYALA_COUNTRY_HEADER").map(|h| h.to_ascii_lowercase()),
             password_login: match env("KEYALA_PASSWORD_LOGIN") {
                 None => None,
@@ -279,9 +290,12 @@ pub struct Inner {
     pub jwks: apple::JwksCache,
     pub google_jwks: apple::JwksCache,
     pub apns_jwt: apns::JwtCache,
+    /// the mock mail transport (KEYALA_EMAIL_MOCK=1): records attempts, scripts provider statuses
+    pub mail_mock: std::sync::Mutex<MailMock>,
 }
 pub type AppState = Arc<Inner>;
 
+pub use coupons::{process_outbox, reconcile_hold, sweep_coupons, MailMock, SentMail};
 pub use proxy::{purge_expired_content, send_request, RETENTION_DAYS};
 
 pub async fn build_app(cfg: Config) -> Result<Router, Box<dyn std::error::Error>> {
@@ -318,7 +332,9 @@ pub async fn build_state(cfg: Config) -> Result<AppState, Box<dyn std::error::Er
         jwks: Default::default(),
         google_jwks: Default::default(),
         apns_jwt: Default::default(),
+        mail_mock: Default::default(),
     });
+    coupons::startup(&state).await?;
     // retention first (nothing to encrypt that is due anyway), then encrypt rows written before 0013
     proxy::purge_expired_content(&state).await?;
     if encrypt_legacy_requests(&state).await? > 0 {
@@ -475,6 +491,23 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/v1/me/apps/{id}/report", get(console::apps_report))
         .route("/v1/me/apps/{id}/secret", post(console::apps_rotate))
+        .route("/v1/me/coupons", get(coupons::list_mine))
+        .route("/v1/me/coupons/{code}", get(coupons::preview))
+        .route("/v1/me/coupons/{code}/claim", post(coupons::claim))
+        .route(
+            "/v1/me/apps/{id}/coupons",
+            get(coupons::issuer_list).post(coupons::issuer_create),
+        )
+        .route(
+            "/v1/me/apps/{id}/coupons/{batch_id}",
+            axum::routing::delete(coupons::issuer_revoke),
+        )
+        .route(
+            "/v1/me/apps/{id}/coupons/{batch_id}/report",
+            get(coupons::issuer_report),
+        )
+        .route("/coupon/{code}", get(coupons::page))
+        .route("/coupon/{code}/qr.svg", get(coupons::qr))
         .route(
             "/v1/me/apps/{id}/plaza",
             post(plaza::submit).delete(plaza::withdraw),
@@ -622,6 +655,10 @@ pub fn decrypt(master: &[u8; 32], aad: &str, ct: &[u8], nonce: &[u8]) -> Option<
         )
         .ok()?;
     String::from_utf8(p).ok()
+}
+/// AAD of a coupon batch's dedicated key: bound to the batch and its vendor, never to a user.
+pub fn batch_key_aad(batch: &str, vendor: &str) -> String {
+    format!("batch|{batch}|{vendor}")
 }
 /// AAD binds a ciphertext to its (user, vendor) row.
 pub fn key_aad(user: &str, vendor: &str) -> String {
@@ -946,8 +983,22 @@ pub async fn set_policy(
 
 // ---------- row types & JSON ----------
 
-pub const GRANT_SELECT: &str = "SELECT g.id, g.user_id, g.app_id, g.vendor, COALESCE(g.billing_vendor, g.vendor) AS billing_vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM grants g JOIN apps a ON a.id=g.app_id";
-pub const REQUEST_SELECT: &str = "SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, COALESCE(r.billing_vendor, r.vendor) AS billing_vendor, r.upstream_model, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.purged, r.created_at, r.decided_at, r.completed_at, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url FROM requests r JOIN apps a ON a.id=r.app_id";
+/// JSON of a claimed coupon (contract `Coupon`) built in SQL from aliases c (coupons), b (coupon_batches), a (apps).
+/// NULL when the row has no coupon. Status is derived so it is always current: revoked | expired | exhausted | active.
+#[macro_export]
+macro_rules! coupon_json_sql {
+    () => {
+        "CASE WHEN c.id IS NULL THEN NULL ELSE json_object('id', c.id, 'batch_id', b.id, \
+         'app', json_object('id', a.id, 'name', a.name, 'homepage', a.homepage, 'icon_url', a.icon_url), \
+         'vendor', b.vendor, 'models', json(b.models), 'remaining_usd', c.remaining_micro/1000000.0, 'expires_at', c.expires_at, \
+         'status', CASE WHEN b.revoked_at IS NOT NULL THEN 'revoked' \
+           WHEN c.expires_at<=strftime('%Y-%m-%dT%H:%M:%fZ','now') THEN 'expired' \
+           WHEN c.remaining_micro<=0 OR b.stopped_at IS NOT NULL THEN 'exhausted' ELSE 'active' END) END"
+    };
+}
+
+pub const GRANT_SELECT: &str = concat!("SELECT g.id, g.user_id, g.app_id, g.vendor, COALESCE(g.billing_vendor, g.vendor) AS billing_vendor, g.mode, g.remaining_count, g.remaining_micro, g.alert_micro, g.expires_at, g.created_at, g.last_used_at, g.spent_micro, g.request_count, g.coupon_id, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url, ", coupon_json_sql!(), " AS coupon_json FROM grants g JOIN apps a ON a.id=g.app_id LEFT JOIN coupons c ON c.id=g.coupon_id LEFT JOIN coupon_batches b ON b.id=c.batch_id");
+pub const REQUEST_SELECT: &str = concat!("SELECT r.id, r.grant_id, r.user_id, r.app_id, r.vendor, COALESCE(r.billing_vendor, r.vendor) AS billing_vendor, r.upstream_model, r.model, r.endpoint, r.status, r.estimated_micro, r.actual_micro, r.reserved_micro, r.reserved_count, r.policy_gen, r.payload, r.response, r.http_status, r.purged, r.created_at, r.decided_at, r.completed_at, r.coupon_id, a.name AS app_name, a.homepage AS app_homepage, a.icon_url AS app_icon_url, ", coupon_json_sql!(), " AS coupon_json FROM requests r JOIN apps a ON a.id=r.app_id LEFT JOIN coupons c ON c.id=r.coupon_id LEFT JOIN coupon_batches b ON b.id=c.batch_id");
 
 pub fn app_json(id: &str, name: &str, homepage: &Option<String>, icon: &Option<String>) -> Value {
     json!({"id": id, "name": name, "homepage": homepage, "icon_url": icon})
@@ -970,9 +1021,17 @@ pub struct GrantRow {
     last_used_at: Option<String>,
     spent_micro: i64,
     request_count: i64,
+    /// funding coupon (None = the user's own key); never changes after approval
+    pub coupon_id: Option<String>,
     app_name: String,
     app_homepage: Option<String>,
     app_icon_url: Option<String>,
+    coupon_json: Option<String>,
+}
+fn coupon_value(j: &Option<String>) -> Value {
+    j.as_deref()
+        .and_then(|j| serde_json::from_str(j).ok())
+        .unwrap_or(Value::Null)
 }
 impl GrantRow {
     pub fn app_name_str(&self) -> &str {
@@ -983,7 +1042,8 @@ impl GrantRow {
                "vendor": self.vendor, "billing_vendor": self.billing_vendor,
                "policy": policy_json(&self.mode, self.remaining_count, self.remaining_micro, self.alert_micro, &self.expires_at),
                "created_at": self.created_at, "last_used_at": self.last_used_at,
-               "spent_usd": usd(self.spent_micro), "request_count": self.request_count})
+               "spent_usd": usd(self.spent_micro), "request_count": self.request_count,
+               "coupon": coupon_value(&self.coupon_json)})
     }
 }
 
@@ -1013,9 +1073,11 @@ pub struct RequestRow {
     created_at: String,
     decided_at: Option<String>,
     completed_at: Option<String>,
+    pub coupon_id: Option<String>,
     app_name: String,
     app_homepage: Option<String>,
     app_icon_url: Option<String>,
+    coupon_json: Option<String>,
 }
 impl RequestRow {
     pub fn app_name(&self) -> &str {
@@ -1028,7 +1090,7 @@ impl RequestRow {
             "endpoint": self.endpoint, "status": self.status,
             "estimated_usd": usd(self.estimated_micro), "actual_usd": self.actual_micro.map(usd),
             "created_at": self.created_at, "decided_at": self.decided_at, "completed_at": self.completed_at,
-            "purged": self.purged != 0});
+            "purged": self.purged != 0, "coupon": coupon_value(&self.coupon_json)});
         if detail && self.purged != 0 {
             // content removed by the retention sweep; only metadata is left
             v["payload"] = Value::Null;

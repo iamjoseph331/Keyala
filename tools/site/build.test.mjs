@@ -43,8 +43,8 @@ test('every locale has static content, matching metadata and reciprocal language
     else assert.equal(all(doc,n=>n.tagName==='meta' && attr(n,'name')==='robots' && attr(n,'content').includes('noindex')).length,0);
     assert.equal(all(doc,n=>n.tagName==='a' && attr(n,'data-language-link')!==undefined).length,3);
     if(page==='docs') {
-      assert.equal(all(doc,n=>n.tagName==='h2').length,8);
-      assert.equal(all(doc,n=>n.tagName==='pre').length,15);
+      assert.equal(all(doc,n=>n.tagName==='h2').length,9);
+      assert.equal(all(doc,n=>n.tagName==='pre').length,17);
       assert(!text(doc).includes('Loading the docs'));
       assert.equal(attr(one(doc,n=>attr(n,'download')!==undefined),'href'),route('docs',lang)+'keyala.md');
       assert.equal(fs.readFileSync(path.join(out,route('docs',lang),'keyala.md'),'utf8'),fs.readFileSync(path.join(ROOT,`site/docs/keyala${lang==='en'?'':'.'+lang}.md`),'utf8'));

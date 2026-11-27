@@ -24,6 +24,29 @@
       },
       "extractionState": "manual"
     },
+    "%lld days": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 天"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 日"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "%lld requests": {
       "localizations": {
         "zh-Hant": {
@@ -157,6 +180,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Account ID"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Active": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有效"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
           }
         }
       },
@@ -944,6 +990,75 @@
       },
       "extractionState": "manual"
     },
+    "Claim by": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領取期限"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受け取り期限"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claim by"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Claim coupon": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領取優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを受け取る"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claim coupon"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Claim coupon and connect": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領取優惠券並連接"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを受け取って接続"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claim coupon and connect"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Close": {
       "localizations": {
         "zh-Hant": {
@@ -985,6 +1100,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Completing authorization replaces the saved OpenRouter key. Connected apps will use the new key under their existing permissions."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Confirm this sponsored request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認這筆贊助請求。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポンサー付きのリクエストを確認してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm this sponsored request."
           }
         }
       },
@@ -1100,6 +1238,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect and ask each time"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Connect with coupon": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用優惠券連接"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンで接続"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect with coupon"
           }
         }
       },
@@ -1307,6 +1468,121 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cost from reported usage"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Coupon": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポン"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupon"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Coupon calls must be approved one at a time.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每次使用優惠券的呼叫都須單獨核准。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを使う呼び出しは、毎回承認が必要です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupon calls must be approved one at a time."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Coupon claimed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已領取優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを受け取りました"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupon claimed"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Coupon value": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "優惠券額度"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンの金額"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupon value"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Coupons": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポン"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupons"
           }
         }
       },
@@ -1634,6 +1910,29 @@
       },
       "extractionState": "manual"
     },
+    "Eligible models": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用模型"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象モデル"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eligible models"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Email": {
       "localizations": {
         "zh-Hant": {
@@ -1703,6 +2002,29 @@
       },
       "extractionState": "manual"
     },
+    "Enter the KY- connection code or KC- coupon code.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入以 KY- 開頭的連接碼，或以 KC- 開頭的優惠券代碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KY- で始まる接続コード、または KC- で始まるクーポンコードを入力してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the KY- connection code or KC- coupon code."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Estimated": {
       "localizations": {
         "zh-Hant": {
@@ -1744,6 +2066,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Estimated cost"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Exhausted": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "額度已用完"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残高なし"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exhausted"
           }
         }
       },
@@ -2117,6 +2462,29 @@
       },
       "extractionState": "manual"
     },
+    "KY-… or KC-…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KY-… 或 KC-…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KY-… または KC-…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KY-… or KC-…"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Load older requests": {
       "localizations": {
         "zh-Hant": {
@@ -2158,6 +2526,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading connection…"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Loading coupons…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在載入優惠券…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポン一覧を読み込み中…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading coupons…"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Loading coupon…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在載入優惠券…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを読み込み中…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading coupon…"
           }
         }
       },
@@ -2393,6 +2807,29 @@
       },
       "extractionState": "manual"
     },
+    "No coupons claimed yet. Scan a coupon QR or enter its code to claim one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你還沒有領取優惠券。掃描優惠券的 QR 碼或輸入代碼即可領取。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受け取ったクーポンはありません。クーポンの QR コードを読み取るか、コードを入力してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No coupons claimed yet. Scan a coupon QR or enter its code to claim one."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "No expiry": {
       "localizations": {
         "zh-Hant": {
@@ -2618,6 +3055,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Only a short-lived setup identifier is in the QR. Your key stays out of QR codes and phone enrollment screens."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Open the complete request and review it before approving.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "核准前，請開啟並檢閱完整請求。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "承認する前に、リクエストの詳細を開いて内容を確認してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the complete request and review it before approving."
           }
         }
       },
@@ -2968,6 +3428,52 @@
       },
       "extractionState": "manual"
     },
+    "Refresh": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新整理"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Remaining credit": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剩餘額度"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残高"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remaining credit"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Remove key": {
       "localizations": {
         "zh-Hant": {
@@ -3221,6 +3727,29 @@
       },
       "extractionState": "manual"
     },
+    "Review coupon": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを確認"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review coupon"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Review request": {
       "localizations": {
         "zh-Hant": {
@@ -3308,6 +3837,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revoke grant"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Revoked": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已撤銷"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り消し済み"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revoked"
           }
         }
       },
@@ -3428,6 +3980,29 @@
       },
       "extractionState": "manual"
     },
+    "Scan a Keyala connection, coupon, web sign-in or key setup QR.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請掃描 Keyala 的連接、優惠券、網頁登入或金鑰設定 QR 碼。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyala の接続、クーポン、Web ログイン、またはキー設定の QR コードを読み取ってください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan a Keyala connection, coupon, web sign-in or key setup QR."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Scan Keyala QR": {
       "localizations": {
         "zh-Hant": {
@@ -3538,6 +4113,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scan setup QR"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Scan the app’s connection QR or a coupon QR. You can also open its link on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描應用程式的連接 QR 碼或優惠券 QR 碼，也可以在這支手機上開啟連結。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの接続用 QR コード、またはクーポンの QR コードを読み取ってください。この端末でリンクを開くこともできます。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the app’s connection QR or a coupon QR. You can also open its link on this phone."
           }
         }
       },
@@ -3865,6 +4463,29 @@
       },
       "extractionState": "manual"
     },
+    "Sign in to review this coupon": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入以查看優惠券"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインしてクーポンを確認"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to review this coupon"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Sign in with password": {
       "localizations": {
         "zh-Hant": {
@@ -3934,6 +4555,52 @@
       },
       "extractionState": "manual"
     },
+    "Sponsor": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "贊助者"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポンサー"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sponsor"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Sponsored credit": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "贊助額度"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポンサー提供クレジット"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sponsored credit"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Staging sign-in": {
       "localizations": {
         "zh-Hant": {
@@ -3952,6 +4619,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Staging sign-in"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Status": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "狀態"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状態"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status"
           }
         }
       },
@@ -4021,6 +4711,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "The complete request must load before you can allow it."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "The coupon covers eligible calls from its app. You review each call and approve it once. Connect to the app separately to let it request calls.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "優惠券可支付指定應用程式符合條件的呼叫。每次呼叫都要由你檢閱並核准。請另外連接應用程式，讓它能送出呼叫請求。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンは対象アプリの対象リクエストに使えます。内容を毎回確認し、その呼び出しだけを承認します。アプリがリクエストを送れるようにするには、別途接続が必要です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The coupon covers eligible calls from its app. You review each call and approve it once. Connect to the app separately to let it request calls."
           }
         }
       },
@@ -4141,6 +4854,75 @@
       },
       "extractionState": "manual"
     },
+    "The sponsor revoked this coupon.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "贊助者已撤銷這張優惠券。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポンサーがこのクーポンを取り消しました。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sponsor revoked this coupon."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This account has already claimed this coupon.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個帳號已經領取這張優惠券。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアカウントはすでにクーポンを受け取っています。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account has already claimed this coupon."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This app loses access. Your coupon and past requests remain in Keyala.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個應用程式將失去使用權限。你的優惠券與過去的請求會保留在 Keyala。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリのアクセスは解除されます。クーポンと過去のリクエストは Keyala に残ります。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app loses access. Your coupon and past requests remain in Keyala."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "This can skip the review sheet. Someone holding your unlocked phone could approve spending when device verification is off. Only a loaded request with an estimate of $0.05 or less can be allowed, for this call only. Estimates are not guaranteed final charges.": {
       "localizations": {
         "zh-Hant": {
@@ -4159,6 +4941,190 @@
           "stringUnit": {
             "state": "translated",
             "value": "This can skip the review sheet. Someone holding your unlocked phone could approve spending when device verification is off. Only a loaded request with an estimate of $0.05 or less can be allowed, for this call only. Estimates are not guaranteed final charges."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This connection uses sponsored credit for eligible calls. Your own keys stay unused. Every call needs your approval.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個連接會用贊助額度支付符合條件的呼叫。你的個人金鑰不會被使用。每次呼叫都須由你核准。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この接続では、対象のリクエストにスポンサー提供のクレジットを使います。自分のキーは使われません。呼び出しには毎回、あなたの承認が必要です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This connection uses sponsored credit for eligible calls. Your own keys stay unused. Every call needs your approval."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon belongs to a different Keyala server. Choose its server in Settings > Developer options, then open it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張優惠券屬於其他 Keyala 伺服器。請在「設定」的「開發者選項」選擇相符的伺服器，再重新開啟。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このクーポンは別の Keyala サーバーのものです。設定の開発者向けオプションで該当するサーバーを選び、もう一度開いてください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon belongs to a different Keyala server. Choose its server in Settings > Developer options, then open it again."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon could not be found. Check the code and server.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到這張優惠券。請確認代碼與伺服器。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンが見つかりません。コードとサーバーを確認してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon could not be found. Check the code and server."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon has expired.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張優惠券已過期。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このクーポンの有効期限が切れています。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon has expired."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon has insufficient credit.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張優惠券的剩餘額度不足。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このクーポンの残高が不足しています。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon has insufficient credit."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon is no longer available to claim.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張優惠券已無法領取。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このクーポンの配布は終了しました。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon is no longer available to claim."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This coupon is unavailable for this connection.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個連接無法使用此優惠券。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この接続にはクーポンを使えません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This coupon is unavailable for this connection."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "This model is outside the coupon’s allowance.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張優惠券不適用於這個模型。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このモデルはクーポンの対象外です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This model is outside the coupon’s allowance."
           }
         }
       },
@@ -4343,6 +5309,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Turn off sample data and select production before hiding developer options."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Turn off sample data before opening a coupon.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先關閉示範資料，再開啟優惠券。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クーポンを開くには、先にサンプルデータをオフにしてください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn off sample data before opening a coupon."
           }
         }
       },
@@ -4601,6 +5590,29 @@
       },
       "extractionState": "manual"
     },
+    "Valid after claim": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領取後的有效期間"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受け取り後の有効期間"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valid after claim"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Verify approvals on this device": {
       "localizations": {
         "zh-Hant": {
@@ -4757,6 +5769,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your apps can use this provider with your permission. They never receive the key."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Your coupon link will stay here while you sign in.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入期間，優惠券連結會保留在這裡。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン中もクーポンへのリンクは保持されます。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your coupon link will stay here while you sign in."
           }
         }
       },

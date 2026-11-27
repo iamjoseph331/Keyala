@@ -7,6 +7,10 @@
  * or a ready-made button that opens the same dialog:
  *   <keyala-connect app="app_..." vendor="openai"></keyala-connect>   -> "connected" event, detail = { grant_token, vendor }
  *
+ * Sponsored by a coupon (the user needs no key of their own): add the app owner's coupon code.
+ *   Keyala.connect({ app: "app_...", vendor: "openai", coupon: couponCode })   or   <keyala-connect ... coupon="KC-...">
+ * Every call is still approved one at a time on the phone; the coupon only covers its app, vendor and models.
+ *
  * Browser apps need their page origin in the app's allowed_origins. The SDK never stores the token; keep it as you see fit.
  * Errors reject with err.code: "cancelled" | "denied" | "unreachable" | "failed".
  */
@@ -17,9 +21,9 @@
   const GET_APP = 'https://keyala.io/';
   const VENDOR = { openai: 'OpenAI', anthropic: 'Anthropic', openrouter: 'OpenRouter' };
   const T = {
-    en: { title: 'Use your own {v} key', why: 'Approve on your phone with Keyala. Your key stays in Keyala and you approve each call.', scan: 'Scan with your iPhone camera', open: 'Open Keyala', code: 'Or enter this code in the app', wait: 'Waiting for your phone…', app: 'Approve on your phone.', web: 'Your phone opened the link but Keyala is not installed. Install it, sign in, then scan again.', webPhone: 'Keyala is not installed yet. Get it, sign in, then come back and tap Open Keyala again.', get: 'No app yet? Get Keyala', cancel: 'Cancel', expired: 'This code expired.', again: 'New code', denied: 'You declined on your phone.', unreachable: 'Could not reach Keyala. It may be waking up; try again in a minute.', waking: 'Waking up the Keyala server, this can take up to a minute…', btn: 'Connect Keyala', on: 'Keyala connected' },
-    'zh-Hant': { title: '使用你自己的 {v} 金鑰', why: '在手機上用 Keyala 核准。金鑰留在 Keyala，每次呼叫都由你核准。', scan: '用 iPhone 相機掃描', open: '打開 Keyala', code: '或在 App 中輸入這組代碼', wait: '等待手機核准…', app: '請在手機上核准。', web: '手機打開了連結，但還沒安裝 Keyala。安裝並登入後再掃一次。', webPhone: '還沒安裝 Keyala。下載並登入後，回到這裡再按一次「打開 Keyala」。', get: '還沒有 App？下載 Keyala', cancel: '取消', expired: '代碼已過期。', again: '產生新代碼', denied: '你在手機上拒絕了。', unreachable: '連不到 Keyala，伺服器可能正在啟動，請稍後再試。', waking: '正在喚醒 Keyala 伺服器，最多約需一分鐘…', btn: '連接 Keyala', on: 'Keyala 已連接' },
-    ja: { title: '自分の {v} キーを使う', why: 'スマートフォンの Keyala で承認します。キーは Keyala に保管され、呼び出しごとに承認します。', scan: 'iPhone のカメラでスキャン', open: 'Keyala を開く', code: 'またはアプリでこのコードを入力', wait: 'スマートフォンでの承認を待っています…', app: 'スマートフォンで承認してください。', web: 'リンクは開かれましたが、Keyala がインストールされていません。インストールしてサインインし、もう一度スキャンしてください。', webPhone: 'Keyala がまだインストールされていません。入手してサインインしたら、戻って「Keyala を開く」をもう一度タップしてください。', get: 'アプリをお持ちでない方：Keyala を入手', cancel: 'キャンセル', expired: 'コードの有効期限が切れました。', again: '新しいコード', denied: 'スマートフォンで拒否されました。', unreachable: 'Keyala に接続できません。起動中の可能性があります。少し待ってからお試しください。', waking: 'Keyala サーバーを起動しています。最大1分ほどかかります…', btn: 'Keyala を接続', on: 'Keyala 接続済み' },
+    en: { ctitle: 'Use your Keyala coupon', cwhy: 'Your coupon pays for covered calls. Review the full prompt and approve each call on your phone.', invalidCoupon: 'Enter a Keyala coupon code.', title: 'Use your own {v} key', why: 'Approve on your phone with Keyala. Your key stays in Keyala and you approve each call.', scan: 'Scan with your iPhone camera', open: 'Open Keyala', code: 'Or enter this code in the app', wait: 'Waiting for your phone…', app: 'Approve on your phone.', web: 'Your phone opened the link but Keyala is not installed. Install it, sign in, then scan again.', webPhone: 'Keyala is not installed yet. Get it, sign in, then come back and tap Open Keyala again.', get: 'No app yet? Get Keyala', cancel: 'Cancel', expired: 'This code expired.', again: 'New code', denied: 'You declined on your phone.', unreachable: 'Could not reach Keyala. It may be waking up; try again in a minute.', waking: 'Waking up the Keyala server, this can take up to a minute…', btn: 'Connect Keyala', on: 'Keyala connected' },
+    'zh-Hant': { ctitle: '使用你的 Keyala 優惠券', cwhy: '優惠券會支付涵蓋的呼叫費用。每次呼叫都要在手機上查看完整提示詞並核准。', invalidCoupon: '請輸入 Keyala 優惠券代碼。', title: '使用你自己的 {v} 金鑰', why: '在手機上用 Keyala 核准。金鑰留在 Keyala，每次呼叫都由你核准。', scan: '用 iPhone 相機掃描', open: '打開 Keyala', code: '或在 App 中輸入這組代碼', wait: '等待手機核准…', app: '請在手機上核准。', web: '手機打開了連結，但還沒安裝 Keyala。安裝並登入後再掃一次。', webPhone: '還沒安裝 Keyala。下載並登入後，回到這裡再按一次「打開 Keyala」。', get: '還沒有 App？下載 Keyala', cancel: '取消', expired: '代碼已過期。', again: '產生新代碼', denied: '你在手機上拒絕了。', unreachable: '連不到 Keyala，伺服器可能正在啟動，請稍後再試。', waking: '正在喚醒 Keyala 伺服器，最多約需一分鐘…', btn: '連接 Keyala', on: 'Keyala 已連接' },
+    ja: { ctitle: 'Keyala クーポンを使う', cwhy: '対象の呼び出しにはクーポンが使われます。毎回、スマートフォンでプロンプト全文を確認して承認します。', invalidCoupon: 'Keyala クーポンコードを入力してください。', title: '自分の {v} キーを使う', why: 'スマートフォンの Keyala で承認します。キーは Keyala に保管され、呼び出しごとに承認します。', scan: 'iPhone のカメラでスキャン', open: 'Keyala を開く', code: 'またはアプリでこのコードを入力', wait: 'スマートフォンでの承認を待っています…', app: 'スマートフォンで承認してください。', web: 'リンクは開かれましたが、Keyala がインストールされていません。インストールしてサインインし、もう一度スキャンしてください。', webPhone: 'Keyala がまだインストールされていません。入手してサインインしたら、戻って「Keyala を開く」をもう一度タップしてください。', get: 'アプリをお持ちでない方：Keyala を入手', cancel: 'キャンセル', expired: 'コードの有効期限が切れました。', again: '新しいコード', denied: 'スマートフォンで拒否されました。', unreachable: 'Keyala に接続できません。起動中の可能性があります。少し待ってからお試しください。', waking: 'Keyala サーバーを起動しています。最大1分ほどかかります…', btn: 'Keyala を接続', on: 'Keyala 接続済み' },
   };
   const pickLang = (l) => { l = (l || navigator.language || 'en').toLowerCase(); return l.startsWith('zh') ? 'zh-Hant' : l.startsWith('ja') ? 'ja' : 'en'; };
   // Same-device pairing: a QR is useless on the phone that would scan it.
@@ -57,14 +61,17 @@
   }
 
   /** Opens the pairing dialog; resolves { grant_token, vendor } once the user approves on their phone. */
-  function connect({ app, vendor, server = SERVER, lang } = {}) {
+  function connect(options = {}) {
+    const { app, vendor, coupon, server: base = SERVER, lang } = options;
     if (!app || !VENDOR[vendor]) return Promise.reject(fail('failed', 'Keyala.connect needs { app, vendor: "openai" | "anthropic" | "openrouter" }'));
-    server = server.replace(/\/$/, '');
-    const t = T[pickLang(lang)], phone = isPhone();
+    const locale = pickLang(lang), t = T[locale], phone = isPhone();
+    const sponsored = Object.prototype.hasOwnProperty.call(options, 'coupon');
+    if (sponsored && (typeof coupon !== 'string' || !coupon.trim())) return Promise.reject(fail('failed', t.invalidCoupon));
+    const server = base.replace(/\/$/, '');
     const host = document.createElement('div');
     const root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = `<style>${CSS}</style><div class="shade"><div class="box" role="dialog" aria-modal="true" aria-labelledby="t">
-      <div class="logo" aria-hidden="true">🐨</div><h2 id="t">${esc(t.title.replace('{v}', VENDOR[vendor]))}</h2><p class="mut">${esc(t.why)}</p>
+    root.innerHTML = `<style>${CSS}</style><div class="shade"><div class="box" lang="${locale}" role="dialog" aria-modal="true" aria-labelledby="t">
+      <div class="logo" aria-hidden="true">🐨</div><h2 id="t">${esc(sponsored ? t.ctitle : t.title.replace('{v}', VENDOR[vendor]))}</h2><p class="mut">${esc(sponsored ? t.cwhy : t.why)}</p>
       <div id="body" style="display:grid;gap:10px;justify-items:center;width:100%"><div class="st"><span class="dot"></span>…</div></div>
       <a class="get" href="${GET_APP}" target="_blank" rel="noopener">${esc(t.get)}</a>
       <button class="plain" id="x">${esc(t.cancel)}</button></div></div>`;
@@ -95,7 +102,7 @@
         $('body').innerHTML = status('…');
         let c;
         const slow = setTimeout(() => { if (me === gen) $('body').innerHTML = status(t.waking); }, 3000); // free hosting sleeps
-        try { c = await call(server, '/v1/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app_id: app, vendor }) }); }
+        try { c = await call(server, '/v1/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app_id: app, vendor, coupon_code: sponsored ? coupon : undefined }) }); }
         catch (e) { if (me === gen) e.code === 'unreachable' ? showEnd(t.unreachable) : finish(e); return; }
         finally { clearTimeout(slow); }
         if (me !== gen) return;
@@ -134,7 +141,9 @@
       new MutationObserver(render).observe(this, { attributes: true, attributeFilter: ['connected'] });
       b.onclick = async () => {
         try {
-          const g = await connect({ app: this.getAttribute('app'), vendor: this.getAttribute('vendor'), server: this.getAttribute('server') || SERVER, lang: this.getAttribute('lang') });
+          const options = { app: this.getAttribute('app'), vendor: this.getAttribute('vendor'), server: this.getAttribute('server') || SERVER, lang: this.getAttribute('lang') };
+          if (this.hasAttribute('coupon')) options.coupon = this.getAttribute('coupon');
+          const g = await connect(options);
           this.setAttribute('connected', '');
           this.dispatchEvent(new CustomEvent('connected', { detail: g, bubbles: true }));
         } catch (e) { this.dispatchEvent(new CustomEvent('error', { detail: e, bubbles: true })); }

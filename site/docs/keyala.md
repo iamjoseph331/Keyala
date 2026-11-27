@@ -2,7 +2,41 @@
 
 Keyala lets your app use a person's own OpenAI, Anthropic or OpenRouter API key without ever receiving it. The user pairs your app once, gets a scoped grant token to you, and approves calls on their phone (or sets a limit). You keep the official SDK and change one line, the base URL. This one file is the whole developer documentation, so you can also paste it into an AI coding assistant as context.
 
-Hosted servers: production `https://app.keyala.io`, staging `https://staging.keyala.io`. Everything below works on either; use the same server for registration, pairing, calls and reports. Keyala is an experimental beta and free (see the last section for what that means).
+Hosted servers: production `https://app.keyala.io`, staging `https://staging.keyala.io`. Core API examples work on either; Coupon APIs in this change are staging-only. Use the same server for registration, pairing, calls and reports. Keyala is an experimental beta and free (see the last section for what that means).
+
+## Sponsored coupons (staging validation)
+
+Coupon support is being validated on staging; this does not announce production availability. Keep the phone, Console and SDK on the same server.
+
+In the authenticated Console, select an app and create a coupon batch with a **dedicated provider key**, one provider, allowed models, the allowance per coupon, total budget and claim deadline. The default validity is seven days from each claim. The developer pays the provider directly; Keyala neither sells credit nor handles funds. The sponsor key is encrypted on the server and never returned to a claimant or connected app. Use a separately limited key and review your provider's terms and billing controls; Keyala limits are not a provider billing guarantee.
+
+Share the batch's `/coupon/KC-…` link or QR. A signed-in user can preview and claim without adding a personal API key. Each account can claim once per batch, including after expiry. Claiming reserves the full allowance from the batch; a shared link does not reserve anything. If there is insufficient unallocated budget for a full coupon, new claims stop, while existing coupons retain their allocation. Expiry or revocation returns the unused amount once; in-flight and uncertain reservations remain held.
+
+Pass `coupon_code` to `POST /v1/connect` (or the web SDK's coupon option) to select sponsored billing. It must belong to the connecting app and provider. Claiming by itself does not authorize the app. The user still approves the connection and **every call**, sees the full prompt and recorded response, and sees the payer, allowance and expiry. Sponsored grants cannot switch to count, budget or trust approval. Their model list is enforced by the server. Normal provider request bodies and polling remain unchanged.
+
+When a coupon expires, is revoked, or cannot cover a request estimate, the request fails with a coupon-specific error. There is **no automatic fallback to a personal key**. Continuing with personal billing requires a separate, explicit BYOK connection.
+
+The batch report contains claim count, first successful users and aggregate request/model spending. It does not reveal claimant identities, prompts or responses. Actual provider-reported cost is separate from estimates and uncertain reservations. Exhaustion notifications tell the issuer when full-coupon allocation is unavailable or the batch spending budget is exhausted; they do not enforce spending. Email is disabled unless the server operator configures it. This release is verified with mock providers and mail, not a paid provider call or proof of real inbox delivery.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET / POST | `/v1/me/apps/{app_id}/coupons` | Create / list batches |
+| DELETE | `/v1/me/apps/{app_id}/coupons/{batch_id}` | Revoke a batch |
+| GET | `/v1/me/apps/{app_id}/coupons/{batch_id}/report` | Aggregate report |
+| GET / POST | `/v1/me/coupons/{code} / /v1/me/coupons/{code}/claim` | Preview / claim |
+| GET | `/v1/me/coupons` | List owned coupons |
+
+Issuer routes require an authenticated app owner; claim routes require the signed-in user. The create body is:
+
+```json
+{"vendor":"openai","models":["gpt-4o-mini"],"api_key":"REPLACE_WITH_DEDICATED_PROVIDER_KEY","per_coupon_usd":1,"total_usd":20,"validity_days":7,"claim_deadline":"2026-12-31T23:59:59.000Z"}
+```
+
+```js
+const { grant_token } = await Keyala.connect({
+  app: "app_your_app", vendor: "openai", coupon: "KC-REPLACE_WITH_BATCH_CODE"
+});
+```
 
 ## 1. What Keyala is and how a call flows
 

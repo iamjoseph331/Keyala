@@ -241,3 +241,31 @@ The blue Google authentication button uses the original full-color G artwork fro
 [Google's branding assets](https://developers.google.com/identity/branding-guidelines),
 kept in `GoogleMark.imageset`. Its text remains localized and the authentication
 flow is shared with the existing Google sign-in implementation.
+
+## Sponsored coupons
+
+This change is delivered to staging only. Select the staging server in Settings → Developer options before opening its coupon links. Production availability and TestFlight distribution are separate release steps.
+
+Open `keyala://coupon/<code>`, open the selected server’s HTTPS `/coupon/<code>`
+link, or use the Inbox scanner. The code field also accepts a case-sensitive
+`KC-` code. If signed out, sign in to continue reviewing the same coupon. Confirm
+the sponsor, model allowance, credit and claim deadline, then tap **Claim coupon**.
+**Apps → Coupons** lists claimed credit, expiration and status.
+
+The app sends a separate connection request. Review the sponsor and choose
+**Claim coupon and connect** or **Connect with coupon**. Keyala displays the
+complete payload for each sponsored call and asks you to approve that call once.
+The grant uses the coupon’s credit and stops accepting calls once the coupon is
+unusable. It never charges a personal key automatically.
+
+The native API interoperability check uses fictional accounts and a disposable
+loopback backend running with `KEYALA_DEV_LOGIN=1`, `KEYALA_VENDOR_MOCK=1` and
+`KEYALA_EMAIL_MOCK=1`. It exercises key-free sponsored pairing, claim retries,
+review, mock approval and revocation even when the account has a personal key.
+
+```sh
+swiftc -module-cache-path /private/tmp/keyala-swift-modules \
+  ios/Keyala/Models.swift ios/Keyala/Networking.swift \
+  ios/Tests/CouponIntegrationChecks.swift -o /private/tmp/keyala-coupon-checks
+KEYALA_VENDOR_MOCK=1 /private/tmp/keyala-coupon-checks http://127.0.0.1:8096
+```

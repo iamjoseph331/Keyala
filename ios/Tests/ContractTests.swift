@@ -221,6 +221,41 @@ enum ContractTests {
         let grant = try decoder.decode(GrantRecord.self, from: #"{"id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","policy":{"mode":"count","remaining_count":7,"expires_at":"2026-12-01T00:00:00Z"},"created_at":"2026-11-14T00:00:00Z","spent_usd":0.42,"request_count":3}"#.data(using: .utf8)!)
         precondition(grant.maxRequests == 7 && grant.expiresAt == "2026-12-01T00:00:00Z")
 
+        let couponCode = "KC-aBcdEFghijKLmnOpQrS_0-"
+        let couponPath = "/coupon/" + couponCode
+        for link in [couponCode, " \(couponCode)\n", "keyala://coupon/" + couponCode, AppPreferences.stagingURL + couponPath] {
+            precondition(CouponLink.code(from: link) == couponCode)
+        }
+        for invalid in ["kc-" + String(couponCode.dropFirst(3)), "KC-short", "keyala://coupon:443/" + couponCode, AppPreferences.stagingURL + couponPath + "/", AppPreferences.stagingURL + couponPath + "?track=1", AppPreferences.stagingURL + couponPath + "#extra", AppPreferences.stagingURL + "/coupon/%4BC-" + couponCode.dropFirst(3), "https://user@staging.keyala.io" + couponPath, "http://staging.keyala.io" + couponPath, "keyala://connect/" + couponCode] {
+            precondition(CouponLink.code(from: invalid) == nil, "Malformed coupon links must be rejected.")
+        }
+        precondition(CouponLink.matchesServer(AppPreferences.stagingURL + couponPath, activeServer: AppPreferences.stagingURL))
+        precondition(CouponLink.matchesServer("https://custom.example:8443" + couponPath, activeServer: "https://custom.example:8443"))
+        for foreignServer in [AppPreferences.productionURL, AppPreferences.legacyStagingURL, "https://staging.keyala.io.evil", "https://staging.keyala.io:8443"] {
+            precondition(!CouponLink.matchesServer(foreignServer + couponPath, activeServer: AppPreferences.stagingURL))
+        }
+        let couponJSON = #"{"id":"c_1","batch_id":"b_1","app":{"id":"app-1","name":"Sketchpad","homepage":null,"icon_url":null},"vendor":"openai","models":["gpt-4.1-mini"],"remaining_usd":0.8587,"expires_at":"2099-01-01T00:00:00.000Z","status":"active"}"#
+        let coupon = try decoder.decode(Coupon.self, from: Data(couponJSON.utf8))
+        precondition(coupon.app.name == "Sketchpad" && coupon.batchID == "b_1" && coupon.remainingUSD == 0.8587)
+        let offerJSON = #"{"batch_id":"b_1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","models":["gpt-4.1-mini"],"per_coupon_usd":1,"validity_days":7,"claim_deadline":"2099-01-01T00:00:00.000Z","claimable":false,"coupon":\#(couponJSON)}"#
+        let offer = try decoder.decode(CouponPreview.self, from: Data(offerJSON.utf8))
+        precondition(offer.canConnect && !offer.claimable && offer.coupon?.id == coupon.id && offer.validityDays == 7)
+        for status in ["expired", "revoked", "exhausted"] {
+            let closed = try decoder.decode(CouponPreview.self, from: Data(offerJSON.replacingOccurrences(of: #""status":"active""#, with: #""status":"\#(status)""#).utf8))
+            precondition(!closed.canConnect)
+            precondition(APIError.couponMessage(for: "coupon_" + status) != nil)
+        }
+        let sponsoredPairing = try decoder.decode(ConnectPreview.self, from: Data(#"{"app":{"name":"Sketchpad"},"vendor":"openai","requires_ask":true,"coupon":\#(offerJSON)}"#.utf8))
+        precondition(sponsoredPairing.requiresAsk == true && sponsoredPairing.coupon?.coupon?.id == coupon.id)
+        let sponsoredGrant = try decoder.decode(GrantRecord.self, from: Data(#"{"id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","policy":{"mode":"ask"},"coupon":\#(couponJSON)}"#.utf8))
+        precondition(sponsoredGrant.coupon?.id == coupon.id && !sponsoredGrant.trust && grant.coupon == nil)
+        let fundedDetail = #"{"id":"req-1","grant_id":"grant-1","app":{"id":"app-1","name":"Sketchpad"},"vendor":"openai","model":"gpt-4.1-mini","status":"pending","estimated_usd":0.000028,"created_at":"2026-11-14T08:22:00Z","payload":{"system":"System prompt","messages":[{"role":"user","content":"User prompt"}]},"coupon":\#(couponJSON)}"#
+        let sponsoredRequest = try decoder.decode(RequestRecord.self, from: Data(fundedDetail.utf8))
+        precondition(sponsoredRequest.coupon?.id == coupon.id && !sponsoredRequest.canApproveWithSwipe)
+        precondition(sponsoredRequest.readableMessages.map(\.text) == ["System prompt", "User prompt"])
+        let mergedFunding = RequestHistory.merging(existing: [sponsoredRequest], incoming: [request])
+        precondition(mergedFunding.first?.coupon?.id == coupon.id && mergedFunding.first?.canApproveWithSwipe == false)
+
         let detailPayload = JSONValue.object(["prompt": .string("immutable payload")])
         let detailResponse = JSONValue.object(["answer": .string("saved response")])
         let existingPage = [

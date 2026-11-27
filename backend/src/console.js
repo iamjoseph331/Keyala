@@ -51,7 +51,11 @@ function h(tag, a, ...kids) {
 }
 // every screen change bumps gen; an await that finishes after a newer screen (e.g. sign-out) must not redraw
 let gen = 0;
-function show(...kids) { gen++; root.replaceChildren(...kids.filter(Boolean)); }
+function clearCouponKey(panel = root) {
+  const key = panel.querySelector('[data-coupon-key]');
+  if (key) key.value = '';
+}
+function show(...kids) { gen++; clearCouponKey(); root.replaceChildren(...kids.filter(Boolean)); }
 
 async function api(method, path, body, auth) {
   const hd = { 'content-type': 'application/json' };
@@ -65,6 +69,35 @@ async function api(method, path, body, auth) {
   if (!r.ok) throw new Error((j && j.error && j.error.message) || L.error);
   return j;
 }
+const C = {
+  en: { btn: 'Coupons', intro: 'Share the link or code so users can claim a fixed amount. They review the full prompt and approve each call on their phone. Use a separate API key for each batch and set a spending limit with your provider.',
+    vendor: 'Provider', models: 'Models (comma separated)', key: 'Dedicated API key (stored encrypted, never shown again)', per: 'Per coupon (USD)', total: 'Total budget (USD)', days: 'Valid for (days after claiming)', deadline: 'Claim until', create: 'Create batch',
+    none: 'No batches yet.', avail: 'Available to claim', link: 'Claim page', qr: 'Claim QR code', revoke: 'Revoke', revokeAsk: 'Revoke this batch? Unused balances return, waiting calls are denied and the key is wiped.', revoked: 'Revoked', stopped: 'Stopped', report: 'Report',
+    claimed: 'Coupons claimed', spent: 'Total spent', held: 'Total held', returned: 'Returned to batch', overshoot: 'Overshoot',
+    actual: 'Provider-reported spend', estimated: 'Estimates charged for completed calls', uncertain: 'Held for uncertain calls', firstSuccess: 'Users with a successful call',
+    outcomes: 'Request outcomes', modelSpend: 'Spend by model', noModels: 'No settled calls yet.', settled: 'Settled calls',
+    status: { pending: 'Awaiting approval', approved: 'Approved', sending: 'Sending', completed: 'Completed', denied: 'Denied', failed: 'Failed', expired: 'Expired', uncertain: 'Uncertain' },
+    email: 'Email alerts on', noEmail: 'Email alerts off', close: 'Close', copy: 'Copy link', copied: 'Link copied', copyFailed: 'Could not copy the link.' },
+  zh: { btn: '優惠券', intro: '分享連結或代碼，讓使用者領取固定額度。每次呼叫都要在手機上查看完整提示詞並核准。請為每個批次使用專用 API 金鑰，並在供應商端設定支出上限。',
+    vendor: '供應商', models: '模型（以逗號分隔）', key: '專用 API 金鑰（加密儲存，之後不再顯示）', per: '每張金額（USD）', total: '總預算（USD）', days: '領取後有效天數', deadline: '領取期限', create: '建立批次',
+    none: '尚無批次。', avail: '可供領取', link: '領取頁面', qr: '領取用 QR 碼', revoke: '撤銷', revokeAsk: '撤銷此批次？未用餘額會退回，等待中的呼叫會被拒絕，金鑰會被清除。', revoked: '已撤銷', stopped: '已停止', report: '報告',
+    claimed: '已領取的優惠券', spent: '總支出', held: '總保留金額', returned: '已退回批次', overshoot: '超支',
+    actual: '供應商回報的支出', estimated: '已完成呼叫的估計扣款', uncertain: '結果未確認的保留金額', firstSuccess: '曾成功完成呼叫的使用者',
+    outcomes: '呼叫結果', modelSpend: '各模型支出', noModels: '尚無已結算的呼叫。', settled: '已結算的呼叫',
+    status: { pending: '等待核准', approved: '已核准', sending: '傳送中', completed: '已完成', denied: '已拒絕', failed: '失敗', expired: '已過期', uncertain: '結果未確認' },
+    email: '已開啟電子郵件通知', noEmail: '電子郵件通知未開啟', close: '關閉', copy: '複製連結', copied: '已複製連結', copyFailed: '無法複製連結。' },
+  ja: { btn: 'クーポン', intro: 'リンクやコードを共有すると、ユーザーが一定額を受け取れます。ユーザーはスマートフォンで毎回プロンプト全文を確認し、呼び出しを承認します。バッチごとに専用の API キーを使い、プロバイダ側でも利用上限を設定してください。',
+    vendor: 'プロバイダ', models: 'モデル（カンマ区切り）', key: '専用 API キー（暗号化して保存、再表示されません）', per: '1枚あたり（USD）', total: '総予算（USD）', days: '受け取り後の有効日数', deadline: '受け取り期限', create: 'バッチを作成',
+    none: 'バッチはまだありません。', avail: '受け取り可能額', link: '受け取りページ', qr: '受け取り用 QR コード', revoke: '取り消す', revokeAsk: 'このバッチを取り消しますか？未使用の残高は戻り、待機中の呼び出しは拒否され、キーは消去されます。', revoked: '取り消し済み', stopped: '停止', report: 'レポート',
+    claimed: '受け取り済みのクーポン', spent: '支出総額', held: '確保中の総額', returned: 'バッチへの返却額', overshoot: '超過',
+    actual: 'プロバイダ報告に基づく支出', estimated: '完了した呼び出しの見積もりによる請求額', uncertain: '結果が不明な呼び出しの確保額', firstSuccess: '呼び出しに成功したユーザー',
+    outcomes: 'リクエストの結果', modelSpend: 'モデル別の支出', noModels: 'まだ精算された呼び出しはありません。', settled: '精算済みの呼び出し',
+    status: { pending: '承認待ち', approved: '承認済み', sending: '送信中', completed: '完了', denied: '拒否', failed: '失敗', expired: '期限切れ', uncertain: '結果不明' },
+    email: 'メール通知オン', noEmail: 'メール通知オフ', close: '閉じる', copy: 'リンクをコピー', copied: 'リンクをコピーしました', copyFailed: 'リンクをコピーできませんでした。' },
+};
+const couponLanguage = (navigator.language || 'en').slice(0, 2);
+const CL = C[couponLanguage] || C.en;
+const couponMoney = new Intl.NumberFormat(navigator.language, { style: 'currency', currency: 'USD', maximumFractionDigits: 6 }).format;
 const money = n => '$' + (n || 0).toFixed(!n ? 2 : n < 0.01 ? 6 : n < 1 ? 4 : 2);
 const when = s => s ? new Date(s).toLocaleString() : L.never;
 function tabs(items, sel, on) {
@@ -141,7 +174,7 @@ async function account() {
   if (g !== gen || !token) return;
   const body = h('div');
   show(h('header', {}, h('h1', {}, view === 'account' ? L.accountTitle : L.appsTitle), h('span', { class: 'muted' }, who.email),
-    h('button', { onclick: async () => { try { await api('POST', '/v1/me/logout'); } catch (e) {} setToken(null); start(); } }, L.signOut)),
+    h('button', { onclick: async () => { clearCouponKey(); try { await api('POST', '/v1/me/logout'); } catch (e) {} setToken(null); start(); } }, L.signOut)),
     tabs([['account', L.tabAccount], ['apps', L.tabApps]], view, k => { view = k; account(); }), body);
   view === 'account' ? accountView(body) : appsView(body, who);
 }
@@ -228,6 +261,7 @@ function plazaReview(box) {
 
 async function appsView(body, who) {
   const err = h('div', { class: 'err' }), list = h('div', { class: 'card' }), notice = h('div'), rep = h('div');
+  const replacePanel = (...kids) => { clearCouponKey(rep); rep.replaceChildren(...kids); };
   const name = h('input', { maxlength: 100, placeholder: 'Interview Prepper' }), home = h('input', { type: 'url', placeholder: 'https://your-app.example' }), orig = h('input', { placeholder: 'https://you.github.io, http://localhost:5173' });
   const sec = h('input', { type: 'password', autocomplete: 'off', placeholder: 'keyala_app_\u2026' });
   const secretBox = (s, text) => h('div', { class: 'card' }, h('b', {}, text), h('div', { class: 'secret' }, s),
@@ -266,7 +300,7 @@ async function appsView(body, who) {
           h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly),
           !who || !who.plaza_enabled ? null : h('div', { class: 'muted' }, a.plaza ? L.plazaStatus[a.plaza] + ' ' : '',
             a.homepage || a.plaza ? h('button', { onclick: () => plaza(a) }, a.plaza && a.plaza !== 'rejected' ? L.plazaWithdraw : L.plazaList) : L.plazaNeedHome)),
-        h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
+        h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => coupons(a) }, CL.btn), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
           h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('div', { class: 'empty' }, h('div', {}, h('b', {}, L.noApps), h('span', { class: 'muted' }, L.noAppsHelp, ' '), h('a', { href: 'https://keyala.io/docs/' }, L.steps)))]));
     } catch (e) { fail(err)(e); }
   }
@@ -286,7 +320,7 @@ async function appsView(body, who) {
         rep.replaceChildren(h('p', { class: 'muted' }, L.saved)); load();
       } catch (e) { fail(err)(e); }
     });
-    rep.replaceChildren(f); f.scrollIntoView({ behavior: 'smooth' }); n.focus();
+    replacePanel(f); f.scrollIntoView({ behavior: 'smooth' }); n.focus();
   }
   async function del(a) {
     err.textContent = '';
@@ -295,18 +329,108 @@ async function appsView(body, who) {
     if (typed.trim() !== a.name) { err.textContent = L.delMismatch; return; }
     try {
       await api('DELETE', '/v1/me/apps/' + encodeURIComponent(a.id));
-      rep.replaceChildren(); notice.replaceChildren(h('p', { class: 'muted' }, L.deleted)); load();
+      replacePanel(); notice.replaceChildren(h('p', { class: 'muted' }, L.deleted)); load();
     } catch (e) { fail(err)(e); }
+  }
+  function coupons(a) {
+    const base = '/v1/me/apps/' + encodeURIComponent(a.id) + '/coupons';
+    const box = h('section', { class: 'card', lang: couponLanguage === 'zh' ? 'zh-Hant' : couponLanguage === 'ja' ? 'ja' : 'en' });
+    const listBox = h('div'), out = h('div', { 'aria-live': 'polite' });
+    let reportVersion = 0;
+    const error = h('div', { class: 'err', role: 'alert' });
+    const vendor = h('select', {}, ['openai', 'anthropic', 'openrouter'].map(v => h('option', { value: v }, v)));
+    const models = h('input', { placeholder: 'gpt-4o-mini', required: true });
+    const key = h('input', { type: 'password', autocomplete: 'off', 'data-coupon-key': true, required: true });
+    const usd = { type: 'number', step: '0.000001', min: '0.001', max: '10000', required: true };
+    const per = h('input', { ...usd, value: '1' }), total = h('input', { ...usd, value: '20' });
+    const days = h('input', { type: 'number', min: '1', max: '365', value: '7', required: true });
+    const nextWeek = new Date(Date.now() + 7 * 864e5);
+    const dl = h('input', { type: 'datetime-local', value: new Date(nextWeek.getTime() - nextWeek.getTimezoneOffset() * 6e4).toISOString().slice(0, 16), required: true });
+    const createBatch = h('button', { class: 'primary', type: 'submit' }, CL.create);
+    const form = h('form', {}, h('label', {}, CL.vendor, vendor), h('label', {}, CL.models, models), h('label', {}, CL.key, key), h('label', {}, CL.per, per),
+      h('label', {}, CL.total, total), h('label', {}, CL.days, days), h('label', {}, CL.deadline, dl), h('p', {}, createBatch));
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      if (createBatch.disabled) return;
+      error.textContent = '';
+      createBatch.disabled = true;
+      try {
+        const request = api('POST', base, { vendor: vendor.value, models: models.value.split(',').map(x => x.trim()).filter(Boolean), api_key: key.value,
+          per_coupon_usd: Number(per.value), total_usd: Number(total.value), validity_days: Number(days.value), claim_deadline: new Date(dl.value).toISOString() });
+        key.value = '';
+        await request;
+        if (box.isConnected) await refresh();
+      } catch (e) { fail(error)(e); }
+      finally { createBatch.disabled = false; }
+    });
+    box.append(h('h3', {}, a.name + ', ' + CL.btn), h('p', { class: 'muted' }, CL.intro), listBox, out, form, error,
+      h('p', {}, h('button', { onclick: () => replacePanel() }, CL.close)));
+    async function refresh() {
+      try {
+        const bs = await api('GET', base);
+        if (!box.isConnected) return;
+        listBox.replaceChildren(...(bs.length ? bs.map(b => {
+          const claim = '/coupon/' + encodeURIComponent(b.coupon_code);
+          return h('div', { class: 'row' },
+            h('div', {}, h('b', {}, b.coupon_code), b.revoked_at ? h('span', { class: 'chip' }, CL.revoked) : b.stopped_at ? h('span', { class: 'chip' }, CL.stopped) : null,
+              h('div', { class: 'muted' }, b.vendor + ', ' + b.models.join(', ')),
+              h('div', { class: 'muted' }, couponMoney(b.per_coupon_usd) + ' / ' + couponMoney(b.total_usd) + ', ' + CL.avail + ' ' + couponMoney(b.available_usd) + ', ' + (b.email_enabled ? CL.email : CL.noEmail)),
+              h('div', { class: 'muted' }, CL.deadline + ' ' + when(b.claim_deadline)),
+              h('details', {}, h('summary', {}, CL.qr), h('img', { class: 'qr', src: claim + '/qr.svg', alt: CL.qr + ' ' + b.coupon_code, loading: 'lazy' }),
+                h('a', { href: claim }, CL.link))),
+            h('div', {}, h('button', { onclick: async ev => {
+              const button = ev.currentTarget;
+              try { await navigator.clipboard.writeText(b.claim_url); button.textContent = CL.copied; } catch { error.textContent = CL.copyFailed; }
+            } }, CL.copy), ' ', h('button', { onclick: () => rpt(b) }, CL.report), ' ',
+            b.revoked_at ? null : h('button', { class: 'danger', onclick: () => rev(b) }, CL.revoke)));
+        }) : [h('p', { class: 'muted' }, CL.none)]));
+      } catch (e) { fail(error)(e); }
+    }
+    async function rev(b) {
+      if (!confirm(CL.revokeAsk)) return;
+      try {
+        await api('DELETE', base + '/' + encodeURIComponent(b.id));
+        reportVersion++;
+        out.replaceChildren();
+        await refresh();
+      } catch (e) { fail(error)(e); }
+    }
+    async function rpt(b) {
+      const version = ++reportVersion;
+      error.textContent = '';
+      try {
+        const r = await api('GET', base + '/' + encodeURIComponent(b.id) + '/report');
+        if (box.isConnected && version === reportVersion) out.replaceChildren(couponReport(b.coupon_code, r));
+      } catch (e) { if (version === reportVersion) fail(error)(e); }
+    }
+    replacePanel(box); box.scrollIntoView({ behavior: 'smooth' }); refresh();
   }
   async function report(a, days) {
     err.textContent = '';
     try {
       const r = await api('GET', '/v1/me/apps/' + encodeURIComponent(a.id) + '/report?days=' + days);
-      rep.replaceChildren(reportView(a, r, days, d => report(a, d), notice, secretBox, err));
+      replacePanel(reportView(a, r, days, d => report(a, d), notice, secretBox, err));
       rep.scrollIntoView({ behavior: 'smooth' });
     } catch (e) { fail(err)(e); }
   }
   load();
+}
+
+function couponReport(code, r) {
+  const m = r.money;
+  const stats = entries => h('div', { class: 'grid' }, entries.map(([label, value]) => h('div', { class: 'stat' }, h('b', {}, value), label)));
+  return h('section', {}, h('h3', {}, CL.report + ', ' + code),
+    stats([[CL.claimed, r.coupons.claimed], [CL.firstSuccess, r.first_successful_users], [CL.spent, couponMoney(m.spent_usd)],
+      [CL.actual, couponMoney(m.actual_cost_usd)], [CL.estimated, couponMoney(m.completed_estimated_cost_usd)],
+      [CL.held, couponMoney(m.held_usd)], [CL.uncertain, couponMoney(m.uncertain_held_usd)],
+      [CL.returned, couponMoney(m.returned_usd)], [CL.overshoot, couponMoney(m.overshoot_usd)]]),
+    h('h4', {}, CL.outcomes), stats(Object.entries(CL.status).map(([status, label]) => [label, r.requests[status]])),
+    h('h4', {}, CL.modelSpend), r.models.length ? r.models.map(model => h('div', { class: 'row' },
+      h('div', {}, h('b', {}, model.model), h('div', { class: 'muted' }, CL.settled + ' ' + model.requests)),
+      h('div', {}, h('b', {}, couponMoney(model.cost_usd)),
+        h('div', { class: 'muted' }, CL.actual + ' ' + couponMoney(model.actual_cost_usd)),
+        h('div', { class: 'muted' }, CL.estimated + ' ' + couponMoney(model.completed_estimated_cost_usd)))))
+      : h('p', { class: 'muted' }, CL.noModels));
 }
 
 function reportView(a, r, days, again, notice, secretBox, err) {
