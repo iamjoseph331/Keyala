@@ -223,7 +223,7 @@ struct RequestDetailView: View {
                     }.frame(maxWidth: .infinity).padding(.top, 12)
                     if current.isDemo { ModeBanner() }
                     if let coupon = current.coupon {
-                        Card { CouponDetails(coupon: coupon) }
+                        CouponDetails(coupon: coupon)
                     }
                     if current.status == "uncertain" {
                         Label("The provider may have processed and charged for this request. It will not be retried automatically.", systemImage: "exclamationmark.triangle")
@@ -517,18 +517,50 @@ struct GrantsView: View {
     }
 }
 
+// Coupon surfaces follow the approved leaf-green ticket design in both appearances.
+private enum CouponStyle {
+    static let green = Color(red: 36 / 255, green: 94 / 255, blue: 62 / 255)
+    static let ink = Color(red: 29 / 255, green: 43 / 255, blue: 34 / 255)
+    static let muted = Color(red: 79 / 255, green: 95 / 255, blue: 84 / 255)
+    static let paper = Color(red: 241 / 255, green: 245 / 255, blue: 238 / 255)
+    static let line = Color(red: 226 / 255, green: 233 / 255, blue: 223 / 255)
+}
+
 private struct CouponDetails: View {
     let coupon: Coupon
+    private var active: Bool { coupon.status == .active }
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Sponsored credit", systemImage: "ticket").font(.headline).foregroundStyle(KeyalaStyle.teal)
-            LabeledContent("Sponsor", value: coupon.app.name)
-            LabeledContent("Remaining credit") {
-                Text(coupon.remainingUSD, format: .currency(code: "USD").precision(.fractionLength(2...6)))
+        VStack(alignment: .leading, spacing: 16) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) { appName; Spacer(minLength: 8); status }
+                VStack(alignment: .leading, spacing: 10) { appName; status }
             }
-            LabeledContent("Expires", value: coupon.expiresAt.asDate)
-            LabeledContent("Status") { Text(LocalizedStringKey(coupon.status.title)) }
-        }.font(.subheadline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Remaining credit").font(.caption)
+                // shortcut: recipient JSON has no original value, add progress when the contract supplies it.
+                Text(coupon.remainingUSD, format: .currency(code: "USD").precision(.fractionLength(2...6)))
+                    .font(.system(.largeTitle, design: .serif, weight: .bold)).monospacedDigit()
+            }
+            Label { Text("Only in \(coupon.app.name)") } icon: { Image(systemName: "lock.fill") }
+                .font(.subheadline.weight(.medium))
+            LabeledContent("Expires", value: coupon.expiresAt.asDate).font(.caption)
+        }.foregroundStyle(active ? .white : CouponStyle.muted)
+            .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .background(active ? CouponStyle.green : .white, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(CouponStyle.line, lineWidth: active ? 0 : 1))
+    }
+    private var appName: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(String(coupon.app.name.prefix(1)).uppercased()).font(.headline)
+                .foregroundStyle(CouponStyle.green).frame(width: 34, height: 34)
+                .background(CouponStyle.paper, in: RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
+            Text(coupon.app.name).font(.headline).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    private var status: some View {
+        Text(LocalizedStringKey(coupon.status.title)).font(.caption.weight(.semibold))
+            .foregroundStyle(CouponStyle.green).padding(.horizontal, 10).padding(.vertical, 5)
+            .background(CouponStyle.paper, in: Capsule())
     }
 }
 
@@ -539,24 +571,35 @@ private struct CouponsView: View {
     @State private var loading = true
 
     var body: some View {
-        List {
-            if let error {
-                Text(error).foregroundStyle(KeyalaStyle.warning)
-                Button("Refresh") { Task { await load() } }
-            } else if loading && coupons.isEmpty {
-                ProgressView("Loading coupons…")
-            } else if coupons.isEmpty {
-                Text("No coupons claimed yet. Scan a coupon QR or enter its code to claim one.")
-                    .foregroundStyle(KeyalaStyle.muted)
-            }
-            ForEach(coupons) { coupon in
-                Section(coupon.app.name) {
-                    CouponDetails(coupon: coupon)
-                    LabeledContent("Provider", value: coupon.vendor.title)
-                    LabeledContent("Eligible models", value: coupon.models.joined(separator: ", "))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let error {
+                    Text(error).foregroundStyle(KeyalaStyle.warning)
+                    Button("Refresh") { Task { await load() } }.buttonStyle(.bordered)
+                } else if loading && coupons.isEmpty {
+                    ProgressView("Loading coupons…").frame(maxWidth: .infinity)
+                } else if coupons.isEmpty {
+                    ContentUnavailableView("No coupons claimed yet.", systemImage: "ticket",
+                        description: Text("Scan a coupon QR or enter its code to claim one."))
+                }
+                ForEach(coupons) { coupon in
+                    VStack(alignment: .leading, spacing: 10) {
+                        CouponDetails(coupon: coupon)
+                        VStack(alignment: .leading, spacing: 6) {
+                            LabeledContent("Provider", value: coupon.vendor.title)
+                            LabeledContent("Eligible models", value: coupon.models.joined(separator: ", "))
+                        }.font(.caption).foregroundStyle(KeyalaStyle.muted).padding(.horizontal, 8)
+                    }
+                }
+            }.padding(20)
+        }.background(KeyalaStyle.navy).localizedNavigationTitle("Coupons")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { NotificationCenter.default.post(name: .keyalaConnectApp, object: nil) } label: {
+                        Label("Scan a coupon", systemImage: "qrcode.viewfinder")
+                    }
                 }
             }
-        }.localizedNavigationTitle("Coupons")
             .task(id: store.contextGeneration) { coupons = []; await load() }
             .refreshable { await load() }
     }
@@ -568,6 +611,103 @@ private struct CouponsView: View {
         do { coupons = try await store.coupons() }
         catch is CancellationError { }
         catch { if generation == store.contextGeneration && !Task.isCancelled { self.error = error.localizedDescription } }
+    }
+}
+
+private struct CouponTicket: View {
+    let preview: CouponPreview
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var flipped = false
+    @State private var nudged = false
+    @State private var nudge = 0.0
+    @ScaledMetric(relativeTo: .largeTitle) private var amountSize = 60
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 10) {
+                Text(String(preview.app.name.prefix(1)).uppercased())
+                    .font(.title2.bold()).foregroundStyle(.white).frame(width: 52, height: 52)
+                    .background(CouponStyle.green, in: RoundedRectangle(cornerRadius: 15)).accessibilityHidden(true)
+                Text("Sponsored by \(preview.app.name)").font(.subheadline).foregroundStyle(CouponStyle.muted)
+                Text(preview.perCouponUSD, format: .currency(code: "USD").precision(.fractionLength(2...6)))
+                    .font(.system(size: amountSize, weight: .bold, design: .serif))
+                    .minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(CouponStyle.green)
+                Text("Valid for \(preview.validityDays) days after claim").font(.subheadline).foregroundStyle(CouponStyle.muted)
+                Label { Text("Only in \(preview.app.name)") } icon: { Image(systemName: "lock.fill") }
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(CouponStyle.green)
+                    .padding(.horizontal, 12).padding(.vertical, 8).background(CouponStyle.paper, in: RoundedRectangle(cornerRadius: 14))
+            }.multilineTextAlignment(.center).padding(24).frame(maxWidth: .infinity)
+            Rectangle().fill(CouponStyle.line).frame(height: 1)
+                .overlay {
+                    GeometryReader { geometry in
+                        Path { path in path.move(to: .zero); path.addLine(to: CGPoint(x: geometry.size.width, y: 0)) }
+                            .stroke(.white, style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    }
+                }.padding(.horizontal, 20)
+                .overlay {
+                    HStack {
+                        Circle().fill(KeyalaStyle.navy).frame(width: 24, height: 24).offset(x: -12)
+                        Spacer()
+                        Circle().fill(KeyalaStyle.navy).frame(width: 24, height: 24).offset(x: 12)
+                    }
+                }.accessibilityHidden(true)
+            VStack(spacing: 16) {
+                ZStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        LabeledContent("Eligible app") { Text("Only in \(preview.app.name)") }
+                        LabeledContent("Provider", value: preview.vendor.title)
+                        LabeledContent("Eligible models", value: preview.models.joined(separator: ", "))
+                        LabeledContent("Claim by", value: preview.claimDeadline.asDate)
+                    }.font(.subheadline).opacity(flipped ? 0 : 1)
+                        .rotation3DEffect(.degrees(reduceMotion ? 0 : (flipped ? -180 : 0)), axis: (x: 0, y: 1, z: 0))
+                        .accessibilityHidden(flipped)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("How this coupon works").font(.headline)
+                        step(1, title: "Only this app", detail: "Other apps cannot use this credit.")
+                        step(2, title: "You approve every call", detail: "Review the full content and estimated cost before allowing it.")
+                        step(3, title: "Stops when credit runs out", detail: "Used up or expired? Calls stop. Your own key is never used instead.")
+                    }.opacity(flipped ? 1 : 0)
+                        .rotation3DEffect(.degrees(reduceMotion ? 0 : (flipped ? 0 : 180)), axis: (x: 0, y: 1, z: 0))
+                        .accessibilityHidden(!flipped)
+                }
+                Button { flipped.toggle(); nudge = 0 } label: {
+                    Label {
+                        Text(LocalizedStringKey(flipped ? "Back to coupon details" : "Flip to see how it works"))
+                    } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
+                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.horizontal, 8)
+                }.buttonStyle(.plain).foregroundStyle(CouponStyle.green)
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(CouponStyle.green, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                    .accessibilityIdentifier("coupon.flip")
+            }.padding(24)
+                .rotation3DEffect(.degrees(reduceMotion ? 0 : nudge), axis: (x: 1, y: 0, z: 0), anchor: .top)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: flipped)
+        }.foregroundStyle(CouponStyle.ink).background(.white, in: RoundedRectangle(cornerRadius: 26))
+            .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(CouponStyle.line, lineWidth: 1))
+            .task {
+                guard !nudged else { return }
+                nudged = true
+                guard !reduceMotion else { return }
+                do {
+                    try await Task.sleep(for: .seconds(1.2))
+                    guard !reduceMotion, !flipped else { return }
+                    withAnimation(.easeOut(duration: 0.22)) { nudge = -12 }
+                    try await Task.sleep(for: .seconds(0.22))
+                    withAnimation(.easeOut(duration: 0.35)) { nudge = 0 }
+                } catch { nudge = 0 }
+            }
+            .onChange(of: reduceMotion) { _, _ in nudge = 0 }
+    }
+
+    private func step(_ number: Int, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(number, format: .number).font(.caption.bold()).foregroundStyle(CouponStyle.green)
+                .frame(width: 26, height: 26).background(CouponStyle.paper, in: Circle()).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.subheadline.bold())
+                Text(detail).font(.footnote).foregroundStyle(CouponStyle.muted)
+            }.fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -605,39 +745,41 @@ struct CouponClaimView: View {
                     AccountView()
                 }.padding(.top)
             } else {
-                Form {
-                    Section {
-                        LabeledContent("Keyala server", value: store.serverHost)
-                        Text("The coupon covers eligible calls from its app. You review each call and approve it once. Connect to the app separately to let it request calls.")
-                            .font(.footnote).foregroundStyle(KeyalaStyle.muted)
-                    }
-                    if let coupon = claimed ?? preview?.coupon {
-                        Section {
-                            Label("Coupon claimed", systemImage: "checkmark.circle.fill").foregroundStyle(KeyalaStyle.teal)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        if let coupon = claimed ?? preview?.coupon {
+                            Label("Coupon claimed", systemImage: "checkmark.circle.fill")
+                                .font(.headline).foregroundStyle(KeyalaStyle.teal)
                             CouponDetails(coupon: coupon)
                             LabeledContent("Provider", value: coupon.vendor.title)
                             LabeledContent("Eligible models", value: coupon.models.joined(separator: ", "))
-                        }
-                    } else if let preview {
-                        Section("Review coupon") {
-                            CouponOfferDetails(preview: preview)
+                        } else if let preview {
+                            CouponTicket(preview: preview)
                             if preview.claimable {
-                                Button("Claim coupon") { claim(preview) }.fontWeight(.semibold).disabled(claiming)
+                                Button { claim(preview) } label: {
+                                    Text("Claim coupon").font(.headline).foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity, minHeight: 54)
+                                        .background(CouponStyle.green, in: Capsule())
+                                }.buttonStyle(.plain).disabled(claiming)
+                                    .accessibilityIdentifier("coupon.claim")
                             } else {
-                                Text("This coupon is no longer available to claim.").foregroundStyle(KeyalaStyle.warning)
+                                Label("This coupon is no longer available to claim.", systemImage: "exclamationmark.circle")
+                                    .foregroundStyle(KeyalaStyle.warning)
                             }
+                        } else if error == nil {
+                            ProgressView("Loading coupon…").frame(maxWidth: .infinity)
                         }
-                    } else if error == nil {
-                        ProgressView("Loading coupon…")
-                    }
-                    if claiming { ProgressView() }
-                    if let error {
-                        Section {
+                        if claiming { ProgressView().frame(maxWidth: .infinity) }
+                        if let error {
                             Text(error).foregroundStyle(KeyalaStyle.warning)
-                            Button("Refresh") { reload += 1 }.disabled(claiming)
+                            Button("Refresh") { reload += 1 }.buttonStyle(.bordered).disabled(claiming)
                         }
-                    }
-                }.scrollContentBackground(.hidden)
+                        Text("Connect to this app separately to use its coupon. You still approve every call.")
+                            .font(.footnote).foregroundStyle(KeyalaStyle.muted)
+                        LabeledContent("Keyala server", value: store.serverHost)
+                            .font(.caption).foregroundStyle(KeyalaStyle.muted)
+                    }.padding(20)
+                }
             }
         }.background(KeyalaStyle.navy).localizedNavigationTitle("Coupon")
             .toolbar {
