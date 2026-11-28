@@ -28,11 +28,21 @@ const T = { en: {
   whenNote: 'Shown in your time zone', busiest: 'Busiest hour', weekend: 'Weekend share',
   expired: 'Your session expired. Sign in again.', back: 'Back', error: 'Something went wrong',
   days_: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-  plazaList: 'List in Plaza', plazaWithdraw: 'Withdraw from Plaza', plazaNeedHome: 'Add an https:// homepage to list this app in Plaza.',
-  plazaStatus: { pending: 'Plaza: waiting for review', approved: 'Plaza: listed', rejected: 'Plaza: not approved' },
-  plazaAsk: 'Submit this app for Plaza? If approved, only its name and homepage become public. Editing either one removes it from Plaza.',
-  plazaId: 'Your Plaza reviewer ID (add to KEYALA_PLAZA_REVIEWERS)', plazaTitle: 'Plaza review', plazaNone: 'Nothing here.', approve: 'Approve', reject: 'Reject', takeDown: 'Take down', open: 'open',
-  plazaTabs: { pending: 'Pending', approved: 'Listed', rejected: 'Rejected' },
+  plazaNeedHome: 'Add an https:// homepage to list this app in Plaza.',
+  plazaStatus: { none: 'Not in Plaza', pending: 'In review', approved: 'Listed in Plaza', rejected: 'Not approved' },
+  plazaHint: { none: 'Only the name and homepage would be public.', pending: 'Editing the name or homepage cancels the review.', approved: 'Public on keyala.io/examples.', rejected: 'You can change it and submit again.' },
+  plazaAct: { none: 'List in Plaza…', pending: 'Withdraw', approved: 'Remove from Plaza', rejected: 'Submit again…' },
+  plazaRemoveAsk: 'Remove this app from Plaza? Listing it again needs a new review.',
+  plazaPanel: 'List in Plaza: ', plazaPublic: 'This is everything that becomes public, exactly as people will see it:',
+  plazaChecks: ['Homepage uses https://', 'Not shown: app ID, origins, usage, costs, your email', 'You can withdraw at any time'],
+  plazaConsent: 'I build this app, and Keyala may show its name and homepage publicly.', plazaSubmit: 'Submit for review',
+  plazaListedWarn: 'This app is in Plaza. Changing its name or homepage takes it off Plaza until it is reviewed again. Allowed origins can change freely.',
+  saveLeave: 'Save and leave Plaza',
+  plazaId: 'Your Plaza reviewer ID (add to KEYALA_PLAZA_REVIEWERS)', plazaTitle: 'Plaza review', plazaNone: 'Nothing here.', approve: 'Approve', reject: 'Reject', takeDown: 'Take down', openSite: 'Open site ↗',
+  plazaTabs: { pending: 'Pending', approved: 'Listed', rejected: 'Rejected' }, reload: 'Reload',
+  plazaStale: 'This app changed since you loaded the list. Nothing was decided. Reload to review the new name or homepage.',
+  plazaCheckTitle: 'Before approving, check', plazaCheck: ['The site opens and really uses Keyala', 'The name is not misleading or impersonating someone (look at the bold domain)', 'Nothing harmful, adult or scammy on the homepage'],
+  plazaBound: 'Approve and Reject send back exactly the name and homepage shown here. If the developer edits the app meanwhile, the server refuses the decision.',
 }};
 const L = T[(navigator.language || 'en').slice(0, 2)] || T.en;
 const root = document.getElementById('app');
@@ -62,9 +72,12 @@ async function api(method, path, body, auth) {
   // only the session that made this call may be cleared; a late answer for an old session must not sign out a newer one
   if (r.status === 401 && auth === undefined && t && t === token) { setToken(null); start(L.expired); throw new Error('expired'); }
   if (r.status === 401 && auth === undefined && t !== token) throw new Error('expired');
-  if (!r.ok) throw new Error((j && j.error && j.error.message) || L.error);
+  if (!r.ok) { const e = new Error((j && j.error && j.error.message) || L.error); e.type = j && j.error && j.error.type; throw e; }
   return j;
 }
+// a homepage split for display: the host is what a reviewer or visitor must notice
+function splitUrl(s) { try { const u = new URL(s); return [u.protocol + '//', u.host, s.slice((u.protocol + '//' + u.host).length)]; } catch (e) { return ['', s || '', '']; } }
+const avatar = n => h('span', { class: 'av', 'aria-hidden': 'true' }, (n || '?').trim().charAt(0).toUpperCase());
 const money = n => '$' + (n || 0).toFixed(!n ? 2 : n < 0.01 ? 6 : n < 1 ? 4 : 2);
 const when = s => s ? new Date(s).toLocaleString() : L.never;
 function tabs(items, sel, on) {
@@ -204,26 +217,52 @@ function requestRow(r, err) {
 // Each decision sends back the name and homepage that were on screen, so a stale row is refused.
 function plazaReview(box) {
   let st = 'pending'; const err = h('div', { class: 'err' }), list = h('div', { class: 'card' }), bar = h('div');
-  box.append(h('h2', {}, L.plazaTitle), bar, err, list);
+  const checks = h('div', { class: 'card muted' }, h('b', {}, L.plazaCheckTitle), h('ul', {}, L.plazaCheck.map(t => h('li', {}, t))), h('div', {}, L.plazaBound));
+  box.append(h('h2', {}, L.plazaTitle), bar, err, list, checks);
   async function load() {
-    bar.replaceChildren(...Object.keys(L.plazaTabs).map(k => h('button', { class: k === st ? 'primary' : '', onclick: () => { st = k; load(); } }, L.plazaTabs[k])), ' ');
     try {
-      const rows = await api('GET', '/v1/plaza/review?status=' + st);
+      // one list per tab, so every tab shows its count; the queue stays small
+      const all = await Promise.all(Object.keys(L.plazaTabs).map(k => api('GET', '/v1/plaza/review?status=' + k)));
+      const by = Object.fromEntries(Object.keys(L.plazaTabs).map((k, i) => [k, all[i]])), rows = by[st];
+      bar.replaceChildren(tabs(Object.keys(L.plazaTabs).map(k => [k, L.plazaTabs[k] + ' ' + by[k].length]), st, k => { st = k; err.replaceChildren(); load(); }));
       list.replaceChildren(...(rows.length ? rows.map(r => {
         const decide = d => async () => {
-          err.textContent = '';
-          try { await api('POST', '/v1/plaza/review/' + encodeURIComponent(r.app_id), { decision: d, name: r.name, homepage: r.homepage }); } catch (e) { fail(err)(e); }
+          err.replaceChildren();
+          try { await api('POST', '/v1/plaza/review/' + encodeURIComponent(r.app_id), { decision: d, name: r.name, homepage: r.homepage }); }
+          catch (e) {
+            if (e.type === 'stale_submission') err.replaceChildren(h('div', { class: 'note bad', role: 'alert' }, h('span', {}, h('b', {}, r.name + '. '), L.plazaStale), h('button', { onclick: () => { err.replaceChildren(); load(); } }, L.reload)));
+            else fail(err)(e);
+            return;
+          }
           load();
         };
-        const btns = st === 'pending' ? [h('button', { class: 'primary', onclick: decide('approve') }, L.approve), ' ', h('button', { class: 'danger', onclick: decide('reject') }, L.reject)]
+        const btns = st === 'pending' ? [h('button', { class: 'danger', onclick: decide('reject') }, L.reject), ' ', h('button', { class: 'primary', onclick: decide('approve') }, L.approve)]
           : st === 'approved' ? [h('button', { class: 'danger', onclick: decide('withdraw') }, L.takeDown)] : [];
-        const hp = r.homepage || '';
-        return h('div', { class: 'row' }, h('div', {}, h('b', {}, r.name), h('div', { class: 'muted' }, hp, ' ',
-          hp.startsWith('https://') ? h('a', { href: hp, target: '_blank', rel: 'noopener noreferrer nofollow' }, L.open) : null)), h('div', {}, btns));
+        const hp = r.homepage || '', [sch, host, rest] = splitUrl(hp);
+        return h('div', { class: 'row' }, h('div', { class: 'pzrow' }, avatar(r.name), h('div', {}, h('b', {}, r.name),
+          h('div', { class: 'mono' }, sch, h('b', { class: 'host' }, host), rest), h('div', { class: 'muted' }, when(r.submitted_at)))),
+          h('div', {}, hp.startsWith('https://') ? h('a', { class: 'btnlink', href: hp, target: '_blank', rel: 'noopener noreferrer nofollow' }, L.openSite) : null, ' ', btns));
       }) : [h('span', { class: 'muted' }, L.plazaNone)]));
     } catch (e) { fail(err)(e); }
   }
   load();
+}
+
+// Owner side: the panel shows the exact public card before anything is submitted.
+function plazaPanel(a, done, err) {
+  const [, host] = splitUrl(a.homepage), ok = h('input', { type: 'checkbox' });
+  const go = h('button', { class: 'primary', disabled: true }, L.plazaSubmit);
+  ok.addEventListener('change', () => { go.disabled = !ok.checked; });
+  const panel = h('div', { class: 'card pzpanel' }, h('h3', {}, L.plazaPanel + a.name), h('p', { class: 'muted' }, L.plazaPublic),
+    h('div', { class: 'pzprev' }, h('div', { class: 'pzrow pzcard' }, avatar(a.name), h('div', {}, h('b', {}, a.name), h('div', { class: 'mono' }, host)))),
+    h('ul', { class: 'pzchecks' }, L.plazaChecks.map(t => h('li', {}, t))),
+    h('label', { class: 'check' }, ok, L.plazaConsent),
+    h('p', {}, go, ' ', h('button', { onclick: () => done(false) }, L.cancel)));
+  go.addEventListener('click', async () => {
+    go.disabled = true; err.textContent = '';
+    try { await api('POST', '/v1/me/apps/' + encodeURIComponent(a.id) + '/plaza'); done(true); } catch (e) { fail(err)(e); go.disabled = false; }
+  });
+  return panel;
 }
 
 async function appsView(body, who) {
@@ -250,22 +289,31 @@ async function appsView(body, who) {
   });
   const tips = h('div', { class: 'card tip' }, h('h3', {}, L.tipsTitle), h('ul', {}, L.tips.map(t => h('li', {}, t))));
   body.append(err, notice, h('h2', {}, L.myApps), list, h('div', { class: 'cols' }, create, h('div', { class: 'stack' }, claim, tips)), rep);
-  if (who && who.plaza_review_id) body.append(h('p', { class: 'muted' }, L.plazaId + ': ', h('code', {}, who.plaza_review_id), ' ',
-    h('button', { onclick: ev => { navigator.clipboard.writeText(who.plaza_review_id).then(() => { ev.target.textContent = L.copied; }); } }, L.copy)));
   if (who && who.plaza_reviewer) plazaReview(body);
+  if (who && who.plaza_review_id) body.append(h('details', { class: 'card' }, h('summary', {}, L.plazaId), h('p', {}, h('code', {}, who.plaza_review_id), ' ',
+    h('button', { onclick: ev => { navigator.clipboard.writeText(who.plaza_review_id).then(() => { ev.target.textContent = L.copied; }); } }, L.copy))));
   async function plaza(a) {
     err.textContent = '';
-    if (!a.plaza || a.plaza === 'rejected') { if (!confirm(L.plazaAsk)) return; }
-    try { await api(!a.plaza || a.plaza === 'rejected' ? 'POST' : 'DELETE', '/v1/me/apps/' + encodeURIComponent(a.id) + '/plaza'); load(); } catch (e) { fail(err)(e); }
+    if (!a.plaza || a.plaza === 'rejected') {
+      const p = plazaPanel(a, sent => { rep.replaceChildren(); if (sent) load(); }, err);
+      rep.replaceChildren(p); p.scrollIntoView({ behavior: 'smooth' }); return;
+    }
+    if (a.plaza === 'approved' && !confirm(L.plazaRemoveAsk)) return;
+    try { await api('DELETE', '/v1/me/apps/' + encodeURIComponent(a.id) + '/plaza'); load(); } catch (e) { fail(err)(e); }
   }
+  const plazaLine = a => {
+    const st = a.plaza || 'none';
+    if (st === 'none' && !a.homepage) return h('div', { class: 'muted' }, L.plazaNeedHome);
+    return h('div', { class: 'pzline' }, h('span', { class: 'chip st-' + st }, L.plazaStatus[st]), h('span', { class: 'muted' }, L.plazaHint[st]),
+      h('button', { onclick: () => plaza(a) }, L.plazaAct[st]));
+  };
   async function load() {
     try {
       const apps = await api('GET', '/v1/me/apps');
       list.replaceChildren(...(apps.length ? apps.map(a => h('div', { class: 'row' },
         h('div', {}, h('b', {}, a.name), h('div', { class: 'muted' }, a.id + ', ' + a.requests_7d + ' ' + L.calls7 + ', ' + money(a.cost_usd_7d)),
           h('div', { class: 'muted' }, a.allowed_origins ? L.origins_ + ': ' + a.allowed_origins.join(', ') : L.serverOnly),
-          !who || !who.plaza_enabled ? null : h('div', { class: 'muted' }, a.plaza ? L.plazaStatus[a.plaza] + ' ' : '',
-            a.homepage || a.plaza ? h('button', { onclick: () => plaza(a) }, a.plaza && a.plaza !== 'rejected' ? L.plazaWithdraw : L.plazaList) : L.plazaNeedHome)),
+          !who || !who.plaza_enabled ? null : plazaLine(a)),
         h('div', {}, h('button', { onclick: () => report(a, 30) }, L.report), ' ', h('button', { onclick: () => edit(a) }, L.edit), ' ',
           h('button', { class: 'danger', onclick: () => del(a) }, L.del)))) : [h('div', { class: 'empty' }, h('div', {}, h('b', {}, L.noApps), h('span', { class: 'muted' }, L.noAppsHelp, ' '), h('a', { href: 'https://keyala.io/docs/' }, L.steps)))]));
     } catch (e) { fail(err)(e); }
@@ -274,9 +322,14 @@ async function appsView(body, who) {
     err.textContent = '';
     const n = h('input', { maxlength: 100, value: a.name }), hp = h('input', { type: 'url', value: a.homepage || '' });
     const og = h('input', { placeholder: 'https://example.com', value: (a.allowed_origins || []).join(', ') });
-    const f = h('form', { class: 'card' }, h('h3', {}, L.editTitle + ': ' + a.id), h('label', {}, L.name, n), h('label', {}, L.homepage, hp),
+    // a pending or listed app leaves Plaza when its name or homepage changes: say so before saving
+    const listed = a.plaza === 'pending' || a.plaza === 'approved', sv = h('button', { class: 'primary', type: 'submit' }, L.save);
+    const relabel = () => { sv.textContent = listed && (n.value !== a.name || hp.value !== (a.homepage || '')) ? L.saveLeave : L.save; };
+    n.addEventListener('input', relabel); hp.addEventListener('input', relabel);
+    const f = h('form', { class: 'card' }, h('h3', {}, L.editTitle + ': ' + a.id), listed ? h('div', { class: 'note', role: 'note' }, L.plazaListedWarn) : null,
+      h('label', {}, L.name, n), h('label', {}, L.homepage, hp),
       h('label', {}, L.origins, og), h('p', { class: 'muted' }, L.originsNote),
-      h('p', {}, h('button', { class: 'primary', type: 'submit' }, L.save), ' ', h('button', { type: 'button', onclick: () => rep.replaceChildren() }, L.cancel)));
+      h('p', {}, sv, ' ', h('button', { type: 'button', onclick: () => rep.replaceChildren() }, L.cancel)));
     f.addEventListener('submit', async ev => {
       ev.preventDefault(); err.textContent = '';
       const o = og.value.split(',').map(x => x.trim()).filter(Boolean);

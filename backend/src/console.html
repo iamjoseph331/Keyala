@@ -58,6 +58,19 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-ra
 .heat span{aspect-ratio:1;border-radius:3px;background:rgba(var(--heat),var(--a,0));min-width:0;outline:1px solid var(--line)}
 .heat em{font-style:normal;color:var(--muted);align-self:center}
 .err{color:var(--bad);margin:8px 0}
+.note.bad{background:#F3E6E0;color:var(--bad);justify-content:space-between;flex-wrap:wrap}
+.chip.st-none{background:var(--soft);color:var(--muted);margin:0}.chip.st-pending{background:var(--sun);color:var(--sun-ink);margin:0}
+.chip.st-approved{margin:0}.chip.st-rejected{background:#F3E6E0;color:var(--bad);margin:0}
+.pzline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.pzrow{display:flex;gap:12px;align-items:center}
+.av{width:40px;height:40px;border-radius:12px;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;font:700 1.15rem ui-serif,Georgia,serif;flex-shrink:0}
+.mono{font-family:ui-monospace,monospace;font-size:.88rem;color:var(--muted);overflow-wrap:anywhere}.mono .host{color:var(--ink)}
+.pzpanel{border:2px solid var(--green)}
+.pzprev{background:var(--paper);border-radius:18px;padding:14px}.pzcard{background:#fff;border-radius:16px;padding:14px}
+.pzchecks{padding-left:20px}
+label.check{display:flex;gap:10px;align-items:flex-start;font-weight:400}label.check input{width:20px;min-height:20px;margin:3px 0 0;flex-shrink:0}
+a.btnlink{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1.5px solid #D3DDD0;border-radius:999px;color:var(--ink);text-decoration:none;font-weight:600}
+details.card summary{cursor:pointer;font-weight:600}
 .top{border-bottom:1px solid var(--line);background:var(--card)}
 .top div{max-width:1100px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .top a{color:var(--ink);text-decoration:none;font-weight:500}
