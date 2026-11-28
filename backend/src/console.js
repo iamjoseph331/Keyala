@@ -498,7 +498,7 @@ async function appsView(body, who) {
           return;
         }
         error.textContent = '';
-        createBatch.disabled = true;
+        createBatch.disabled = true; vendor.disabled = true;
         try {
           const request = api('POST', base, { vendor: vendor.value, models: selectedModels(), api_key: key.value,
             per_coupon_usd: Number(per.value), total_usd: Number(total.value), validity_days: Number(days.value), claim_deadline: new Date(dl.value).toISOString() });
@@ -506,7 +506,7 @@ async function appsView(body, who) {
           const made = await request;
           if (box.isConnected) await refresh(made && made.id);
         } catch (e) { fail(error)(e); }
-        finally { createBatch.disabled = false; }
+        finally { createBatch.disabled = false; vendor.disabled = false; }
       });
       draw(h('p', { class: 'muted' }, CL.intro), h('div', { class: 'cols' }, form,
         h('aside', { class: 'stack' }, h('div', { class: 'eyebrow' }, CL.preview), ticket, h('div', { class: 'eyebrow' }, CL.cost), cost)));
