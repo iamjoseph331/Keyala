@@ -69,11 +69,12 @@ async function api(method, path, body, auth) {
   if (!r.ok) throw new Error((j && j.error && j.error.message) || L.error);
   return j;
 }
+const couponModels = /*COUPON_MODELS*/[];
 const C = {
   en: { btn: 'Coupons', intro: 'Share the link or QR so people can claim a fixed amount for this app. They see the full prompt and approve every call on their phone.',
     newBatch: 'New batch', close: 'Close', cancel: 'Cancel', none: 'No batches yet.',
     groupWho: 'Who runs the calls', groupHow: 'How much and how long',
-    vendor: 'Provider', models: 'Models (comma separated)', key: 'Dedicated API key', keyHint: 'Used only by this batch. Stored encrypted, never shown again, wiped when you revoke the batch.',
+    vendor: 'Provider', models: 'Models', chooseModels: 'Choose models', modelHint: 'Select one or more models supported by this Keyala server.', modelUnavailable: 'No supported models are available for this provider.', key: 'Dedicated API key', keyHint: 'Used only by this batch. Stored encrypted, never shown again, wiped when you revoke the batch.',
     per: 'Per coupon (USD)', total: 'Total budget (USD)', days: 'Valid for (days after claiming)', deadline: 'Claim until',
     limitAsk: 'I set a spending limit for this key at my provider', limitNote: 'Calls with an unknown outcome can make the real bill slightly higher than the budget.',
     create: 'Create batch and QR',
@@ -93,7 +94,7 @@ const C = {
   zh: { btn: '優惠券', intro: '分享連結或 QR 碼，讓使用者領取這個 App 專用的固定額度。每次呼叫都會在手機上顯示完整提示詞，由使用者核准。',
     newBatch: '新批次', close: '關閉', cancel: '取消', none: '尚無批次。',
     groupWho: '由誰執行', groupHow: '給多少、給多久',
-    vendor: '供應商', models: '模型（以逗號分隔）', key: '專用 API 金鑰', keyHint: '只給這個批次使用。加密儲存，之後不再顯示；撤銷批次時會清除。',
+    vendor: '供應商', models: '模型', chooseModels: '選擇模型', modelHint: '可複選此 Keyala 伺服器支援的模型。', modelUnavailable: '此供應商目前沒有可用的模型。', key: '專用 API 金鑰', keyHint: '只給這個批次使用。加密儲存，之後不再顯示；撤銷批次時會清除。',
     per: '每張金額（USD）', total: '總預算（USD）', days: '領取後有效天數', deadline: '領取期限',
     limitAsk: '我已在供應商端為這把金鑰設定支出上限', limitNote: '結果未確認的呼叫可能讓實際帳單略高於預算。',
     create: '建立批次並產生 QR',
@@ -113,7 +114,7 @@ const C = {
   ja: { btn: 'クーポン', intro: 'リンクや QR コードを共有すると、このアプリ専用の一定額をユーザーが受け取れます。呼び出しのたびにスマートフォンでプロンプト全文が表示され、ユーザーが承認します。',
     newBatch: '新しいバッチ', close: '閉じる', cancel: 'キャンセル', none: 'バッチはまだありません。',
     groupWho: '実行するプロバイダ', groupHow: '金額と期間',
-    vendor: 'プロバイダ', models: 'モデル（カンマ区切り）', key: '専用 API キー', keyHint: 'このバッチだけで使います。暗号化して保存し、再表示されません。バッチを取り消すと消去されます。',
+    vendor: 'プロバイダ', models: 'モデル', chooseModels: 'モデルを選ぶ', modelHint: 'この Keyala サーバーが対応するモデルを複数選べます。', modelUnavailable: 'このプロバイダで利用できるモデルはありません。', key: '専用 API キー', keyHint: 'このバッチだけで使います。暗号化して保存し、再表示されません。バッチを取り消すと消去されます。',
     per: '1枚あたり（USD）', total: '総予算（USD）', days: '受け取り後の有効日数', deadline: '受け取り期限',
     limitAsk: 'プロバイダ側でこのキーの利用上限を設定しました', limitNote: '結果が不明な呼び出しにより、実際の請求額が予算をわずかに上回ることがあります。',
     create: 'バッチと QR を作成',
@@ -427,7 +428,11 @@ async function appsView(body, who) {
       newBtn.hidden = true;
       error.textContent = '';
       const vendor = h('select', {}, ['openai', 'anthropic', 'openrouter'].map(v => h('option', { value: v }, vendorName(v))));
-      const models = h('input', { placeholder: 'gpt-4o-mini', required: true });
+      const modelSummary = h('summary', {}, CL.chooseModels);
+      const modelOptions = h('div', { class: 'model-options' });
+      const models = h('details', { class: 'model-picker' }, modelSummary, modelOptions);
+      const modelHint = h('span', { class: 'hint' }, CL.modelHint);
+      const selectedModels = () => [...modelOptions.querySelectorAll('input:checked')].map(input => input.value);
       const key = h('input', { type: 'password', autocomplete: 'off', 'data-coupon-key': true, required: true });
       const usd = { type: 'number', step: '0.000001', min: '0.001', max: '10000', required: true };
       const per = h('input', { ...usd, value: '1' }), total = h('input', { ...usd, value: '20' });
@@ -438,7 +443,7 @@ async function appsView(body, who) {
       const createBatch = h('button', { class: 'primary', type: 'submit' }, CL.create);
       const form = h('form', { class: 'card' },
         h('fieldset', {}, h('legend', {}, CL.groupWho),
-          h('div', { class: 'two' }, h('label', {}, CL.vendor, vendor), h('label', {}, CL.models, models)),
+          h('div', { class: 'two' }, h('label', {}, CL.vendor, vendor), h('fieldset', { class: 'model-field' }, h('legend', {}, CL.models), models, modelHint)),
           h('label', {}, CL.key, key, h('span', { class: 'hint' }, CL.keyHint))),
         h('fieldset', {}, h('legend', {}, CL.groupHow),
           h('div', { class: 'two' }, h('label', {}, CL.per, per), h('label', {}, CL.total, total), h('label', {}, CL.days, days), h('label', {}, CL.deadline, dl))),
@@ -463,21 +468,39 @@ async function appsView(body, who) {
         amt.textContent = ok ? couponMoney(p) : '—';
         valid.textContent = fill(CL.credit, { n: days.value || '—' });
         out.vendor.textContent = vendorName(vendor.value);
-        out.models.textContent = models.value.split(',').map(x => x.trim()).filter(Boolean).join(', ') || '—';
+        const selected = selectedModels();
+        modelSummary.textContent = selected.join(', ') || CL.chooseModels;
+        out.models.textContent = selected.join(', ') || '—';
         out.dl.textContent = dl.value ? new Date(dl.value).toLocaleDateString() : '—';
         out.per.textContent = ok ? couponMoney(p) : '—';
         out.max.textContent = ok ? String(couponSlotsOf(t, p)) : '—';
         out.cap.textContent = ok ? couponMoney(t) : '—';
       };
+      const updateModels = () => {
+        const available = couponModels.filter(model => model.vendor === vendor.value);
+        modelOptions.replaceChildren(...available.map(model => h('label', { class: 'check' },
+          h('input', { type: 'checkbox', value: model.name }), model.name)));
+        models.open = false;
+        createBatch.disabled = !available.length;
+        modelHint.textContent = available.length ? CL.modelHint : CL.modelUnavailable;
+        update();
+      };
+      vendor.addEventListener('change', updateModels);
       form.addEventListener('input', update);
-      update();
+      updateModels();
       form.addEventListener('submit', async ev => {
         ev.preventDefault();
         if (createBatch.disabled) return;
+        if (!selectedModels().length) {
+          error.textContent = CL.chooseModels;
+          models.open = true;
+          modelOptions.querySelector('input')?.focus();
+          return;
+        }
         error.textContent = '';
         createBatch.disabled = true;
         try {
-          const request = api('POST', base, { vendor: vendor.value, models: models.value.split(',').map(x => x.trim()).filter(Boolean), api_key: key.value,
+          const request = api('POST', base, { vendor: vendor.value, models: selectedModels(), api_key: key.value,
             per_coupon_usd: Number(per.value), total_usd: Number(total.value), validity_days: Number(days.value), claim_deadline: new Date(dl.value).toISOString() });
           key.value = '';
           const made = await request;
@@ -487,7 +510,7 @@ async function appsView(body, who) {
       });
       draw(h('p', { class: 'muted' }, CL.intro), h('div', { class: 'cols' }, form,
         h('aside', { class: 'stack' }, h('div', { class: 'eyebrow' }, CL.preview), ticket, h('div', { class: 'eyebrow' }, CL.cost), cost)));
-      models.focus();
+      modelSummary.focus();
     }
 
     replacePanel(box); box.scrollIntoView({ behavior: 'smooth' }); refresh();
