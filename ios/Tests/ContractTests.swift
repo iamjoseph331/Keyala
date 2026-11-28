@@ -234,6 +234,20 @@ enum ContractTests {
         for foreignServer in [AppPreferences.productionURL, AppPreferences.legacyStagingURL, "https://staging.keyala.io.evil", "https://staging.keyala.io:8443"] {
             precondition(!CouponLink.matchesServer(foreignServer + couponPath, activeServer: AppPreferences.stagingURL))
         }
+        let catalogURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../Keyala/Localizable.xcstrings")
+        let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: catalogURL)) as! [String: Any]
+        let copy = catalog["strings"] as! [String: [String: Any]]
+        for key in ["Only in %@", "Sponsored by %@", "Valid for %lld days after claim", "Flip to see how it works", "Back to coupon details", "Used up or expired? Calls stop. Your own key is never used instead."] {
+            let translations = copy[key]?["localizations"] as? [String: [String: Any]]
+            for locale in ["en", "zh-Hant", "ja"] {
+                let unit = translations?[locale]?["stringUnit"] as? [String: String]
+                precondition(unit?["state"] == "translated" && unit?["value"]?.isEmpty == false, "Missing coupon copy: \(locale) / \(key)")
+                for placeholder in ["%@", "%lld"] where key.contains(placeholder) {
+                    precondition(unit?["value"]?.components(separatedBy: placeholder).count == 2, "Coupon interpolation must survive translation")
+                }
+            }
+        }
         let couponJSON = #"{"id":"c_1","batch_id":"b_1","app":{"id":"app-1","name":"Sketchpad","homepage":null,"icon_url":null},"vendor":"openai","models":["gpt-4.1-mini"],"remaining_usd":0.8587,"expires_at":"2099-01-01T00:00:00.000Z","status":"active"}"#
         let coupon = try decoder.decode(Coupon.self, from: Data(couponJSON.utf8))
         precondition(coupon.app.name == "Sketchpad" && coupon.batchID == "b_1" && coupon.remainingUSD == 0.8587)

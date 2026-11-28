@@ -250,7 +250,9 @@ Open `keyala://coupon/<code>`, open the selected server’s HTTPS `/coupon/<code
 link, or use the Inbox scanner. The code field also accepts a case-sensitive
 `KC-` code. If signed out, sign in to continue reviewing the same coupon. Confirm
 the sponsor, model allowance, credit and claim deadline, then tap **Claim coupon**.
-**Apps → Coupons** lists claimed credit, expiration and status.
+**Apps → Coupons** lists claimed credit, expiration and status. Active credit uses leaf-green cards; expired, exhausted and revoked coupons use muted cards. The claim ticket highlights the sponsor, value and app-only restriction. Tap **Flip to see how it works** for the three usage rules; **Back to coupon details** restores the provider, models and claim deadline. The brief first-entry hint and 3D flip are disabled with Reduce Motion, and both faces remain accessible to VoiceOver without reading hidden content.
+
+The interface uses the system serif for the amount and supports English, Traditional Chinese and Japanese, including Dynamic Type. Recipient coupon JSON currently exposes remaining credit without its original value, so claimed cards show the remaining amount without a percentage or progress bar.
 
 The app sends a separate connection request. Review the sponsor and choose
 **Claim coupon and connect** or **Connect with coupon**. Keyala displays the
@@ -269,3 +271,15 @@ swiftc -module-cache-path /private/tmp/keyala-swift-modules \
   ios/Tests/CouponIntegrationChecks.swift -o /private/tmp/keyala-coupon-checks
 KEYALA_VENDOR_MOCK=1 /private/tmp/keyala-coupon-checks http://127.0.0.1:8096
 ```
+
+### Coupon UI regression checks
+
+Use fictional coupons on a disposable mock backend, never a live provider key.
+For English, Traditional Chinese and Japanese, open an unclaimed coupon, flip to
+its three usage rules, flip back, and claim it. Reopen the same link: it must show
+claimed credit with no second claim action. Repeat flipping with Reduce Motion
+on; the contents must switch without rotation or the entry hint. In VoiceOver,
+check that only the visible face is read and that the flip button can be activated.
+Check the largest accessibility text sizes, light and dark appearance, long app
+names, active and unavailable cards, signed-out recovery, claim failure/retry,
+and the empty list. All content and actions must remain reachable by scrolling.
