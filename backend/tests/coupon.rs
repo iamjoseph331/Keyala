@@ -2902,3 +2902,47 @@ async fn sqlx_upgrade_from_17_plaza_to_18_coupon_keeps_data_and_adds_coupons() {
         "coupon list works on the upgraded app"
     );
 }
+
+#[tokio::test]
+async fn console_catalog_models_create_coupons_for_each_provider() {
+    let e = env().await;
+    let script =
+        e.c.get(format!("{}/console.js", e.base))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+    assert!(!script.contains("/*COUPON_MODELS*/"));
+    let json = script
+        .split_once("const couponModels = ")
+        .unwrap()
+        .1
+        .split(';')
+        .next()
+        .unwrap();
+    let catalog: Vec<Value> = serde_json::from_str(json).unwrap();
+    assert_eq!(catalog.len(), keyala_server::pricing::MODELS.len());
+    for (vendor, key) in [
+        ("openai", "sk-fake-picker-only"),
+        ("anthropic", "sk-ant-fake-picker-only"),
+        ("openrouter", "sk-or-fake-picker-only"),
+    ] {
+        let models: Vec<&str> = catalog
+            .iter()
+            .filter(|m| m["vendor"] == vendor)
+            .map(|m| m["name"].as_str().unwrap())
+            .collect();
+        assert!(!models.is_empty());
+        if vendor == "openrouter" {
+            assert!(models.contains(&"openai/gpt-4o-mini"));
+            assert!(!models.contains(&"gpt-4o-mini"));
+        }
+        let (status, batch) = e.post(&e.owner, &format!("/v1/me/apps/{}/coupons", e.app_id),
+            json!({"vendor": vendor, "models": models, "api_key": key, "per_coupon_usd": 1, "total_usd": 3, "claim_deadline": deadline()})).await;
+        assert_eq!(status, 200, "{batch}");
+        assert_eq!(batch["vendor"], vendor);
+        assert_eq!(batch["models"], json!(models));
+    }
+}

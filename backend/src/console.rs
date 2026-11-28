@@ -549,14 +549,19 @@ pub async fn page() -> axum::response::Response {
         .into_response()
 }
 
-pub async fn script() -> axum::response::Response {
+pub async fn script(State(s): State<AppState>) -> axum::response::Response {
     use axum::response::IntoResponse;
+    let models: Vec<Value> = pricing::MODELS
+        .iter()
+        .filter(|m| m.verified || s.cfg.vendor_mock || s.cfg.prices_verified)
+        .map(|m| json!({"vendor": m.vendor, "name": m.name}))
+        .collect();
     (
         [
             (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
             (header::CACHE_CONTROL, "no-store"),
         ],
-        SCRIPT,
+        SCRIPT.replace("/*COUPON_MODELS*/[]", &json!(models).to_string()),
     )
         .into_response()
 }
